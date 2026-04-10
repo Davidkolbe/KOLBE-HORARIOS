@@ -173,6 +173,9 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
   <div class="topbar-actions">
     <button class="btn btn-ghost btn-sm" onclick="toggleConf('equipos')">⚙ Entrenadores</button>
     <button class="btn btn-ghost btn-sm" onclick="toggleConf('campos')">🏟 Campos</button>
+    <button class="btn btn-ghost btn-sm" onclick="guardarCopia()" title="Descarga una copia de seguridad con todas tus jornadas">💾 Guardar copia</button>
+    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('restore-input').click()" title="Restaura una copia de seguridad guardada anteriormente">📂 Restaurar</button>
+    <input type="file" id="restore-input" accept=".json" style="display:none" onchange="restaurarCopia(event)">
     <button class="btn btn-ghost btn-sm" onclick="resetTodo()" id="btn-reset" style="display:none">↺ Nueva semana</button>
   </div>
 </div>
@@ -185,10 +188,13 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
     <div id="conf-equipos">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
         <span style="font-size:13px;font-weight:600">Equipos y entrenadores</span>
-        <button class="btn btn-outline btn-sm" onclick="addEquipoRow()">+ Añadir equipo</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline btn-sm" onclick="recalcularEntrenadores()" title="Actualiza los entrenadores en todos los partidos cargados">↺ Actualizar partidos</button>
+          <button class="btn btn-verde btn-sm" onclick="addEquipoRow()">+ Añadir equipo</button>
+        </div>
       </div>
       <div style="font-size:11px;color:var(--gris4);margin-bottom:.75rem">Nombre del equipo tal como aparece en Clupik · Entrenadores separados por coma</div>
-      <div id="equipos-config" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:6px"></div>
+      <div id="equipos-config" style="display:flex;flex-direction:column;gap:4px"></div>
     </div>
 
     <!-- SECCIÓN CAMPOS -->
@@ -1609,6 +1615,89 @@ function autoAsignar(){
   }
 
   box.innerHTML = alertasHtml + box.innerHTML;
+}
+
+// ============ COPIA DE SEGURIDAD ============
+function guardarCopia(){
+  const backup = {
+    version: 1,
+    fecha: new Date().toISOString(),
+    jornadas: getAllJornadas(),
+    equipos: equipos,
+    campos: CAMPOS_BASE,
+  };
+  const json = JSON.stringify(backup, null, 2);
+  const a = document.createElement("a");
+  const fecha = new Date().toLocaleDateString("es-ES").replace(/\//g,"-");
+  a.href = "data:application/json;charset=utf-8," + encodeURIComponent(json);
+  a.download = "kolbe_backup_" + fecha + ".json";
+  a.click();
+  // Show confirmation
+  const box = document.getElementById("alertas-box");
+  if(box) box.innerHTML = `<div class="alert alert-ok"><span class="alert-icon">💾</span><div>Copia de seguridad descargada correctamente. Guárdala en un lugar seguro.</div></div>` + box.innerHTML;
+}
+
+function restaurarCopia(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    try {
+      const backup = JSON.parse(ev.target.result);
+      if(!backup.version || !backup.jornadas){
+        alert("El archivo no es una copia de seguridad válida de Kolbe Horarios.");
+        return;
+      }
+      const total = (backup.jornadas||[]).length;
+      if(!confirm("Se van a restaurar " + total + " jornada" + (total!==1?"s":"") + " y la configuración de entrenadores y campos. ¿Continuar?")) return;
+
+      // Restore jornadas
+      saveAllJornadas(backup.jornadas || []);
+
+      // Restore equipos
+      if(backup.equipos && backup.equipos.length){
+        equipos = backup.equipos;
+        saveEquipos();
+        renderEquiposConfig();
+      }
+
+      // Restore campos
+      if(backup.campos){
+        Object.keys(backup.campos).forEach(function(k){ CAMPOS_BASE[k] = backup.campos[k]; });
+        saveCampos();
+      }
+
+      // Go back to historial to show restored jornadas
+      volverHistorial();
+      renderHistorial();
+
+      alert("✓ Copia restaurada correctamente. Se han recuperado " + total + " jornada" + (total!==1?"s":"") + ".");
+    } catch(err){
+      alert("Error al leer el archivo. Asegúrate de que es una copia de seguridad válida.");
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+}
+
+function recalcularEntrenadores(){
+  if(!partidos.length){ alert("No hay partidos cargados."); return; }
+  let actualizados = 0;
+  partidos.forEach(function(p){
+    const ent1 = getEntrenadores(p.eq1);
+    const ent2 = getEntrenadores(p.eq2);
+    if(ent1 !== p.ent1 || ent2 !== p.ent2){
+      p.ent1 = ent1;
+      p.ent2 = ent2;
+      actualizados++;
+    }
+  });
+  savePartidos();
+  renderTodo();
+  // Close panel and show feedback
+  document.getElementById("conf-panel").style.display = "none";
+  const box = document.getElementById("alertas-box");
+  box.innerHTML = `<div class="alert alert-ok"><span class="alert-icon">✓</span><div>${actualizados} partido${actualizados!==1?"s":""} actualizados con los nuevos entrenadores.</div></div>` + box.innerHTML;
 }
 
 // ============ INIT ============
