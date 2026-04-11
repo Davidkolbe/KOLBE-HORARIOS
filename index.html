@@ -463,7 +463,19 @@ let campoActivo = "todos";
 let filtroActivo = "todos";
 let equipos = JSON.parse(localStorage.getItem('kolbe_equipos') || 'null') || EQUIPOS_BASE;
 
-function saveEquipos(){ localStorage.setItem('kolbe_equipos', JSON.stringify(equipos)); }
+function saveEquipos(){
+  localStorage.setItem('kolbe_equipos', JSON.stringify(equipos));
+  // Auto-actualizar entrenadores en partidos cargados
+  if(partidos.length){
+    let cambios = 0;
+    partidos.forEach(function(p){
+      const e1 = getEntrenadores(p.eq1);
+      const e2 = getEntrenadores(p.eq2);
+      if(e1 !== p.ent1 || e2 !== p.ent2){ p.ent1=e1; p.ent2=e2; cambios++; }
+    });
+    if(cambios > 0){ savePartidos(); renderTodo(); }
+  }
+}
 
 // ============ UTILIDADES ============
 function toMins(t){ const[h,m]=(t||"00:00").split(":").map(Number); return h*60+m; }
@@ -546,11 +558,16 @@ function getEntrenadores(nombreEquipo){
   // Unión Pardillo
   if(n.includes("PARDILLO") && n.includes("UNI")) return "ENTREN_PARDILLO";
 
-  // Buscar en equipos configurados
-  const eq = equipos.find(e => {
+  // Buscar en equipos configurados — coincidencia estricta
+  const eq = equipos.find(function(e){
     const en = e.nombre.toUpperCase().replace(/["""]/g,"").trim();
-    return n === en || n.includes(en.replace("CD ","").replace("COLEGIO ","").split(" ")[0]) ||
-           en.includes(n.split(" ").slice(0,3).join(" "));
+    // Coincidencia exacta
+    if(n === en) return true;
+    // El nombre del equipo configurado está completamente contenido en el nombre del CSV
+    // Solo si el nombre configurado tiene 3+ palabras significativas
+    const partes = en.split(" ").filter(function(w){ return w.length > 3; });
+    if(partes.length >= 2 && partes.every(function(w){ return n.includes(w); })) return true;
+    return false;
   });
   return eq ? eq.entrenadores : "";
 }
@@ -846,14 +863,17 @@ function renderCondActivos(){
   const box = document.getElementById("cond-activos");
   // Show active constraints: entrenadores que tienen múltiples equipos
   const entMap = {};
-  partidos.forEach(p=>{
-    [p.ent1,p.ent2].forEach(ents=>{
-      if(!ents) return;
-      ents.split(",").forEach(e=>{
+  partidos.forEach(function(p){
+    // ent1 pertenece a eq1, ent2 pertenece a eq2
+    [[p.ent1, p.eq1],[p.ent2, p.eq2]].forEach(function(par){
+      const ents = par[0]; const equipo = par[1];
+      if(!ents || !equipo) return;
+      ents.split(",").forEach(function(e){
         const en = e.trim();
         if(!en) return;
         if(!entMap[en]) entMap[en]=[];
-        entMap[en].push(p.eq1);
+        // Solo añadir si no está ya este equipo
+        if(!entMap[en].includes(equipo)) entMap[en].push(equipo);
       });
     });
   });
