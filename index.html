@@ -403,34 +403,51 @@ const EQUIPOS_BASE = [
 ];
 
 const CAMPOS_BASE = {
-  "Kolbe":        {Viernes:{ini:"18:00",fin:"20:00",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Av. de la Universidad, 4, Villanueva de la Cañada"},
-  "Zola":         {Viernes:{ini:"17:00",fin:"19:00",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Zola, Villafranca del Castillo"},
-  "Los Pinos":    {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Av. de los Estudiantes, Villanueva del Pardillo"},
-  "St. Michael":  {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"C/ Río Guadiana, 2, Boadilla del Monte"},
-  "Highlands":    {Sabado:{ini:"09:00",fin:"11:00",max:2}, dir:"C/ de la Comunidad Canaria, 8, Boadilla del Monte"},
-  "Fresnedillas": {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Fresnedillas de la Oliva, Madrid"},
-  "Quijorna":     {Viernes:{ini:"17:00",fin:"19:00",max:2}, Sabado:{ini:"12:00",fin:"14:00",max:2}, dir:"C/ Del Pinar, 11, Quijorna"},
-  "Zarzalejo":    {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo de Fútbol de Zarzalejo, Madrid"},
-  "Arenales":     {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"C/ De la Guardia, 1, Arroyomolinos"},
-  "Everest":      {Viernes:{ini:"17:30",fin:"19:30",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Everest, Madrid"},
+  "Kolbe":           {Viernes:{ini:"18:00",fin:"20:00",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Av. de la Universidad, 4, Villanueva de la Cañada"},
+  "Zola":            {Viernes:{ini:"17:00",fin:"19:00",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Zola, Villafranca del Castillo"},
+  "Los Pinos":       {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Av. de los Estudiantes, Villanueva del Pardillo"},
+  "St. Michael":     {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"C/ Río Guadiana, 2, Boadilla del Monte"},
+  "Highlands":       {Sabado:{ini:"09:00",fin:"11:00",max:2}, dir:"C/ de la Comunidad Canaria, 8, Boadilla del Monte"},
+  "Fresnedillas":    {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Fresnedillas de la Oliva, Madrid"},
+  "Quijorna":        {Viernes:{ini:"17:00",fin:"19:00",max:2}, Sabado:{ini:"12:00",fin:"14:00",max:2}, dir:"C/ Del Pinar, 11, Quijorna"},
+  "Zarzalejo":       {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo de Fútbol de Zarzalejo, Madrid"},
+  "Arenales":        {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"C/ De la Guardia, 1, Arroyomolinos"},
+  "Everest":         {Viernes:{ini:"17:30",fin:"19:30",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Everest, Madrid"},
+  "SEK":             {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"C/ Castillo de Manzanares, Villafranca del Castillo"},
+  "Navalagamella":   {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo Fútbol Navalagamella, Juan Antonio Gutiérrez"},
+  "La Cañada":       {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo Municipal, Villanueva de la Cañada"},
+  "CEU":             {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio CEU Montepríncipe, Boadilla del Monte"},
+  "Quercus":         {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Quercus Educajunior, Madrid"},
+  "Pardillo":        {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo Municipal Los Pinos, Villanueva del Pardillo"},
+  "Santa María":     {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo de Fútbol Santa María de la Alameda"},
+  "Brunete":         {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo Municipal de Brunete"},
+  "Vallmont":        {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Vallmont, Madrid"},
 };
 
 const LUGAR_MAP = [
-  ["kolbe",        "Kolbe"],
-  ["zola",         "Zola"],
-  ["pinos",        "Los Pinos"],
-  ["pardillo",     "Los Pinos"],
-  ["st. michael",  "St. Michael"],
-  ["michael",      "St. Michael"],
-  ["highlands",    "Highlands"],
-  ["fresnedillas", "Fresnedillas"],
-  ["quijorna",     "Quijorna"],
-  ["zarzalejo",    "Zarzalejo"],
-  ["arenales",     "Arenales"],
-  ["everest",      "Everest"],
-  ["navalagamella","Navalagamella"],
-  ["cañada",       "La Cañada"],
-  ["sek",          "SEK"],
+  ["kolbe",          "Kolbe"],
+  ["zola",           "Zola"],
+  ["pinos",          "Los Pinos"],
+  ["st. michael",    "St. Michael"],
+  ["michael",        "St. Michael"],
+  ["highlands",      "Highlands"],
+  ["fresnedillas",   "Fresnedillas"],
+  ["quijorna",       "Quijorna"],
+  ["zarzalejo",      "Zarzalejo"],
+  ["arenales",       "Arenales"],
+  ["everest",        "Everest"],
+  ["navalagamella",  "Navalagamella"],
+  ["castillo de manzanares", "SEK"],
+  ["sek",            "SEK"],
+  ["ceu",            "CEU"],
+  ["monteprincipe",  "CEU"],
+  ["quercus",        "Quercus"],
+  ["pardillo",       "Pardillo"],
+  ["santa maria",    "Santa María"],
+  ["alameda",        "Santa María"],
+  ["brunete",        "Brunete"],
+  ["vallmont",       "Vallmont"],
+  ["cañada",         "La Cañada"],
 ];
 
 const CATEG_MAP = {
@@ -1560,17 +1577,23 @@ function autoAsignar(){
   const highlandsPs = sinHora.filter(p => p.campo === "Highlands" && !asignados[p.id]);
   highlandsPs.forEach(p => {
     let minH = "09:00";
-    // Aplicar reglas extra
-    reglasExtra.forEach(r => {
+    let horaExactaH = null;
+    reglasExtra.forEach(function(r){
       const res = aplicarReglaExtra(p, r);
-      if(res?.minHora) minH = toMins(res.minHora) > toMins(minH) ? res.minHora : minH;
+      if(res && res.minHora){
+        if(res.exacta) horaExactaH = res.minHora;
+        else minH = toMins(res.minHora) > toMins(minH) ? res.minHora : minH;
+      }
     });
-    const slot = nextSlot("Highlands","Sabado",minH,[p.id]);
+    const slot = horaExactaH || nextSlot("Highlands","Sabado",minH,[p.id]);
     if(slot) asignar(p,"Sabado","Highlands",slot);
   });
 
   // ── RESTO: asignar campo a campo, repartiendo uniforme ──
-  const camposOrden = ["Zola","Kolbe","Los Pinos","St. Michael","Sin campo"];
+  // Incluir todos los campos configurados + extras dinámicamente
+  const camposOrden = [...Object.keys(CAMPOS_BASE), "Sin campo"];
+  const camposEnPartidos = partidos.map(function(p){ return p.campo||"Sin campo"; });
+  camposEnPartidos.forEach(function(c){ if(!camposOrden.includes(c)) camposOrden.push(c); });
   const diasOrden = ["Viernes","Sabado"];
 
   camposOrden.forEach(campo => {
@@ -1602,12 +1625,22 @@ function autoAsignar(){
           }
         });
 
-        // Intentar slot libre sin conflicto de entrenador
-        let slot = horaExacta || nextSlot(campo, dia, minH, [p.id]);
+        // Si hay hora exacta por regla, usarla directamente sin buscar slot
+        // Si no, buscar el siguiente slot libre
+        let slot;
+        if(horaExacta){
+          slot = horaExacta; // regla exacta: respetar siempre
+        } else {
+          slot = nextSlot(campo, dia, minH, [p.id]);
+          let intentos2 = 0;
+          while(slot && hayConflictoEnt(p, dia, slot, p.id) && intentos2 < slots){
+            const next2 = toMins(slot) + 60;
+            slot = next2 + 60 <= fin ? String(Math.floor(next2/60)).padStart(2,"0")+":"+String(next2%60).padStart(2,"0") : null;
+            intentos2++;
+          }
+        }
         let intentos = 0;
-        while(slot && hayConflictoEnt(p, dia, slot, p.id) && intentos < slots){
-          const next = toMins(slot) + 60;
-          slot = next + 60 <= fin ? String(Math.floor(next/60)).padStart(2,"0")+":"+String(next%60).padStart(2,"0") : null;
+        while(slot && false){ // placeholder to keep variable
           intentos++;
         }
         if(slot) asignar(p, dia, campo, slot);
