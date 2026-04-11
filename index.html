@@ -155,6 +155,14 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
   .topbar{padding:0 1rem}
   .wrap{padding:1rem}
 }
+.wa-modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem}
+.wa-modal{background:#fff;border-radius:var(--radio-grande);padding:1.5rem;max-width:600px;width:100%;max-height:85vh;overflow-y:auto}
+.wa-modal-title{font-size:15px;font-weight:600;margin-bottom:1rem;color:var(--negro)}
+.wa-equipo-bloque{border:1px solid var(--gris-medio);border-radius:var(--radio);margin-bottom:1rem;overflow:hidden}
+.wa-equipo-head{background:var(--verde);color:#fff;padding:8px 14px;font-size:12px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.wa-equipo-msg{padding:10px 14px;font-size:13px;white-space:pre-wrap;line-height:1.6;background:#f7f7f5;font-family:var(--fuente-mono)}
+.wa-copy-btn{padding:4px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.4);background:transparent;color:#fff;font-size:11px;cursor:pointer;font-family:var(--fuente)}
+.wa-copy-btn:hover{background:rgba(255,255,255,0.2)}
 @media print{
   .topbar,.export-bar,.btn,.dia-select,.hora-input,.upload-zone{display:none!important}
   body{background:#fff}
@@ -243,6 +251,7 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
       <span style="font-size:12px;color:var(--gris4);align-self:center;flex:1" id="semana-label"></span>
       <button class="btn btn-outline btn-sm" onclick="exportarExcel()">↓ Excel</button>
       <button class="btn btn-outline btn-sm" onclick="exportarPDF()">↓ PDF</button>
+      <button class="btn btn-verde btn-sm" onclick="generarMensajesWhatsApp()">📱 Mensajes entrenadores</button>
     </div>
 
     <div class="layout-main">
@@ -271,7 +280,7 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
             </div>
             <div>
               <label style="font-size:11px;font-weight:500;color:var(--verde);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px">Reglas extra esta semana <span style="font-weight:300;text-transform:none;letter-spacing:0">(una por línea)</span></label>
-              <textarea id="reglas-extra" rows="3" placeholder="Ej: Kolbe Blanco no antes de las 11h" style="width:100%;font-size:12px;padding:7px 10px;border:1px solid var(--verde-b);border-radius:var(--r);resize:vertical;font-family:var(--f);background:#fff;color:var(--negro)"></textarea>
+              <textarea id="reglas-extra" rows="3" placeholder="Ej: Benjamin Arenales juegan a las 09:30h&#10;Kolbe Blanco no antes de las 11h&#10;Los Pinos empieza a las 10h" style="width:100%;font-size:12px;padding:7px 10px;border:1px solid var(--verde-b);border-radius:var(--r);resize:vertical;font-family:var(--f);background:#fff;color:var(--negro)"></textarea>
             </div>
           </div>
         </div>
@@ -394,16 +403,16 @@ const EQUIPOS_BASE = [
 ];
 
 const CAMPOS_BASE = {
-  "Kolbe":        {Viernes:{ini:"18:00",fin:"20:00",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}},
-  "Zola":         {Viernes:{ini:"17:00",fin:"19:00",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}},
-  "Los Pinos":    {Sabado:{ini:"09:00",fin:"14:00",max:5}},
-  "St. Michael":  {Sabado:{ini:"09:00",fin:"14:00",max:5}},
-  "Highlands":    {Sabado:{ini:"09:00",fin:"11:00",max:2}},
-  "Fresnedillas": {Sabado:{ini:"09:00",fin:"14:00",max:5}},
-  "Quijorna":     {Viernes:{ini:"17:00",fin:"19:00",max:2}, Sabado:{ini:"12:00",fin:"14:00",max:2}},
-  "Zarzalejo":    {Sabado:{ini:"09:00",fin:"14:00",max:5}},
-  "Arenales":     {Sabado:{ini:"09:00",fin:"14:00",max:5}},
-  "Everest":      {Viernes:{ini:"17:30",fin:"19:30",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}},
+  "Kolbe":        {Viernes:{ini:"18:00",fin:"20:00",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Av. de la Universidad, 4, Villanueva de la Cañada"},
+  "Zola":         {Viernes:{ini:"17:00",fin:"19:00",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Zola, Villafranca del Castillo"},
+  "Los Pinos":    {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Av. de los Estudiantes, Villanueva del Pardillo"},
+  "St. Michael":  {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"C/ Río Guadiana, 2, Boadilla del Monte"},
+  "Highlands":    {Sabado:{ini:"09:00",fin:"11:00",max:2}, dir:"C/ de la Comunidad Canaria, 8, Boadilla del Monte"},
+  "Fresnedillas": {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Fresnedillas de la Oliva, Madrid"},
+  "Quijorna":     {Viernes:{ini:"17:00",fin:"19:00",max:2}, Sabado:{ini:"12:00",fin:"14:00",max:2}, dir:"C/ Del Pinar, 11, Quijorna"},
+  "Zarzalejo":    {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo de Fútbol de Zarzalejo, Madrid"},
+  "Arenales":     {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"C/ De la Guardia, 1, Arroyomolinos"},
+  "Everest":      {Viernes:{ini:"17:30",fin:"19:30",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Everest, Madrid"},
 };
 
 const LUGAR_MAP = [
@@ -531,12 +540,14 @@ function getEntrenadores(nombreEquipo){
 
 function getDiasDisp(campo){
   if(!campo || !CAMPOS_BASE[campo]) return ["Viernes","Sabado"];
-  return Object.keys(CAMPOS_BASE[campo]);
+  return Object.keys(CAMPOS_BASE[campo]).filter(function(k){ return k !== "dir" && k !== "max"; });
 }
 
 function getFranja(campo, dia){
   if(!campo || !CAMPOS_BASE[campo]) return null;
-  return CAMPOS_BASE[campo][dia] || null;
+  const f = CAMPOS_BASE[campo][dia];
+  if(!f || typeof f !== "object" || !f.ini) return null;
+  return f;
 }
 
 // ============ PARSE CSV ============
@@ -766,7 +777,7 @@ function renderTabla(){
 
       // Header de campo con franja info
       const franjaInfo = CAMPOS_BASE[campo]
-        ? Object.entries(CAMPOS_BASE[campo]).map(([d,f])=>(d==="Viernes"?"Vie":"Sáb")+": "+f.ini+"–"+f.fin).join("  ·  ")
+        ? Object.entries(CAMPOS_BASE[campo]).filter(([d,f])=>d!=="dir" && f && typeof f==="object" && f.ini && f.fin).map(([d,f])=>(d==="Viernes"?"Vie":"Sáb")+": "+f.ini+"–"+f.fin).join("  ·  ")
         : "";
       html += `<tr><td colspan="7">
         <div style="display:flex;justify-content:space-between;align-items:center;background:var(--verde);color:#fff;padding:7px 12px;border-radius:var(--r);margin:12px 0 4px;font-size:12px;font-weight:600">
@@ -794,7 +805,7 @@ function renderCamposInfo(){
   if(!box) return;
   const diasLabel = {Viernes:"Vie",Sabado:"Sáb"};
   box.innerHTML = Object.entries(CAMPOS_BASE).map(([nombre, franjas]) => {
-    const filas = Object.entries(franjas).map(([dia, f]) => {
+    const filas = Object.entries(franjas).filter(([dia, f]) => dia !== "dir" && f && typeof f === "object" && f.ini).map(([dia, f]) => {
       const total = partidos.filter(p => p.campo === nombre && p.dia === dia).length;
       const max = f.max || 99;
       const pct = max ? Math.min(total/max, 1) : 0;
@@ -1057,8 +1068,8 @@ function renderCamposConfig(){
   const diasLabel = {Viernes:"Viernes",Sabado:"Sábado"};
   box.innerHTML = Object.entries(CAMPOS_BASE).map(([nombre]) => {
     const franjas = CAMPOS_BASE[nombre];
-    const tienVie = !!franjas.Viernes;
-    const tienSab = !!franjas.Sabado;
+    const tienVie = !!(franjas.Viernes && franjas.Viernes.ini);
+    const tienSab = !!(franjas.Sabado && franjas.Sabado.ini);
     const vIni = franjas.Viernes ? franjas.Viernes.ini : "18:00";
     const vFin = franjas.Viernes ? franjas.Viernes.fin : "20:00";
     const vMax = franjas.Viernes ? (franjas.Viernes.max||2) : 2;
@@ -1275,7 +1286,15 @@ function exportarPDF(){
     h1{font-size:18px;font-weight:600;color:#1b5e3b;margin:0 0 4px}
     .sub{font-size:12px;color:#9e9e99;margin-bottom:20px}
     table{width:100%;border-collapse:collapse}
-    @media print{body{padding:12px}@page{margin:1cm}}
+    .wa-modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem}
+.wa-modal{background:#fff;border-radius:var(--radio-grande);padding:1.5rem;max-width:600px;width:100%;max-height:85vh;overflow-y:auto}
+.wa-modal-title{font-size:15px;font-weight:600;margin-bottom:1rem;color:var(--negro)}
+.wa-equipo-bloque{border:1px solid var(--gris-medio);border-radius:var(--radio);margin-bottom:1rem;overflow:hidden}
+.wa-equipo-head{background:var(--verde);color:#fff;padding:8px 14px;font-size:12px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.wa-equipo-msg{padding:10px 14px;font-size:13px;white-space:pre-wrap;line-height:1.6;background:#f7f7f5;font-family:var(--fuente-mono)}
+.wa-copy-btn{padding:4px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.4);background:transparent;color:#fff;font-size:11px;cursor:pointer;font-family:var(--fuente)}
+.wa-copy-btn:hover{background:rgba(255,255,255,0.2)}
+@media print{body{padding:12px}@page{margin:1cm}}
   </style></head><body>
   <h1>Club Kolbe — Planificador de jornada</h1>
   <div class="sub">${semana}</div>
@@ -1365,26 +1384,58 @@ function equipoContiene(nombre, termino){
   return nombre.toUpperCase().includes(termino.toUpperCase());
 }
 
+function normCat(s){
+  if(!s) return "";
+  return s.toLowerCase().replace(/[íi]/g,"i").replace(/[éeè]/g,"e").replace(/[áa]/g,"a").replace(/[óo]/g,"o").replace(/[úu]/g,"u");
+}
+
+const CATEGORIAS_MAP = {
+  "benjamin":"Benjamín","benjamín":"Benjamín",
+  "prebenjamin":"Prebenjamín","prebenjamín":"Prebenjamín","preb":"Prebenjamín",
+  "alevin":"Alevín","alevín":"Alevín",
+  "infantil":"Infantil","cadete":"Cadete","juvenil":"Juvenil",
+};
+
+function extraerHoraStr(s){
+  if(!s) return null;
+  const h = s.replace(/h$/i,"").trim();
+  return h.includes(":") ? h : h+":00";
+}
+
 function aplicarReglaExtra(p, regla){
-  // "X no antes de las Hh" / "X no antes de H:MM"
-  const mNoAntes = regla.match(/(.+?)\s+no antes de las?\s+(\d{1,2}(?::\d{2})?)\s*h?/i);
-  if(mNoAntes){
-    const termino = mNoAntes[1].trim();
-    const hora = mNoAntes[2].includes(":") ? mNoAntes[2] : mNoAntes[2]+":00";
-    if(equipoContiene(p.eq1, termino) || equipoContiene(p.eq2, termino)){
-      return { minHora: hora };
-    }
+  const horaM = regla.match(/(\d{1,2}(?::\d{2})?)\s*h/i) || regla.match(/las?\s+(\d{1,2}(?::\d{2})?)/i);
+  if(!horaM) return null;
+  const hora = extraerHoraStr(horaM[1]);
+  if(!hora) return null;
+
+  let texto = regla;
+  texto = texto.replace(/(\d{1,2}(?::\d{2})?)\s*h/gi,"");
+  ["me han dicho que tienen que jugar","tienen que jugar","juega a las","juegan a las",
+   "juega a","juegan a","jugar a las","jugar","a las","empieza a","empieza","no antes de","campo","que"]
+  .forEach(function(w){ texto = texto.replace(new RegExp("\\b"+w+"\\b","gi"),""); });
+  const palabras = texto.split(/\s+/).map(function(w){ return w.trim(); }).filter(function(w){ return w.length > 1; });
+
+  var cat_match = null;
+  var equipo_palabras = [];
+  palabras.forEach(function(w){
+    const wn = normCat(w);
+    if(CATEGORIAS_MAP[wn]){ cat_match = CATEGORIAS_MAP[wn]; }
+    else { equipo_palabras.push(w); }
+  });
+
+  if(!equipo_palabras.length) return null;
+
+  const coincideEquipo = equipo_palabras.some(function(w){
+    return equipoContiene(p.eq1,w) || equipoContiene(p.eq2,w) || equipoContiene(p.campo,w);
+  });
+  if(!coincideEquipo) return null;
+
+  if(cat_match){
+    if(normCat(p.categoria||"") !== normCat(cat_match)) return null;
   }
-  // "campo X empieza a las H"
-  const mCampo = regla.match(/(?:campo\s+)?(.+?)\s+empieza\s+a las?\s+(\d{1,2}(?::\d{2})?)\s*h?/i);
-  if(mCampo){
-    const termino = mCampo[1].trim();
-    const hora = mCampo[2].includes(":") ? mCampo[2] : mCampo[2]+":00";
-    if(equipoContiene(p.campo, termino)){
-      return { minHora: hora };
-    }
-  }
-  return null;
+
+  const esExacta = /juega a|juegan a|jugar a|tienen que jugar/i.test(regla);
+  return { minHora: hora, exacta: esExacta };
 }
 
 function autoAsignar(){
@@ -1542,13 +1593,17 @@ function autoAsignar(){
       ps.forEach((p, i) => {
         // Hora mínima por reglas extra
         let minH = franja.ini;
-        reglasExtra.forEach(r => {
+        let horaExacta = null;
+        reglasExtra.forEach(function(r){
           const res = aplicarReglaExtra(p, r);
-          if(res?.minHora) minH = toMins(res.minHora) > toMins(minH) ? res.minHora : minH;
+          if(res && res.minHora){
+            if(res.exacta) horaExacta = res.minHora;
+            else minH = toMins(res.minHora) > toMins(minH) ? res.minHora : minH;
+          }
         });
 
         // Intentar slot libre sin conflicto de entrenador
-        let slot = nextSlot(campo, dia, minH, [p.id]);
+        let slot = horaExacta || nextSlot(campo, dia, minH, [p.id]);
         let intentos = 0;
         while(slot && hayConflictoEnt(p, dia, slot, p.id) && intentos < slots){
           const next = toMins(slot) + 60;
@@ -1601,7 +1656,7 @@ function autoAsignar(){
     });
     Object.entries(porCampo).forEach(function([campo, ps]){
       const franjasInfo = CAMPOS_BASE[campo]
-        ? Object.entries(CAMPOS_BASE[campo]).map(function([d,f]){ return (d==="Viernes"?"Vie":"Sáb")+": "+f.ini+"–"+f.fin+" (máx "+f.max+")"; }).join(", ")
+        ? Object.entries(CAMPOS_BASE[campo]).filter(function([d,f]){ return d!=="dir" && f && typeof f==="object" && f.ini && f.fin; }).map(function([d,f]){ return (d==="Viernes"?"Vie":"Sáb")+": "+f.ini+"–"+f.fin+" (máx "+f.max+")"; }).join(", ")
         : "campo sin franja configurada";
       alertasHtml += `<div class="alert alert-err">
         <span class="alert-icon">✕</span>
@@ -1680,24 +1735,133 @@ function restaurarCopia(e){
   e.target.value = "";
 }
 
-function recalcularEntrenadores(){
-  if(!partidos.length){ alert("No hay partidos cargados."); return; }
-  let actualizados = 0;
-  partidos.forEach(function(p){
-    const ent1 = getEntrenadores(p.eq1);
-    const ent2 = getEntrenadores(p.eq2);
-    if(ent1 !== p.ent1 || ent2 !== p.ent2){
-      p.ent1 = ent1;
-      p.ent2 = ent2;
-      actualizados++;
-    }
+// ============ MENSAJES WHATSAPP ============
+const DIRECCIONES_EXTRA = {
+  "Navalagamella": "Campo Fútbol Navalagamella, Juan Antonio Gutiérrez",
+  "La Cañada": "Campo Municipal, Villanueva de la Cañada",
+  "SEK": "C/ Castillo de Manzanares, Villafranca del Castillo",
+  "Everest": "Colegio Everest, Madrid",
+};
+
+function getDireccion(campo){
+  if(CAMPOS_BASE[campo] && CAMPOS_BASE[campo].dir) return CAMPOS_BASE[campo].dir;
+  if(DIRECCIONES_EXTRA[campo]) return DIRECCIONES_EXTRA[campo];
+  return campo;
+}
+
+function esEquipoKolbe(nombre){
+  if(!nombre) return false;
+  const n = nombre.toUpperCase();
+  return n.includes("KOLBE");
+}
+
+function generarMensajesWhatsApp(){
+  const kolbePartidos = partidos.filter(function(p){
+    return esEquipoKolbe(p.eq1) || esEquipoKolbe(p.eq2);
   });
-  savePartidos();
-  renderTodo();
-  // Close panel and show feedback
-  document.getElementById("conf-panel").style.display = "none";
-  const box = document.getElementById("alertas-box");
-  box.innerHTML = `<div class="alert alert-ok"><span class="alert-icon">✓</span><div>${actualizados} partido${actualizados!==1?"s":""} actualizados con los nuevos entrenadores.</div></div>` + box.innerHTML;
+
+  if(!kolbePartidos.length){
+    alert("No hay partidos de equipos Kolbe en esta jornada.");
+    return;
+  }
+
+  // Agrupar por equipo Kolbe
+  const porEquipo = {};
+  kolbePartidos.forEach(function(p){
+    const equipo = esEquipoKolbe(p.eq1) ? p.eq1 : p.eq2;
+    const rival  = esEquipoKolbe(p.eq1) ? p.eq2 : p.eq1;
+    const esLocal = esEquipoKolbe(p.eq1);
+    if(!porEquipo[equipo]) porEquipo[equipo] = [];
+    porEquipo[equipo].push({ ...p, equipoKolbe: equipo, rival, esLocal });
+  });
+
+  // Generar mensajes
+  const semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
+  let html = `<div style="max-width:640px;margin:0 auto">
+    <h2 style="font-size:16px;font-weight:600;margin-bottom:1rem;color:var(--verde)">📱 Mensajes para entrenadores</h2>
+    <p style="font-size:12px;color:var(--gris4);margin-bottom:1.25rem">Copia cada mensaje y mándalo al entrenador correspondiente por WhatsApp.</p>`;
+
+  Object.entries(porEquipo).forEach(function([equipo, ps]){
+    ps.forEach(function(p){
+      const dia = p.dia === "Viernes" ? "Viernes" : "Sábado";
+      const hora = p.sinHora ? "Por confirmar" : p.hora + "h";
+      const lugar = p.esLocal ? p.campo : p.campo;
+      const dir = getDireccion(p.campo);
+      const condicion = p.esLocal ? "🏠 LOCAL" : "✈️ VISITANTE";
+      const maps = "https://maps.google.com/?q=" + encodeURIComponent(dir);
+
+      // Calcular hora de convocatoria (30 min antes)
+      let convocatoria = "Por confirmar";
+      if(!p.sinHora && p.hora && p.hora !== "00:00"){
+        const mins = toMins(p.hora) - 30;
+        if(mins >= 0){
+          convocatoria = String(Math.floor(mins/60)).padStart(2,"0") + ":" + String(mins%60).padStart(2,"0") + "h";
+        }
+      }
+
+      const msg = `⚽ *${p.equipoKolbe}*
+`
+        + `📅 ${dia} ${semana}
+`
+        + `🔔 Convocatoria: *${convocatoria}*
+`
+        + `⏰ Hora: *${hora}*
+`
+        + `🏟 Campo: *${lugar}* ${condicion}
+`
+        + `📍 ${dir}
+`
+        + `👕 Rival: ${p.rival}
+`
+        + (p.categoria ? `🏆 Categoría: ${p.categoria}${p.grupo ? " · " + p.grupo : ""}
+` : "")
+        + `¡Ánimo a todos! 💪`
+        + `_Club Deportivo Kolbe_`;
+
+      html += `<div style="margin-bottom:1.25rem;border:1px solid var(--gris2);border-radius:var(--rl);overflow:hidden">
+        <div style="background:var(--verde);color:#fff;padding:8px 14px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center">
+          <span>${p.equipoKolbe}</span>
+          <span style="font-size:11px;font-weight:400;opacity:.8">${p.categoria||""} · ${condicion}</span>
+        </div>
+        <div style="padding:12px 14px">
+          <pre id="msg-${p.id}" style="font-family:var(--f);font-size:12px;line-height:1.6;white-space:pre-wrap;margin:0;color:var(--negro)">${msg}</pre>
+          <button onclick="copiarMsg('msg-${p.id}', this)" style="margin-top:10px;padding:6px 14px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f)">
+            📋 Copiar mensaje
+          </button>
+        </div>
+      </div>`;
+    });
+  });
+
+  html += `</div>`;
+
+  // Show in modal overlay
+  const overlay = document.createElement("div");
+  overlay.id = "wha-overlay";
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;overflow-y:auto;padding:2rem 1rem";
+  overlay.innerHTML = `<div style="max-width:640px;margin:0 auto;background:#fff;border-radius:var(--rl);padding:1.5rem;position:relative">
+    <button onclick="document.getElementById('wha-overlay').remove()" style="position:absolute;top:1rem;right:1rem;padding:6px 12px;border:1px solid var(--gris3);border-radius:var(--r);background:transparent;cursor:pointer;font-size:13px">✕ Cerrar</button>
+    ${html}
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function copiarMsg(id, btn){
+  const el = document.getElementById(id);
+  if(!el) return;
+  navigator.clipboard.writeText(el.textContent).then(function(){
+    btn.textContent = "✓ Copiado";
+    btn.style.background = "var(--verde2)";
+    setTimeout(function(){ btn.textContent = "📋 Copiar mensaje"; btn.style.background = "var(--verde)"; }, 2000);
+  }).catch(function(){
+    const r = document.createRange();
+    r.selectNode(el);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(r);
+    document.execCommand("copy");
+    btn.textContent = "✓ Copiado";
+    setTimeout(function(){ btn.textContent = "📋 Copiar mensaje"; }, 2000);
+  });
 }
 
 // ============ INIT ============
