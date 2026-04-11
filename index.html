@@ -197,7 +197,7 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
         <span style="font-size:13px;font-weight:600">Equipos y entrenadores</span>
         <div style="display:flex;gap:6px">
-          <button class="btn btn-outline btn-sm" onclick="recalcularEntrenadores()" title="Actualiza los entrenadores en todos los partidos cargados">↺ Actualizar partidos</button>
+          <button class="btn btn-verde btn-sm" onclick="recalcularEntrenadoresBtn(this)" title="Actualiza los entrenadores en todos los partidos cargados">↺ Actualizar entrenadores</button>
           <button class="btn btn-verde btn-sm" onclick="addEquipoRow()">+ Añadir equipo</button>
         </div>
       </div>
@@ -463,18 +463,29 @@ let campoActivo = "todos";
 let filtroActivo = "todos";
 let equipos = JSON.parse(localStorage.getItem('kolbe_equipos') || 'null') || EQUIPOS_BASE;
 
+function recalcularEntrenadores(){
+  if(!partidos.length) return;
+  let cambios = 0;
+  partidos.forEach(function(p){
+    const e1 = getEntrenadores(p.eq1);
+    const e2 = getEntrenadores(p.eq2);
+    if(e1 !== p.ent1 || e2 !== p.ent2){ p.ent1=e1; p.ent2=e2; cambios++; }
+  });
+  if(cambios > 0){ savePartidos(); renderTodo(); }
+  renderCondActivos();
+}
+
+function recalcularEntrenadoresBtn(btn){
+  recalcularEntrenadores();
+  const original = btn.textContent;
+  btn.textContent = "✓ Actualizado";
+  btn.style.background = "var(--verde2,#2d6a4f)";
+  setTimeout(function(){ btn.textContent = original; btn.style.background = ""; }, 2000);
+}
+
 function saveEquipos(){
   localStorage.setItem('kolbe_equipos', JSON.stringify(equipos));
-  // Auto-actualizar entrenadores en partidos cargados
-  if(partidos.length){
-    let cambios = 0;
-    partidos.forEach(function(p){
-      const e1 = getEntrenadores(p.eq1);
-      const e2 = getEntrenadores(p.eq2);
-      if(e1 !== p.ent1 || e2 !== p.ent2){ p.ent1=e1; p.ent2=e2; cambios++; }
-    });
-    if(cambios > 0){ savePartidos(); renderTodo(); }
-  }
+  recalcularEntrenadores();
 }
 
 // ============ UTILIDADES ============
@@ -1082,7 +1093,7 @@ function renderEquiposConfig(){
     return `<div style="display:flex;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid var(--gris2)">
       <input type="text" value="${e.nombre}" onchange="equipos[${i}].nombre=this.value;saveEquipos()" style="flex:2;font-size:12px;padding:5px 8px;border:1px solid var(--gris3);border-radius:6px" placeholder="Nombre del equipo">
       <select onchange="equipos[${i}].categoria=this.value;saveEquipos()" style="width:110px;font-size:12px;padding:5px 6px;border:1px solid var(--gris3);border-radius:6px;background:#fff">${catOpts}</select>
-      <input type="text" value="${e.entrenadores||""}" onchange="equipos[${i}].entrenadores=this.value;saveEquipos()" style="width:150px;font-size:12px;padding:5px 8px;border:1px solid var(--gris3);border-radius:6px" placeholder="Entrenadores">
+      <input type="text" value="${e.entrenadores||""}" onchange="equipos[${i}].entrenadores=this.value;saveEquipos();recalcularEntrenadores();" style="width:150px;font-size:12px;padding:5px 8px;border:1px solid var(--gris3);border-radius:6px" placeholder="Entrenadores">
       <button onclick="equipos.splice(${i},1);saveEquipos();renderEquiposConfig()" style="padding:5px 8px;border:1px solid var(--gris3);border-radius:6px;background:transparent;cursor:pointer;color:var(--rojo);font-size:13px">✕</button>
     </div>`;
   }).join("");
