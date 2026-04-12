@@ -673,6 +673,7 @@ function procesarCSV(text){
       aplazado: false,
       dia,
       campo: campo || "Sin campo",
+      campoOriginal: campo || "Sin campo",
       jornada,
       comp,
       categoria: categDeComp(comp),
@@ -1308,7 +1309,7 @@ function _doExportExcel(){
           p.eq2,
           p.categoria||"",
           p.grupo||"",
-          p.conflicto ? "⚠ Conflicto" : p.sinHora ? "Sin hora" : "OK"
+          p.aplazado ? "📌 Aplazado" : p.conflicto ? "⚠ Conflicto" : p.sinHora ? "Sin hora" : "OK"
         ]);
       });
       wsData.push(["","","","","","",""]);
@@ -1353,9 +1354,9 @@ function exportarPDF(){
       psDia.forEach(function(p){
         const horaColor = p.sinHora ? "#e65100" : "#1b5e3b";
         const horaText = p.sinHora ? "Sin hora" : p.hora;
-        const estadoBg = p.conflicto ? "#fdecea" : p.sinHora ? "#fff3e0" : "#e6f4ed";
-        const estadoColor = p.conflicto ? "#b71c1c" : p.sinHora ? "#e65100" : "#1b5e3b";
-        const estadoText = p.conflicto ? "⚠ Conflicto" : p.sinHora ? "Sin hora" : "✓ OK";
+        const estadoBg = p.aplazado ? "#fff3cd" : p.conflicto ? "#fdecea" : p.sinHora ? "#fff3e0" : "#e6f4ed";
+        const estadoColor = p.aplazado ? "#856404" : p.conflicto ? "#b71c1c" : p.sinHora ? "#e65100" : "#1b5e3b";
+        const estadoText = p.aplazado ? "📌 Aplazado" : p.conflicto ? "⚠ Conflicto" : p.sinHora ? "Sin hora" : "✓ OK";
         filas += `<tr style="border-bottom:1px solid #eeeeeb">
           <td style="padding:8px 12px;font-weight:600;font-size:12px;color:${horaColor};font-family:monospace;width:60px">${horaText}</td>
           <td style="padding:8px 8px;font-size:12px;font-weight:500">${p.eq1}</td>
@@ -2037,7 +2038,11 @@ Partidos del fin de semana · ${semana}
       const hora = p.aplazado ? "📌 APLAZADO" : p.sinHora ? "Por confirmar" : p.hora + "h";
       const esLocal = p.eq1 === club;
       const condicion = esLocal ? "🏠 LOCAL" : "✈️ VISITANTE";
-      const dir = (CAMPOS_BASE[p.campo] && CAMPOS_BASE[p.campo].dir) ? CAMPOS_BASE[p.campo].dir : null;
+      // Usar el campo original del CSV para la dirección real del partido
+      const campoDirKey = p.campoOriginal || p.campo;
+      const dir = (CAMPOS_BASE[campoDirKey] && CAMPOS_BASE[campoDirKey].dir) ? CAMPOS_BASE[campoDirKey].dir :
+                  (CAMPOS_BASE[p.campo] && CAMPOS_BASE[p.campo].dir) ? CAMPOS_BASE[p.campo].dir : null;
+      const campoNombre = campoDirKey || p.campo;
 
       msg += `📅 ${dia}
 `;
@@ -2046,12 +2051,10 @@ Partidos del fin de semana · ${semana}
       if(!p.aplazado){
         if(p.categoria) msg += `🏆 ${p.categoria}${p.grupo ? " · " + p.grupo : ""} · ${condicion}
 `;
-        msg += `🏟 ${p.campo}
+        msg += `🏟 ${campoNombre}
 `;
         if(dir){
           msg += `📍 ${dir}
-`;
-          msg += `🗺 https://maps.google.com/?q=${encodeURIComponent(dir)}
 `;
         }
       }
