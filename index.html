@@ -1959,14 +1959,21 @@ function vistaEquipos(){
 
   const semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
 
-  // Agrupar todos los partidos por club
+  // Helper: obtener nombre base del club (sin sufijo A/B de grupo)
+  function clubBase(nombre){
+    let n = nombre.trim();
+    n = n.replace(/\s+"[A-Z]"$/, "");  // quita "A" o "B" entre comillas al final
+    n = n.replace(/\s+[A-B]$/, "");    // quita A o B suelto al final
+    return n.trim();
+  }
+
+  // Agrupar todos los partidos por club base
   const clubMap = {};
   partidos.forEach(function(p){
     if(p.sinHora) return; // solo partidos con hora
     [p.eq1, p.eq2].forEach(function(equipo){
       if(!equipo) return;
-      // Extraer nombre del club (primeras 2-3 palabras significativas)
-      const club = equipo;
+      const club = clubBase(equipo);
       if(!clubMap[club]) clubMap[club] = [];
       // Evitar duplicados
       if(!clubMap[club].find(function(x){ return x.id === p.id; })){
