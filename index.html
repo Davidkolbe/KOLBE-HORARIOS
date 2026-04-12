@@ -1959,12 +1959,19 @@ function vistaEquipos(){
 
   const semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
 
-  // Helper: obtener nombre base del club (sin sufijo A/B de grupo)
+  // Helper: obtener nombre base del club (sin sufijos de equipo/color/letra)
+  const CLUB_SUFIJOS = ["BLANCO","MORADO","VERDE","AMARILLO","ROJO","AZUL","NARANJA",
+    "GREEN","WHITE","SCHOOL","BLUE","CADETE","JUVENIL","SENIOR"];
   function clubBase(nombre){
-    let n = nombre.trim();
-    n = n.replace(/\s+"[A-Z]"$/, "");  // quita "A" o "B" entre comillas al final
-    n = n.replace(/\s+[A-B]$/, "");    // quita A o B suelto al final
-    return n.trim();
+    let n = nombre.trim().replace(/"([A-Z])"/g, "$1"); // quita comillas de letra
+    const palabras = n.split(" ");
+    while(palabras.length > 1){
+      const ultima = palabras[palabras.length-1].toUpperCase();
+      if(CLUB_SUFIJOS.indexOf(ultima) >= 0 || /^[A-C]$/.test(ultima)){
+        palabras.pop();
+      } else { break; }
+    }
+    return palabras.join(" ").trim();
   }
 
   // Agrupar todos los partidos por club base
