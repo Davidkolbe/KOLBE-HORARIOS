@@ -252,6 +252,7 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
       <button class="btn btn-outline btn-sm" onclick="exportarExcel()">↓ Excel</button>
       <button class="btn btn-outline btn-sm" onclick="exportarPDF()">↓ PDF</button>
       <button class="btn btn-verde btn-sm" onclick="generarMensajesWhatsApp()">📱 Mensajes entrenadores</button>
+      <button class="btn btn-outline btn-sm" onclick="vistaEquipos()">📋 Vista por equipos</button>
     </div>
 
     <div class="layout-main">
@@ -537,6 +538,29 @@ function getEntrenadores(nombreEquipo){
     if(n.includes("BENJ") && (n.includes(" A") || n.includes("1"))) return "JULIÁN";
     if(n.includes("CHUPE")) return "JULIÁN";
     return "ENTREN_HIGHLANDS";
+  }
+
+  // Zola: entrenadores por equipo y categoría
+  if(n.includes("ZOLA")){
+    // Helper: detectar sufijo A o B como grupo
+    const zolaEndsB = n.endsWith(" B") || n.includes(" B ") || n.endsWith('\"B\"') || n.includes(" B\"");
+    const zolaEndsA = n.endsWith(" A") || n.includes(" A ") || n.endsWith('\"A\"') || n.includes(" A\"");
+    // Chupetines → Tomás
+    if(n.includes("CHUPE")) return "TOMÁS";
+    // Prebenjamín → Tomás(A) / Andrés(B)
+    if(n.includes("PREB") || n.includes("PREBENJAM")) return zolaEndsB ? "ANDRÉS" : "TOMÁS";
+    // Benjamín → Tomás(A) / Rodrigo(B)
+    if(n.includes("BENJ") || n.includes("BENJAMIN")) return zolaEndsB ? "RODRIGO" : "TOMÁS";
+    // Cadete → Tomás(A) / Andrés(B)
+    if(n.includes("CADETE")) return zolaEndsB ? "ANDRÉS" : "TOMÁS";
+    // Femenino → Andrés
+    if(n.includes("FEMEN")) return "ANDRÉS";
+    // Alevín → Felipe(A) / Rodrigo(B)
+    if(n.includes("ALEVIN") || n.includes("ALEVÍN")) return zolaEndsB ? "RODRIGO" : "FELIPE";
+    // Genérico A/B
+    if(zolaEndsB) return "ANDRÉS";
+    if(zolaEndsA) return "TOMÁS";
+    return "ENTREN_ZOLA";
   }
 
   // Fresnedillas: todos mismo entrenador
@@ -1359,6 +1383,7 @@ function exportarPDF(){
 const REGLAS_FIJAS = [
   { id:"highlands_primero",     desc:"Highlands: sábado 09:00–11:00 (primero)" },
   { id:"zola_vs_zola",          desc:"Zola vs Zola → viernes campo Zola" },
+  { id:"zola_alevin_no_coincidir", desc:"Zola Alevín A y Alevín B no coincidir — comparten jugadores" },
   { id:"kolbe_alevin_viernes",  desc:"Kolbe Alevín → viernes 18:00" },
   { id:"kolbe_alevin2_viernes", desc:"2× Kolbe Alevín → segundo va a las 19:00" },
   { id:"fresnedillas_1entren",  desc:"Fresnedillas: 1 entrenador, ningún partido coincide. Fuera de casa → preferencia viernes 19:00" },
@@ -1368,7 +1393,7 @@ const REGLAS_FIJAS = [
   { id:"arenales_entren",       desc:"Arenales: Prebenjamín y Alevín mismo entrenador, no coincidir" },
   { id:"everest_entren",        desc:"Everest: Prebenjamín B y Benjamín B no coincidir" },
   { id:"zarzalejo_hora",        desc:"Rayo Zarzalejo: en casa → sábado 11:00" },
-  { id:"pardillo_benj_hora",    desc:"Unión Pardillo: Benjamín siempre a las 13:00" },
+  { id:"pardillo_benj_hora",    desc:"Unión Pardillo: Prebenjamín siempre a las 13:00" },
 ];
 
 // Condicionantes detallados por equipo (para detección de conflictos)
@@ -1577,11 +1602,11 @@ function autoAsignar(){
     }
   });
 
-  // ── REGLA: Unión Pardillo Benjamín → 13:00 ──
+  // ── REGLA: Unión Pardillo Prebenjamín → 13:00 ──
   sinHora.forEach(p => {
     if(asignados[p.id]) return;
     const esPardiilloBenj = (equipoContiene(p.eq1,"PARDILLO") || equipoContiene(p.eq2,"PARDILLO")) &&
-      (equipoContiene(p.categoria||p.comp,"BENJAMIN") || equipoContiene(p.eq1,"BENJ") || equipoContiene(p.eq2,"BENJ"));
+      (equipoContiene(p.categoria||"","PREBENJAMIN") || equipoContiene(p.categoria||"","PREB"));
     if(esPardiilloBenj){
       const campo = p.campo && p.campo!=="Sin campo" ? p.campo : "Los Pinos";
       const franja = getFranja(campo,"Sabado");
@@ -1911,6 +1936,123 @@ function generarMensajesWhatsApp(){
 }
 
 function copiarMsg(id, btn){
+  const el = document.getElementById(id);
+  if(!el) return;
+  navigator.clipboard.writeText(el.textContent).then(function(){
+    btn.textContent = "✓ Copiado";
+    btn.style.background = "var(--verde2)";
+    setTimeout(function(){ btn.textContent = "📋 Copiar mensaje"; btn.style.background = "var(--verde)"; }, 2000);
+  }).catch(function(){
+    const r = document.createRange();
+    r.selectNode(el);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(r);
+    document.execCommand("copy");
+    btn.textContent = "✓ Copiado";
+    setTimeout(function(){ btn.textContent = "📋 Copiar mensaje"; }, 2000);
+  });
+}
+
+// ============ VISTA POR EQUIPOS ============
+function vistaEquipos(){
+  if(!partidos.length){ alert("No hay partidos cargados."); return; }
+
+  const semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
+
+  // Agrupar todos los partidos por club
+  const clubMap = {};
+  partidos.forEach(function(p){
+    if(p.sinHora) return; // solo partidos con hora
+    [p.eq1, p.eq2].forEach(function(equipo){
+      if(!equipo) return;
+      // Extraer nombre del club (primeras 2-3 palabras significativas)
+      const club = equipo;
+      if(!clubMap[club]) clubMap[club] = [];
+      // Evitar duplicados
+      if(!clubMap[club].find(function(x){ return x.id === p.id; })){
+        clubMap[club].push(p);
+      }
+    });
+  });
+
+  // Ordenar clubs alfabéticamente
+  const clubs = Object.keys(clubMap).sort();
+
+  // Generar HTML del modal
+  let html = `<div style="max-width:680px;margin:0 auto">
+    <h2 style="font-size:16px;font-weight:600;margin-bottom:.25rem;color:var(--verde)">📋 Vista por equipos</h2>
+    <p style="font-size:12px;color:var(--gris4);margin-bottom:1.25rem">Partidos del fin de semana agrupados por club. Copia el mensaje y mándalo al coordinador.</p>`;
+
+  clubs.forEach(function(club){
+    const ps = clubMap[club];
+    if(!ps.length) return;
+
+    // Sort by day then time
+    ps.sort(function(a,b){
+      const dias = {Viernes:0, Sabado:1};
+      const dd = (dias[a.dia]||0) - (dias[b.dia]||0);
+      if(dd !== 0) return dd;
+      return (a.hora||"").localeCompare(b.hora||"");
+    });
+
+    // Build message
+    let msg = `📋 *${club}*
+Partidos del fin de semana · ${semana}
+
+`;
+
+    ps.forEach(function(p){
+      const dia = p.dia === "Viernes" ? "Viernes" : "Sábado";
+      const hora = p.sinHora ? "Por confirmar" : p.hora + "h";
+      const esLocal = p.eq1 === club;
+      const rival = esLocal ? p.eq2 : p.eq1;
+      const condicion = esLocal ? "🏠 LOCAL" : "✈️ VISITANTE";
+      const dir = (window.CAMPOS_BASE && window.CAMPOS_BASE[p.campo] && window.CAMPOS_BASE[p.campo].dir) || p.campo;
+
+      msg += `📅 ${dia}
+`;
+      msg += `⏰ ${hora} · ${p.eq1} vs ${p.eq2}
+`;
+      if(p.categoria) msg += `🏆 ${p.categoria}${p.grupo ? " · " + p.grupo : ""} · ${condicion}
+`;
+      msg += `🏟 ${p.campo}
+`;
+      msg += `📍 ${dir}
+
+`;
+    });
+
+    msg = msg.trim();
+
+    const uid = "club-" + club.replace(/[^a-zA-Z0-9]/g,"_");
+    html += `<div style="margin-bottom:1.25rem;border:1px solid var(--gris2);border-radius:var(--rl);overflow:hidden">
+      <div style="background:var(--verde);color:#fff;padding:8px 14px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center">
+        <span>${club}</span>
+        <span style="font-size:11px;font-weight:400;opacity:.8">${ps.length} partido${ps.length>1?"s":""}</span>
+      </div>
+      <div style="padding:12px 14px">
+        <pre id="${uid}" style="font-family:var(--f);font-size:12px;line-height:1.7;white-space:pre-wrap;margin:0;color:var(--negro)">${msg}</pre>
+        <button onclick="copiarVistaEquipo('${uid}',this)" style="margin-top:10px;padding:6px 14px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f)">
+          📋 Copiar mensaje
+        </button>
+      </div>
+    </div>`;
+  });
+
+  html += `</div>`;
+
+  // Show modal
+  const overlay = document.createElement("div");
+  overlay.id = "vista-equipos-overlay";
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;overflow-y:auto;padding:2rem 1rem";
+  overlay.innerHTML = `<div style="max-width:680px;margin:0 auto;background:#fff;border-radius:var(--rl);padding:1.5rem;position:relative">
+    <button onclick="document.getElementById('vista-equipos-overlay').remove()" style="position:absolute;top:1rem;right:1rem;padding:6px 12px;border:1px solid var(--gris3);border-radius:var(--r);background:transparent;cursor:pointer;font-size:13px">✕ Cerrar</button>
+    ${html}
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function copiarVistaEquipo(id, btn){
   const el = document.getElementById(id);
   if(!el) return;
   navigator.clipboard.writeText(el.textContent).then(function(){
