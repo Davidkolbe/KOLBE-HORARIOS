@@ -670,6 +670,7 @@ function procesarCSV(text){
       fecha: fechaRaw,
       hora: horaRaw,
       sinHora: horaRaw === "00:00",
+      aplazado: false,
       dia,
       campo: campo || "Sin campo",
       jornada,
@@ -731,7 +732,7 @@ function renderTodo(){
 
 function renderStats(){
   const total = partidos.length;
-  const sinH = partidos.filter(p=>p.sinHora).length;
+  const sinH = partidos.filter(p=>p.sinHora && !p.aplazado).length;
   const conf = partidos.filter(p=>p.conflicto).length;
   const ok = total - sinH - conf;
   document.getElementById("s-total").textContent = total;
@@ -788,8 +789,9 @@ function setCampo(c){
 }
 
 function renderPartidoRow(p){
-  const rowClass = p.conflicto ? "partido-row conflicto" : p.sinHora ? "partido-row sin-hora" : "partido-row";
-  const estado = p.conflicto ? `<span class="estado-badge estado-err">✕ Conflicto</span>` :
+  const rowClass = p.aplazado ? "partido-row" : p.conflicto ? "partido-row conflicto" : p.sinHora ? "partido-row sin-hora" : "partido-row";
+  const estado = p.aplazado   ? `<span class="estado-badge" style="background:#fff3cd;color:#856404;border:1px solid #ffc107">📌 Aplazado</span>` :
+                 p.conflicto ? `<span class="estado-badge estado-err">✕ Conflicto</span>` :
                  p.sinHora   ? `<span class="estado-badge estado-pend">! Sin hora</span>` :
                                `<span class="estado-badge estado-ok">✓ OK</span>`;
   const diasDisp = getDiasDisp(p.campo);
@@ -810,7 +812,10 @@ function renderPartidoRow(p){
     <td><select class="dia-select" onchange="updatePartido(${p.id},'dia',this.value)">${diaOpts}</select></td>
     <td><input type="time" class="hora-input ${p.conflicto?'conflicto':''}" value="${p.sinHora?'':p.hora}" onchange="updatePartido(${p.id},'hora',this.value)" placeholder="--:--"></td>
     <td>${estado}</td>
-    <td><button class="btn btn-sm" style="padding:3px 7px;font-size:12px;border:1px solid var(--gris3);background:transparent;cursor:pointer;border-radius:5px;color:var(--gris5)" onclick="limpiarHora(${p.id})" title="Quitar hora">✕</button></td>
+    <td style="display:flex;gap:4px;align-items:center">
+      <button class="btn btn-sm" style="padding:3px 7px;font-size:11px;border:1px solid ${p.aplazado?'#ffc107':'var(--gris3)'};background:${p.aplazado?'#fff3cd':'transparent'};cursor:pointer;border-radius:5px;color:${p.aplazado?'#856404':'var(--gris5)'}" onclick="toggleAplazado(${p.id})" title="Marcar como aplazado">📌</button>
+      <button class="btn btn-sm" style="padding:3px 7px;font-size:12px;border:1px solid var(--gris3);background:transparent;cursor:pointer;border-radius:5px;color:var(--gris5)" onclick="limpiarHora(${p.id})" title="Quitar hora">✕</button>
+    </td>
   </tr>`;
 }
 
@@ -930,6 +935,18 @@ function updatePartido(id, field, val){
     p.sinHora = !val || val==="00:00";
   }
   if(field==="dia") p.dia = val;
+  savePartidos();
+  renderTodo();
+}
+
+function toggleAplazado(id){
+  const p = partidos.find(p=>p.id===id);
+  if(!p) return;
+  p.aplazado = !p.aplazado;
+  if(p.aplazado){
+    p.hora = "00:00";
+    p.sinHora = false; // no es "sin hora", es aplazado
+  }
   savePartidos();
   renderTodo();
 }
@@ -1961,12 +1978,12 @@ function vistaEquipos(){
 
   // Helper: obtener nombre base del club (sin sufijos de equipo/color/letra)
   const CLUB_SUFIJOS = ["BLANCO","MORADO","VERDE","AMARILLO","ROJO","AZUL","NARANJA",
-    "GREEN","WHITE","SCHOOL","BLUE","CADETE","JUVENIL","SENIOR"];
+    "GREEN","WHITE","SCHOOL","BLUE","CADETE","JUVENIL","JUV","SENIOR"];
   function clubBase(nombre){
     let n = nombre.trim().replace(/"([A-Z])"/g, "$1"); // quita comillas de letra
     const palabras = n.split(" ");
     while(palabras.length > 1){
-      const ultima = palabras[palabras.length-1].toUpperCase();
+      const ultima = palabras[palabras.length-1].toUpperCase().replace(/\.$/,""); // quita punto final (ej: JUV.)
       if(CLUB_SUFIJOS.indexOf(ultima) >= 0 || /^[A-C]$/.test(ultima)){
         palabras.pop();
       } else { break; }
