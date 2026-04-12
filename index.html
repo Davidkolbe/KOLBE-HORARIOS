@@ -1895,8 +1895,6 @@ function generarMensajesWhatsApp(){
       const lugar = p.esLocal ? p.campo : p.campo;
       const dir = getDireccion(p.campo);
       const condicion = p.esLocal ? "🏠 LOCAL" : "✈️ VISITANTE";
-      const maps = "https://maps.google.com/?q=" + encodeURIComponent(dir);
-
       // Calcular hora de convocatoria (30 min antes)
       let convocatoria = "Por confirmar";
       if(!p.sinHora && p.hora && p.hora !== "00:00"){
