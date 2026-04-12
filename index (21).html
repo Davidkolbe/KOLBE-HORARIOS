@@ -1,0 +1,2092 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planificador Semanal — Club Kolbe</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --verde: #1b5e3b;
+  --verde2: #2e7d52;
+  --verde-s: #e6f4ed;
+  --verde-b: #a8d5bb;
+  --rojo: #b71c1c;
+  --rojo-s: #fdecea;
+  --rojo-b: #f5c0bb;
+  --naranja: #e65100;
+  --naranja-s: #fff3e0;
+  --naranja-b: #ffcc80;
+  --gris1: #f7f7f5;
+  --gris2: #eeeeeb;
+  --gris3: #d4d4cf;
+  --gris4: #9e9e99;
+  --gris5: #5c5c57;
+  --negro: #1c1c1a;
+  --blanco: #ffffff;
+  --f: 'IBM Plex Sans', sans-serif;
+  --fm: 'IBM Plex Mono', monospace;
+  --r: 8px;
+  --rl: 14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:14px;line-height:1.5;min-height:100vh}
+
+/* TOPBAR */
+.topbar{background:var(--verde);color:#fff;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;position:sticky;top:0;z-index:200}
+.brand{font-size:14px;font-weight:600;letter-spacing:-.2px;display:flex;align-items:center;gap:10px}
+.brand-sub{opacity:.6;font-weight:300;font-size:12px}
+.topbar-actions{display:flex;gap:8px;align-items:center}
+
+/* LAYOUT */
+.wrap{max-width:1100px;margin:0 auto;padding:1.25rem 1.5rem}
+
+/* BOTONES */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .15s;font-family:var(--f);white-space:nowrap}
+.btn-verde{background:var(--verde);color:#fff;border-color:var(--verde)}
+.btn-verde:hover{background:var(--verde2)}
+.btn-outline{background:#fff;color:var(--negro);border-color:var(--gris3)}
+.btn-outline:hover{background:var(--gris1);border-color:var(--gris4)}
+.btn-ghost{background:transparent;color:rgba(255,255,255,.8);border-color:rgba(255,255,255,.3)}
+.btn-ghost:hover{background:rgba(255,255,255,.1);color:#fff}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-rojo{background:var(--rojo);color:#fff;border-color:var(--rojo)}
+
+/* ESTADO VACÍO */
+.empty-state{text-align:center;padding:4rem 2rem;color:var(--gris4)}
+.empty-icon{font-size:48px;margin-bottom:1rem;display:block}
+.empty-title{font-size:16px;font-weight:500;color:var(--gris5);margin-bottom:.5rem}
+.empty-sub{font-size:13px;line-height:1.6}
+
+/* UPLOAD ZONE */
+.upload-zone{border:2px dashed var(--gris3);border-radius:var(--rl);padding:2.5rem;text-align:center;cursor:pointer;transition:all .2s;background:#fff}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--verde2);background:var(--verde-s)}
+.upload-zone input{display:none}
+.upload-icon{font-size:32px;margin-bottom:.75rem;display:block}
+.upload-title{font-size:15px;font-weight:500;margin-bottom:.25rem}
+.upload-sub{font-size:12px;color:var(--gris4)}
+
+/* CARDS */
+.card{background:#fff;border:1px solid var(--gris2);border-radius:var(--rl);overflow:hidden}
+.card-head{padding:.875rem 1.25rem;border-bottom:1px solid var(--gris2);display:flex;align-items:center;justify-content:space-between;background:#fff}
+.card-title{font-size:13px;font-weight:600;color:var(--negro)}
+.card-body{padding:1rem 1.25rem}
+
+/* STATS BAR */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem}
+.stat{background:#fff;border:1px solid var(--gris2);border-radius:var(--r);padding:.875rem 1rem;text-align:center}
+.stat-n{font-size:22px;font-weight:600;font-family:var(--fm);color:var(--negro)}
+.stat-n.ok{color:var(--verde)}
+.stat-n.err{color:var(--rojo)}
+.stat-n.warn{color:var(--naranja)}
+.stat-l{font-size:11px;color:var(--gris4);margin-top:2px;text-transform:uppercase;letter-spacing:.4px}
+
+/* ALERTS */
+.alert{padding:9px 13px;border-radius:var(--r);font-size:13px;display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;line-height:1.5}
+.alert-ok{background:var(--verde-s);color:var(--verde);border:1px solid var(--verde-b)}
+.alert-err{background:var(--rojo-s);color:var(--rojo);border:1px solid var(--rojo-b)}
+.alert-warn{background:var(--naranja-s);color:var(--naranja);border:1px solid var(--naranja-b)}
+.alert-icon{flex-shrink:0;font-weight:700}
+
+/* TABS DE CAMPOS */
+.campo-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem}
+.campo-tab{padding:6px 14px;border-radius:99px;border:1.5px solid var(--gris3);background:#fff;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;font-family:var(--f);color:var(--gris5)}
+.campo-tab:hover{border-color:var(--verde2);color:var(--verde)}
+.campo-tab.active{background:var(--verde);color:#fff;border-color:var(--verde)}
+.campo-tab .badge{display:inline-block;background:rgba(255,255,255,.25);border-radius:99px;padding:1px 6px;font-size:10px;margin-left:4px}
+.campo-tab:not(.active) .badge{background:var(--gris2);color:var(--gris5)}
+
+/* TABLA DE PARTIDOS */
+.partidos-table{width:100%;border-collapse:collapse}
+.partidos-table th{font-size:11px;font-weight:500;color:var(--gris4);text-align:left;padding:0 8px 8px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+.partidos-table td{padding:5px 8px;vertical-align:middle}
+.partidos-table tr.partido-row{border-radius:var(--r)}
+.partidos-table tr.partido-row:hover td{background:var(--gris1)}
+.partidos-table tr.partido-row td:first-child{border-radius:var(--r) 0 0 var(--r)}
+.partidos-table tr.partido-row td:last-child{border-radius:0 var(--r) var(--r) 0}
+.partidos-table tr.conflicto td{background:var(--rojo-s)!important}
+.partidos-table tr.sin-hora td{background:var(--naranja-s)!important}
+
+/* BADGE ESTADO */
+.estado-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:99px;font-size:11px;font-weight:500}
+.estado-ok{background:var(--verde-s);color:var(--verde)}
+.estado-err{background:var(--rojo-s);color:var(--rojo)}
+.estado-pend{background:var(--naranja-s);color:var(--naranja)}
+
+/* INPUTS EN TABLA */
+.hora-input{font-family:var(--fm);font-size:13px;padding:5px 8px;border:1px solid var(--gris3);border-radius:6px;width:90px;background:#fff;color:var(--negro)}
+.hora-input:focus{outline:none;border-color:var(--verde2);background:#fff}
+.hora-input.conflicto{border-color:var(--rojo);background:var(--rojo-s)}
+.dia-select{font-size:13px;padding:5px 8px;border:1px solid var(--gris3);border-radius:6px;background:#fff;color:var(--negro);cursor:pointer}
+.dia-select:focus{outline:none;border-color:var(--verde2)}
+
+/* EQUIPO NAMES */
+.equipo-nombre{font-size:13px;font-weight:500;color:var(--negro)}
+.equipo-vs{font-size:11px;color:var(--gris4);margin:0 4px}
+.categoria-tag{font-size:10px;padding:2px 7px;border-radius:99px;background:var(--gris2);color:var(--gris5);font-weight:500;white-space:nowrap}
+
+/* CONFLICTO TOOLTIP */
+.conf-msg{font-size:11px;color:var(--rojo);margin-top:2px;display:block}
+
+/* FRANJA INFO */
+.franja-info{font-size:11px;color:var(--gris4);font-family:var(--fm)}
+
+/* PANEL DERECHO: condicionantes */
+.layout-main{display:grid;grid-template-columns:1fr 280px;gap:1.25rem;align-items:start}
+.cond-list{display:flex;flex-direction:column;gap:6px}
+.cond-item{font-size:12px;padding:8px 10px;border-radius:var(--r);border:1px solid var(--gris2);background:var(--gris1);line-height:1.5}
+.cond-label{font-weight:500;color:var(--negro);margin-bottom:2px}
+.cond-val{color:var(--gris5)}
+
+/* EXPORT BAR */
+.export-bar{display:flex;gap:8px;justify-content:flex-end;margin-bottom:1rem}
+
+.filtro-btn{padding:5px 12px;border-radius:6px;border:1px solid var(--gris3);background:#fff;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;font-family:var(--f);color:var(--gris5)}
+.filtro-btn:hover{border-color:var(--gris4);color:var(--negro)}
+.filtro-btn.active{background:var(--negro);color:#fff;border-color:var(--negro)}
+
+
+.dia-header{padding:6px 10px;background:var(--gris2);border-radius:var(--r);font-size:11px;font-weight:600;color:var(--gris5);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 4px}
+
+@media(max-width:700px){
+  .layout-main{grid-template-columns:1fr}
+  .stats-bar{grid-template-columns:1fr 1fr}
+  .campo-tabs{gap:4px}
+  .topbar{padding:0 1rem}
+  .wrap{padding:1rem}
+}
+.wa-modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem}
+.wa-modal{background:#fff;border-radius:var(--radio-grande);padding:1.5rem;max-width:600px;width:100%;max-height:85vh;overflow-y:auto}
+.wa-modal-title{font-size:15px;font-weight:600;margin-bottom:1rem;color:var(--negro)}
+.wa-equipo-bloque{border:1px solid var(--gris-medio);border-radius:var(--radio);margin-bottom:1rem;overflow:hidden}
+.wa-equipo-head{background:var(--verde);color:#fff;padding:8px 14px;font-size:12px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.wa-equipo-msg{padding:10px 14px;font-size:13px;white-space:pre-wrap;line-height:1.6;background:#f7f7f5;font-family:var(--fuente-mono)}
+.wa-copy-btn{padding:4px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.4);background:transparent;color:#fff;font-size:11px;cursor:pointer;font-family:var(--fuente)}
+.wa-copy-btn:hover{background:rgba(255,255,255,0.2)}
+@media print{
+  .topbar,.export-bar,.btn,.dia-select,.hora-input,.upload-zone{display:none!important}
+  body{background:#fff}
+  .card{border:1px solid #ccc;box-shadow:none}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/><circle cx="9" cy="9" r="3.5" fill="white" opacity=".9"/></svg>
+    Club Kolbe
+    <span class="brand-sub">Planificador semanal</span>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn btn-ghost btn-sm" onclick="toggleConf('equipos')">⚙ Entrenadores</button>
+    <button class="btn btn-ghost btn-sm" onclick="toggleConf('campos')">🏟 Campos</button>
+    <button class="btn btn-ghost btn-sm" onclick="guardarCopia()" title="Descarga una copia de seguridad con todas tus jornadas">💾 Guardar copia</button>
+    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('restore-input').click()" title="Restaura una copia de seguridad guardada anteriormente">📂 Restaurar</button>
+    <input type="file" id="restore-input" accept=".json" style="display:none" onchange="restaurarCopia(event)">
+    <button class="btn btn-ghost btn-sm" onclick="resetTodo()" id="btn-reset" style="display:none">↺ Nueva semana</button>
+  </div>
+</div>
+
+<!-- PANEL CONFIGURACIÓN (oculto por defecto) -->
+<div id="conf-panel" style="display:none;background:#fff;border-bottom:1px solid var(--gris2);padding:1rem 1.5rem">
+  <div style="max-width:1100px;margin:0 auto">
+
+    <!-- SECCIÓN EQUIPOS -->
+    <div id="conf-equipos">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+        <span style="font-size:13px;font-weight:600">Equipos y entrenadores</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-verde btn-sm" onclick="recalcularEntrenadoresBtn(this)" title="Actualiza los entrenadores en todos los partidos cargados">↺ Actualizar entrenadores</button>
+          <button class="btn btn-verde btn-sm" onclick="addEquipoRow()">+ Añadir equipo</button>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--gris4);margin-bottom:.75rem">Nombre del equipo tal como aparece en Clupik · Entrenadores separados por coma</div>
+      <div id="equipos-config" style="display:flex;flex-direction:column;gap:4px"></div>
+    </div>
+
+    <!-- SECCIÓN CAMPOS -->
+    <div id="conf-campos" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+        <span style="font-size:13px;font-weight:600">Campos y franjas horarias</span>
+        <button class="btn btn-outline btn-sm" onclick="addCampoRow()">+ Añadir campo</button>
+      </div>
+      <div style="font-size:11px;color:var(--gris4);margin-bottom:.75rem">Configura los días y franjas en que se puede jugar en cada campo. Máx = número máximo de partidos por franja.</div>
+      <div id="campos-config"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ESTADO INICIAL: subir archivo -->
+  <div id="estado-inicial">
+    <div style="max-width:600px;margin:2rem auto">
+
+      <!-- Jornadas guardadas -->
+      <div id="historial-box" style="display:none;margin-bottom:1.5rem">
+        <div style="font-size:13px;font-weight:600;margin-bottom:.75rem;color:var(--negro)">Jornadas guardadas</div>
+        <div id="historial-lista"></div>
+      </div>
+
+      <!-- Upload -->
+      <div class="upload-zone" id="upload-zone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('file-input').click()">
+        <input type="file" id="file-input" accept=".csv,.xls,.xlsx" onchange="handleFile(event)">
+        <span class="upload-icon">📂</span>
+        <div class="upload-title">Sube el archivo de Clupik</div>
+        <div class="upload-sub">Exporta los partidos de la semana desde Clupik<br>y arrastra aquí el archivo CSV o XLS</div>
+      </div>
+      <div style="text-align:center;margin-top:1rem">
+        <button class="btn btn-outline btn-sm" onclick="cargarEjemplo()">Cargar ejemplo de prueba</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ESTADO CARGADO: planificador -->
+  <div id="estado-planificador" style="display:none">
+
+    <div class="export-bar">
+      <button class="btn btn-outline btn-sm" onclick="volverHistorial()" style="margin-right:4px">← Jornadas</button>
+      <span style="font-size:12px;color:var(--gris4);align-self:center;flex:1" id="semana-label"></span>
+      <button class="btn btn-outline btn-sm" onclick="exportarExcel()">↓ Excel</button>
+      <button class="btn btn-outline btn-sm" onclick="exportarPDF()">↓ PDF</button>
+      <button class="btn btn-verde btn-sm" onclick="generarMensajesWhatsApp()">📱 Mensajes entrenadores</button>
+      <button class="btn btn-outline btn-sm" onclick="vistaEquipos()">📋 Vista por equipos</button>
+    </div>
+
+    <div class="layout-main">
+      <div>
+        <!-- STATS -->
+        <div class="stats-bar">
+          <div class="stat"><div class="stat-n" id="s-total">0</div><div class="stat-l">Partidos</div></div>
+          <div class="stat"><div class="stat-n warn" id="s-sinHora">0</div><div class="stat-l">Sin hora</div></div>
+          <div class="stat"><div class="stat-n err" id="s-conflictos">0</div><div class="stat-l">Conflictos</div></div>
+          <div class="stat"><div class="stat-n ok" id="s-ok">0</div><div class="stat-l">Listos</div></div>
+        </div>
+
+        <!-- ALERTAS -->
+        <div id="alertas-box" style="margin-bottom:1rem"></div>
+
+        <!-- AUTO ASIGNAR -->
+        <div class="card" style="margin-bottom:1rem;border:1.5px solid var(--verde-b);background:var(--verde-s)">
+          <div class="card-head" style="background:var(--verde-s);border-color:var(--verde-b)">
+            <span class="card-title" style="color:var(--verde)">⚡ Asignación automática</span>
+            <button class="btn btn-verde btn-sm" onclick="autoAsignar()">Asignar horarios</button>
+          </div>
+          <div class="card-body" style="padding:.75rem 1.25rem">
+            <div style="margin-bottom:.6rem">
+              <label style="font-size:11px;font-weight:500;color:var(--verde);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px">Reglas fijas activas</label>
+              <div style="font-size:12px;color:var(--gris5);display:flex;flex-wrap:wrap;gap:6px" id="reglas-fijas-display"></div>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:500;color:var(--verde);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px">Reglas extra esta semana <span style="font-weight:300;text-transform:none;letter-spacing:0">(una por línea)</span></label>
+              <textarea id="reglas-extra" rows="3" placeholder="Ej: Benjamin Arenales juegan a las 09:30h&#10;Kolbe Blanco no antes de las 11h&#10;Los Pinos empieza a las 10h" style="width:100%;font-size:12px;padding:7px 10px;border:1px solid var(--verde-b);border-radius:var(--r);resize:vertical;font-family:var(--f);background:#fff;color:var(--negro)"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- FILTRO ESTADO -->
+        <div style="display:flex;gap:6px;margin-bottom:.75rem;align-items:center">
+          <span style="font-size:11px;color:var(--gris4);text-transform:uppercase;letter-spacing:.4px;margin-right:4px">Mostrar:</span>
+          <button class="filtro-btn active" id="f-todos" onclick="setFiltro('todos')">Todos</button>
+          <button class="filtro-btn" id="f-sinHora" onclick="setFiltro('sinHora')">Sin hora</button>
+          <button class="filtro-btn" id="f-conHora" onclick="setFiltro('conHora')">Con hora asignada</button>
+        </div>
+
+        <!-- TABS DE CAMPOS -->
+        <div class="campo-tabs" id="campo-tabs"></div>
+
+        <!-- TABLA -->
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title" id="campo-activo-titulo">Todos los campos</span>
+            <span class="franja-info" id="franja-info"></span>
+          </div>
+          <div class="card-body" style="padding:.75rem 1rem">
+            <table class="partidos-table" id="tabla-partidos">
+              <thead>
+                <tr>
+                  <th style="width:36%">Partido</th>
+                  <th style="width:13%">Categoría</th>
+                  <th style="width:16%">Entrenadores</th>
+                  <th style="width:10%">Día</th>
+                  <th style="width:10%">Hora</th>
+                  <th style="width:10%">Estado</th>
+                  <th style="width:5%"></th>
+                </tr>
+              </thead>
+              <tbody id="tabla-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANEL LATERAL -->
+      <div style="display:flex;flex-direction:column;gap:1rem">
+
+        <!-- CAMPOS Y FRANJAS -->
+        <div class="card">
+          <div class="card-head"><span class="card-title">Campos y horarios</span></div>
+          <div class="card-body" style="padding:.75rem 1rem">
+            <div id="campos-info"></div>
+          </div>
+        </div>
+
+        <!-- ENTRENADORES CON CONFLICTO POTENCIAL -->
+        <div class="card">
+          <div class="card-head"><span class="card-title">Entrenadores a vigilar</span></div>
+          <div class="card-body" style="padding:.75rem 1rem">
+            <div id="cond-activos" class="cond-list"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ DATOS BASE ============
+const EQUIPOS_BASE = [
+  // CD KOLBE
+  {nombre:"CD KOLBE BLANCO",             categoria:"Alevín",       entrenadores:"GON, RUBÉN",           liga:"f7"},
+  {nombre:"CD KOLBE VERDE",              categoria:"Infantil",     entrenadores:"GON, RODRI",            liga:"f7"},
+  {nombre:"CD KOLBE MORADO",             categoria:"Alevín",       entrenadores:"SAMUEL, RUIBI",         liga:"f7"},
+  {nombre:"CD KOLBE PRE 1 BLANCO",       categoria:"Prebenjamín",  entrenadores:"FRANK, ESPI",           liga:"f7"},
+  {nombre:"CD KOLBE PRE 1 VERDE",        categoria:"Prebenjamín",  entrenadores:"FRANK, ESPI",           liga:"f7"},
+  {nombre:"CD KOLBE PRE 2",              categoria:"Prebenjamín",  entrenadores:"SOLER",                 liga:"f7"},
+  {nombre:"CD KOLBE BENJAMÍN 3 BLANCO",  categoria:"Benjamín",     entrenadores:"RODRI",                 liga:"f7"},
+  {nombre:"CD KOLBE BENJAMÍN 3 VERDE",   categoria:"Benjamín",     entrenadores:"FRANK",                 liga:"f7"},
+  {nombre:"CD KOLBE BENJAMÍN 4",         categoria:"Benjamín",     entrenadores:"PABLO",                 liga:"f7"},
+  {nombre:"CD KOLBE ALEVÍN BLANCO",      categoria:"Alevín",       entrenadores:"RUIBI",                 liga:"f7"},
+  {nombre:"CD KOLBE ALEVÍN MORADO",      categoria:"Alevín",       entrenadores:"SAMUEL, RUIBI",         liga:"f7"},
+  {nombre:"CD KOLBE ALEVÍN VERDE",       categoria:"Alevín",       entrenadores:"SAMUEL, RUIBI",         liga:"f7"},
+  {nombre:"CD KOLBE INFANTIL VERDE",     categoria:"Infantil",     entrenadores:"GÓMEZ, RUIBI",          liga:"f7"},
+  {nombre:"CD KOLBE INFANTIL BLANCO",    categoria:"Infantil",     entrenadores:"RUBI, RUIBI",           liga:"f7"},
+  {nombre:"CD KOLBE CADETE",             categoria:"Cadete",       entrenadores:"PABLO",                 liga:"f7"},
+  {nombre:"CD KOLBE JUVENIL",            categoria:"Juvenil",      entrenadores:"PABLO",                 liga:"f7"},
+  // ZOLA
+  {nombre:"COLEGIO ZOLA A",              categoria:"",             entrenadores:"TOMÁS",                 liga:"f7"},
+  {nombre:"COLEGIO ZOLA B",              categoria:"",             entrenadores:"ANDRÉS",                liga:"f7"},
+  {nombre:"COLEGIO ZOLA FEMENINO",       categoria:"",             entrenadores:"RODRIGO",               liga:"f7"},
+  // FRESNEDILLAS (1 entrenador para todos — ningún partido puede coincidir)
+  {nombre:"CD FRESNEDILLAS",             categoria:"",             entrenadores:"ENTREN_FRESNE",         liga:"f7"},
+  {nombre:"CD FRESNEDILLAS A",           categoria:"",             entrenadores:"ENTREN_FRESNE",         liga:"f7"},
+  {nombre:"CD FRESNEDILLAS B",           categoria:"",             entrenadores:"ENTREN_FRESNE",         liga:"f7"},
+  // QUERCUS (mismo entrenador ambos equipos)
+  {nombre:"CDE QUERCUS EDUCAJUNIOR A",   entrenadores:"ENTREN_QUERCUS",        liga:"f7"},
+  {nombre:"CDE QUERCUS EDUCAJUNIOR B",   entrenadores:"ENTREN_QUERCUS",        liga:"f7"},
+  // HIGHLANDS (3 entrenadores distintos)
+  {nombre:"COLEGIO HIGHLANDS ALEVIN",    entrenadores:"CARLOS",                liga:"f7"},
+  {nombre:"COLEGIO HIGHLANDS PREB A",    entrenadores:"ALEJANDRO",             liga:"f7"},
+  {nombre:"COLEGIO HIGHLANDS BENJ B",    entrenadores:"ALEJANDRO",             liga:"f7"},
+  {nombre:"COLEGIO HIGHLANDS PREB B",    entrenadores:"JULIÁN",                liga:"f7"},
+  {nombre:"COLEGIO HIGHLANDS BENJ A",    entrenadores:"JULIÁN",                liga:"f7"},
+  {nombre:"COLEGIO HIGHLANDS CHUPETIN",  entrenadores:"JULIÁN",                liga:"f7"},
+  // ST. MICHAEL
+  {nombre:"ST MICHAEL PREB",             entrenadores:"ENTREN_STM_PREB",       liga:"f7"},
+  {nombre:"ST MICHAEL BENJAMIN GREEN",   entrenadores:"ENTREN_STM_BGREEN",     liga:"f7"},
+  {nombre:"ST MICHAEL BENJAMIN WHITE",   entrenadores:"ENTREN_STM_BWHITE",     liga:"f7"},
+  // ARENALES (Preb y Alevín mismo entrenador)
+  {nombre:"CD ARENALES PREB",            entrenadores:"ENTREN_ARENALES",       liga:"f7"},
+  {nombre:"CD ARENALES ALEVIN",          entrenadores:"ENTREN_ARENALES",       liga:"f7"},
+  {nombre:"CD ARENALES ARROYOMOLINOS",   entrenadores:"ENTREN_ARENALES",       liga:"f7"},
+  // EVEREST (Preb B y Benjamín B no coincidir)
+  {nombre:"EVEREST A",                   entrenadores:"ENTREN_EVEREST_A",      liga:"f7"},
+  {nombre:"EVEREST B",                   entrenadores:"ENTREN_EVEREST_B",      liga:"f7"},
+  {nombre:"EVEREST C",                   entrenadores:"ENTREN_EVEREST_C",      liga:"f7"},
+  // RAYO ZARZALEJO
+  {nombre:"RAYO ZARZALEJO",              entrenadores:"ENTREN_ZARZALEJO",      liga:"f7"},
+  // UNIÓN PARDILLO
+  {nombre:"UNIÓN PARDILLO",              entrenadores:"ENTREN_PARDILLO",       liga:"f7"},
+  {nombre:"CF UNIÓN VVA DEL PARDILLO",   entrenadores:"ENTREN_PARDILLO",       liga:"f7"},
+];
+
+const CAMPOS_BASE = {
+  "Kolbe":           {Viernes:{ini:"18:00",fin:"20:00",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Av. de la Universidad, 4, Villanueva de la Cañada"},
+  "Zola":            {Viernes:{ini:"17:00",fin:"19:00",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Zola, Villafranca del Castillo"},
+  "Los Pinos":       {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Av. de los Estudiantes, Villanueva del Pardillo"},
+  "St. Michael":     {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"C/ Río Guadiana, 2, Boadilla del Monte"},
+  "Highlands":       {Sabado:{ini:"09:00",fin:"11:00",max:2}, dir:"C/ de la Comunidad Canaria, 8, Boadilla del Monte"},
+  "Fresnedillas":    {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Fresnedillas de la Oliva, Madrid"},
+  "Quijorna":        {Viernes:{ini:"17:00",fin:"19:00",max:2}, Sabado:{ini:"12:00",fin:"14:00",max:2}, dir:"C/ Del Pinar, 11, Quijorna"},
+  "Zarzalejo":       {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo de Fútbol de Zarzalejo, Madrid"},
+  "Arenales":        {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"C/ De la Guardia, 1, Arroyomolinos"},
+  "Everest":         {Viernes:{ini:"17:30",fin:"19:30",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Everest, Madrid"},
+  "SEK":             {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"C/ Castillo de Manzanares, Villafranca del Castillo"},
+  "Navalagamella":   {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo Fútbol Navalagamella, Juan Antonio Gutiérrez"},
+  "La Cañada":       {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo Municipal, Villanueva de la Cañada"},
+  "CEU":             {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio CEU Montepríncipe, Boadilla del Monte"},
+  "Quercus":         {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Quercus Educajunior, Madrid"},
+  "Pardillo":        {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo Municipal Los Pinos, Villanueva del Pardillo"},
+  "Santa María":     {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo de Fútbol Santa María de la Alameda"},
+  "Brunete":         {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo Municipal de Brunete"},
+  "Vallmont":        {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Vallmont, Madrid"},
+};
+
+const LUGAR_MAP = [
+  ["kolbe",          "Kolbe"],
+  ["zola",           "Zola"],
+  ["pinos",          "Los Pinos"],
+  ["st. michael",    "St. Michael"],
+  ["michael",        "St. Michael"],
+  ["highlands",      "Highlands"],
+  ["fresnedillas",   "Fresnedillas"],
+  ["quijorna",       "Quijorna"],
+  ["zarzalejo",      "Zarzalejo"],
+  ["arenales",       "Arenales"],
+  ["everest",        "Everest"],
+  ["navalagamella",  "Navalagamella"],
+  ["castillo de manzanares", "SEK"],
+  ["sek",            "SEK"],
+  ["ceu",            "CEU"],
+  ["monteprincipe",  "CEU"],
+  ["quercus",        "Quercus"],
+  ["pardillo",       "Pardillo"],
+  ["santa maria",    "Santa María"],
+  ["alameda",        "Santa María"],
+  ["brunete",        "Brunete"],
+  ["vallmont",       "Vallmont"],
+  ["cañada",         "La Cañada"],
+];
+
+const CATEG_MAP = {
+  "PREBENJAMIN":"Prebenjamín","PREBENJAMÍN":"Prebenjamín",
+  "BENJAMIN":"Benjamín","BENJAMÍN":"Benjamín",
+  "ALEVIN":"Alevín","ALEVÍN":"Alevín",
+  "INFANTIL":"Infantil","CADETE":"Cadete","JUVENIL":"Juvenil","SENIOR":"Senior"
+};
+
+// ============ ESTADO ============
+let partidos = [];
+let campoActivo = "todos";
+let filtroActivo = "todos";
+let equipos = JSON.parse(localStorage.getItem('kolbe_equipos') || 'null') || EQUIPOS_BASE;
+
+function recalcularEntrenadores(){
+  if(!partidos.length) return;
+  let cambios = 0;
+  partidos.forEach(function(p){
+    const e1 = getEntrenadores(p.eq1);
+    const e2 = getEntrenadores(p.eq2);
+    if(e1 !== p.ent1 || e2 !== p.ent2){ p.ent1=e1; p.ent2=e2; cambios++; }
+  });
+  if(cambios > 0){ savePartidos(); renderTodo(); }
+  renderCondActivos();
+}
+
+function recalcularEntrenadoresBtn(btn){
+  recalcularEntrenadores();
+  const original = btn.textContent;
+  btn.textContent = "✓ Actualizado";
+  btn.style.background = "var(--verde2,#2d6a4f)";
+  setTimeout(function(){ btn.textContent = original; btn.style.background = ""; }, 2000);
+}
+
+function saveEquipos(){
+  localStorage.setItem('kolbe_equipos', JSON.stringify(equipos));
+  recalcularEntrenadores();
+}
+
+// ============ UTILIDADES ============
+function toMins(t){ const[h,m]=(t||"00:00").split(":").map(Number); return h*60+m; }
+
+function lugarACampo(lugar){
+  if(!lugar) return null;
+  const l = lugar.toLowerCase();
+  // Check static map first
+  for(const [k,v] of LUGAR_MAP) if(l.includes(k)) return v;
+  // Then check all configured campos dynamically (name match)
+  for(const nombre of Object.keys(CAMPOS_BASE)){
+    if(l.includes(nombre.toLowerCase())) return nombre;
+  }
+  return null;
+}
+
+function parseHora(h){
+  if(!h) return "00:00";
+  const s = h.toString().replace(/\s*GMT.*/i,"").trim();
+  if(/^\d{1,2}:\d{2}$/.test(s)) return s.padStart(5,"0");
+  return "00:00";
+}
+
+function parseDia(fecha){
+  if(!fecha) return "Sabado";
+  const m = fecha.toString().match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if(m){ const d = new Date(`${m[3]}-${m[2]}-${m[1]}`); return d.getDay()===5?"Viernes":"Sabado"; }
+  return "Sabado";
+}
+
+function categDeComp(comp){
+  if(!comp) return "";
+  const c = comp.toUpperCase();
+  for(const[k,v] of Object.entries(CATEG_MAP)) if(c.includes(k)) return v;
+  return comp.replace(/LIGA F-7 /i,"").replace(/LIGA FS /i,"");
+}
+
+function getEntrenadores(nombreEquipo){
+  if(!nombreEquipo) return "";
+  const n = nombreEquipo.toUpperCase().replace(/["""]/g,"").trim();
+
+  // Highlands: asignar entrenador según categoría detectada en el nombre del equipo
+  if(n.includes("HIGHLANDS")){
+    if(n.includes("ALEVIN") || n.includes("ALEVÍN")) return "CARLOS";
+    if(n.includes("PREB") && (n.includes(" A") || n.includes("1"))) return "ALEJANDRO";
+    if(n.includes("BENJ") && (n.includes(" B") || n.includes("2"))) return "ALEJANDRO";
+    if(n.includes("PREB") && (n.includes(" B") || n.includes("2"))) return "JULIÁN";
+    if(n.includes("BENJ") && (n.includes(" A") || n.includes("1"))) return "JULIÁN";
+    if(n.includes("CHUPE")) return "JULIÁN";
+    return "ENTREN_HIGHLANDS";
+  }
+
+  // Zola: entrenadores por equipo y categoría
+  if(n.includes("ZOLA")){
+    // Helper: detectar sufijo A o B como grupo
+    const zolaEndsB = n.endsWith(" B") || n.includes(" B ") || n.endsWith('\"B\"') || n.includes(" B\"");
+    const zolaEndsA = n.endsWith(" A") || n.includes(" A ") || n.endsWith('\"A\"') || n.includes(" A\"");
+    // Chupetines → Tomás
+    if(n.includes("CHUPE")) return "TOMÁS";
+    // Prebenjamín → Tomás(A) / Andrés(B)
+    if(n.includes("PREB") || n.includes("PREBENJAM")) return zolaEndsB ? "ANDRÉS" : "TOMÁS";
+    // Benjamín → Tomás(A) / Rodrigo(B)
+    if(n.includes("BENJ") || n.includes("BENJAMIN")) return zolaEndsB ? "RODRIGO" : "TOMÁS";
+    // Cadete → Tomás(A) / Andrés(B)
+    if(n.includes("CADETE")) return zolaEndsB ? "ANDRÉS" : "TOMÁS";
+    // Femenino → Andrés
+    if(n.includes("FEMEN")) return "ANDRÉS";
+    // Alevín → Felipe(A) / Rodrigo(B)
+    if(n.includes("ALEVIN") || n.includes("ALEVÍN")) return zolaEndsB ? "RODRIGO" : "FELIPE";
+    // Genérico A/B
+    if(zolaEndsB) return "ANDRÉS";
+    if(zolaEndsA) return "TOMÁS";
+    return "ENTREN_ZOLA";
+  }
+
+  // Fresnedillas: todos mismo entrenador
+  if(n.includes("FRESNEDILLAS")) return "ENTREN_FRESNE";
+
+  // Quercus: mismo entrenador
+  if(n.includes("QUERCUS")) return "ENTREN_QUERCUS";
+
+  // Arenales: Preb y Alevín mismo entrenador
+  if(n.includes("ARENALES")) return "ENTREN_ARENALES";
+
+  // Everest: Preb B y Benj B no coincidir (distintos entrenadores ficticios)
+  if(n.includes("EVEREST")){
+    if(n.includes(" B") || n.includes('"B"')) return "ENTREN_EVEREST_B";
+    if(n.includes(" C") || n.includes('"C"')) return "ENTREN_EVEREST_C";
+    return "ENTREN_EVEREST_A";
+  }
+
+  // St. Michael: Preb y Benjamín Green no coincidir
+  if(n.includes("MICHAEL") || n.includes("MICHAEL")){
+    if(n.includes("GREEN")) return "ENTREN_STM_G";
+    if(n.includes("WHITE")) return "ENTREN_STM_W";
+    if(n.includes("PREB")) return "ENTREN_STM_PREB";
+    return "ENTREN_STM";
+  }
+
+  // Rayo Zarzalejo
+  if(n.includes("ZARZALEJO")) return "ENTREN_ZARZALEJO";
+
+  // Unión Pardillo
+  if(n.includes("PARDILLO") && n.includes("UNI")) return "ENTREN_PARDILLO";
+
+  // Buscar en equipos configurados — coincidencia estricta
+  const eq = equipos.find(function(e){
+    const en = e.nombre.toUpperCase().replace(/["""]/g,"").trim();
+    // Coincidencia exacta
+    if(n === en) return true;
+    // El nombre del equipo configurado está completamente contenido en el nombre del CSV
+    // Solo si el nombre configurado tiene 3+ palabras significativas
+    const partes = en.split(" ").filter(function(w){ return w.length > 3; });
+    if(partes.length >= 2 && partes.every(function(w){ return n.includes(w); })) return true;
+    return false;
+  });
+  return eq ? eq.entrenadores : "";
+}
+
+function getDiasDisp(campo){
+  if(!campo || !CAMPOS_BASE[campo]) return ["Viernes","Sabado"];
+  return Object.keys(CAMPOS_BASE[campo]).filter(function(k){ return k !== "dir" && k !== "max"; });
+}
+
+function getFranja(campo, dia){
+  if(!campo || !CAMPOS_BASE[campo]) return null;
+  const f = CAMPOS_BASE[campo][dia];
+  if(!f || typeof f !== "object" || !f.ini) return null;
+  return f;
+}
+
+// ============ PARSE CSV ============
+function parseCSVLine(line){
+  const r=[]; let cur=""; let inQ=false;
+  for(let i=0;i<line.length;i++){
+    if(line[i]==='"'){inQ=!inQ;}
+    else if(line[i]===','&&!inQ){r.push(cur);cur="";}
+    else cur+=line[i];
+  }
+  r.push(cur);
+  return r.map(s=>s.trim());
+}
+
+function procesarCSV(text){
+  const lines = text.trim().split(/\r?\n/);
+  if(lines.length < 2) return [];
+  // Normalize headers: remove quotes, spaces, accents for robust matching
+  const headers = parseCSVLine(lines[0]).map(function(h){
+    return h.replace(/["\'\s]/g,"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  });
+
+  const idx = {
+    eq1:     headers.findIndex(function(h){ return h.includes("equipo1"); }),
+    eq2:     headers.findIndex(function(h){ return h.includes("equipo2"); }),
+    fecha:   headers.findIndex(function(h){ return h.includes("fecha"); }),
+    hora:    headers.findIndex(function(h){ return h.includes("hora"); }),
+    lugar:   headers.findIndex(function(h){ return h.includes("lugar"); }),
+    jornada: headers.findIndex(function(h){ return h.includes("jornada"); }),
+    comp:    headers.findIndex(function(h){ return h === "competicion" || (h.includes("competici") && !h.includes("estado")); }),
+    grupo:   headers.findIndex(function(h){ return h === "grupo"; }),
+  };
+
+  const result = [];
+  for(let i=1;i<lines.length;i++){
+    if(!lines[i].trim()) continue;
+    const cols = parseCSVLine(lines[i]);
+    const eq1 = cols[idx.eq1]||"";
+    if(!eq1) continue;
+    const horaRaw = parseHora(cols[idx.hora]||"");
+    const fechaRaw = cols[idx.fecha]||"";
+    const dia = parseDia(fechaRaw);
+    const campo = lugarACampo(cols[idx.lugar]||"");
+    const comp = cols[idx.comp]||"";
+    const jornada = cols[idx.jornada]||"";
+
+    result.push({
+      id: i,
+      eq1,
+      eq2: cols[idx.eq2]||"",
+      fecha: fechaRaw,
+      hora: horaRaw,
+      sinHora: horaRaw === "00:00",
+      dia,
+      campo: campo || "Sin campo",
+      jornada,
+      comp,
+      categoria: categDeComp(comp),
+      grupo: (cols[idx.grupo]||"").replace(/GRUPO /i,"").trim(),
+      ent1: getEntrenadores(eq1),
+      ent2: getEntrenadores(cols[idx.eq2]||""),
+      conflicto: null,
+    });
+  }
+  return result;
+}
+
+// ============ CONFLICTOS ============
+function calcConflictos(){
+  partidos.forEach(p=>p.conflicto=null);
+  for(let i=0;i<partidos.length;i++){
+    const a = partidos[i];
+    if(a.sinHora) continue;
+    const aIni = toMins(a.hora), aFin = aIni+60;
+
+    // Franja de campo
+    const franja = getFranja(a.campo, a.dia);
+    if(franja){
+      if(aIni < toMins(franja.ini) || aFin > toMins(franja.fin)){
+        a.conflicto = (a.conflicto||"") + `Fuera de franja ${a.campo} (${franja.ini}–${franja.fin}). `;
+      }
+    }
+
+    for(let j=i+1;j<partidos.length;j++){
+      const b = partidos[j];
+      if(b.sinHora || a.dia !== b.dia) continue;
+      const bIni = toMins(b.hora), bFin = bIni+60;
+      if(aIni < bFin && bIni < aFin){
+        const entsA = [...(a.ent1||"").split(","), ...(a.ent2||"").split(",")].map(e=>e.trim().toUpperCase()).filter(Boolean);
+        const entsB = [...(b.ent1||"").split(","), ...(b.ent2||"").split(",")].map(e=>e.trim().toUpperCase()).filter(Boolean);
+        const shared = entsA.filter(e=>entsB.includes(e)&&e);
+        if(shared.length){
+          const msg = `Conflicto con "${b.eq1}" — entrenador: ${shared.join(", ")}. `;
+          a.conflicto = (a.conflicto||"") + msg;
+          b.conflicto = (b.conflicto||"") + `Conflicto con "${a.eq1}" — entrenador: ${shared.join(", ")}. `;
+        }
+      }
+    }
+  }
+}
+
+// ============ RENDER ============
+function renderTodo(){
+  calcConflictos();
+  renderStats();
+  renderAlertas();
+  renderTabs();
+  renderTabla();
+  renderCamposInfo();
+  renderCondActivos();
+}
+
+function renderStats(){
+  const total = partidos.length;
+  const sinH = partidos.filter(p=>p.sinHora).length;
+  const conf = partidos.filter(p=>p.conflicto).length;
+  const ok = total - sinH - conf;
+  document.getElementById("s-total").textContent = total;
+  document.getElementById("s-sinHora").textContent = sinH;
+  document.getElementById("s-conflictos").textContent = conf;
+  document.getElementById("s-ok").textContent = Math.max(0,ok);
+}
+
+function renderAlertas(){
+  const box = document.getElementById("alertas-box");
+  const conf = partidos.filter(p=>p.conflicto&&!p.sinHora);
+  const sinH = partidos.filter(p=>p.sinHora);
+  let html = "";
+  if(conf.length) html += `<div class="alert alert-err"><span class="alert-icon">✕</span><div><strong>${conf.length} conflicto${conf.length>1?"s":""} detectado${conf.length>1?"s":""}.</strong> Revisa los partidos marcados en rojo.</div></div>`;
+  if(sinH.length) html += `<div class="alert alert-warn"><span class="alert-icon">!</span><div><strong>${sinH.length} partido${sinH.length>1?"s":""} sin hora asignada.</strong> Asigna horario a los marcados en naranja.</div></div>`;
+  if(!conf.length && !sinH.length && partidos.length) html = `<div class="alert alert-ok"><span class="alert-icon">✓</span><div>Todos los partidos tienen hora y sin conflictos. Puedes exportar.</div></div>`;
+  box.innerHTML = html;
+}
+
+function renderTabs(){
+  const campos = ["todos", ...Object.keys(CAMPOS_BASE), "Sin campo"];
+  const tabs = document.getElementById("campo-tabs");
+  tabs.innerHTML = campos.map(c=>{
+    const count = c==="todos" ? partidos.length : partidos.filter(p=>p.campo===c).length;
+    if(count===0 && c!=="todos") return "";
+    const label = c==="todos" ? "Todos" : c;
+    return `<button class="campo-tab ${campoActivo===c?"active":""}" onclick="setCampo('${c}')">${label}<span class="badge">${count}</span></button>`;
+  }).join("");
+}
+
+function setFiltro(f){
+  filtroActivo = f;
+  ["todos","sinHora","conHora"].forEach(id => {
+    document.getElementById("f-"+id).classList.toggle("active", id===f);
+  });
+  renderTabla();
+}
+
+function setCampo(c){
+  campoActivo = c;
+  renderTabs();
+  renderTabla();
+  // Franja info
+  const fi = document.getElementById("franja-info");
+  const titulo = document.getElementById("campo-activo-titulo");
+  titulo.textContent = c==="todos" ? "Todos los campos" : `Campo: ${c}`;
+  if(c!=="todos" && CAMPOS_BASE[c]){
+    const f = CAMPOS_BASE[c];
+    const parts = [];
+    if(f.Viernes) parts.push(`Viernes ${f.Viernes.ini}–${f.Viernes.fin}`);
+    if(f.Sabado) parts.push(`Sábado ${f.Sabado.ini}–${f.Sabado.fin}`);
+    fi.textContent = parts.join("  ·  ");
+  } else fi.textContent = "";
+}
+
+function renderPartidoRow(p){
+  const rowClass = p.conflicto ? "partido-row conflicto" : p.sinHora ? "partido-row sin-hora" : "partido-row";
+  const estado = p.conflicto ? `<span class="estado-badge estado-err">✕ Conflicto</span>` :
+                 p.sinHora   ? `<span class="estado-badge estado-pend">! Sin hora</span>` :
+                               `<span class="estado-badge estado-ok">✓ OK</span>`;
+  const diasDisp = getDiasDisp(p.campo);
+  const diaOpts = diasDisp.map(d=>`<option value="${d}" ${p.dia===d?"selected":""}>${d==="Viernes"?"Viernes":"Sábado"}</option>`).join("");
+  const entDisplay = [p.ent1,p.ent2].filter(Boolean).join(" / ") || `<span style="color:var(--gris4);font-size:11px">—</span>`;
+  return `<tr class="${rowClass}" data-id="${p.id}">
+    <td>
+      <div class="equipo-nombre">${p.eq1} <span class="equipo-vs">vs</span> ${p.eq2}</div>
+      ${p.conflicto ? `<span class="conf-msg">${p.conflicto}</span>` : ""}
+    </td>
+    <td>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <span class="categoria-tag">${p.categoria||"—"}</span>
+        ${p.grupo ? `<span class="categoria-tag" style="background:var(--gris1);border:1px solid var(--gris2);color:var(--gris4)">${p.grupo}</span>` : ""}
+      </div>
+    </td>
+    <td style="font-size:12px;color:var(--gris5)">${entDisplay}</td>
+    <td><select class="dia-select" onchange="updatePartido(${p.id},'dia',this.value)">${diaOpts}</select></td>
+    <td><input type="time" class="hora-input ${p.conflicto?'conflicto':''}" value="${p.sinHora?'':p.hora}" onchange="updatePartido(${p.id},'hora',this.value)" placeholder="--:--"></td>
+    <td>${estado}</td>
+    <td><button class="btn btn-sm" style="padding:3px 7px;font-size:12px;border:1px solid var(--gris3);background:transparent;cursor:pointer;border-radius:5px;color:var(--gris5)" onclick="limpiarHora(${p.id})" title="Quitar hora">✕</button></td>
+  </tr>`;
+}
+
+function renderTabla(){
+  let lista = campoActivo==="todos" ? partidos : partidos.filter(p=>p.campo===campoActivo);
+  if(filtroActivo==="sinHora") lista = lista.filter(p=>p.sinHora);
+  if(filtroActivo==="conHora") lista = lista.filter(p=>!p.sinHora);
+  const tbody = document.getElementById("tabla-body");
+  if(!lista.length){ tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--gris4)">No hay partidos para este campo</td></tr>`; return; }
+
+  let html = "";
+
+  if(campoActivo !== "todos"){
+    // Vista de campo individual: agrupar por día
+    ["Viernes","Sabado"].forEach(dia=>{
+      const ps = lista.filter(p=>p.dia===dia);
+      if(!ps.length) return;
+      ps.sort((a,b)=>{ if(a.sinHora&&!b.sinHora) return 1; if(!a.sinHora&&b.sinHora) return -1; return toMins(a.hora)-toMins(b.hora); });
+      html += `<tr><td colspan="7"><div class="dia-header">${dia==="Viernes"?"Viernes":"Sábado"}</div></td></tr>`;
+      ps.forEach(p=>{ html += renderPartidoRow(p); });
+    });
+  } else {
+    // Vista todos: agrupar por CAMPO, luego por día dentro de cada campo
+    // Orden: campos conocidos primero, luego el resto
+    const camposOrdenados = [...Object.keys(CAMPOS_BASE), "Sin campo"];
+    const camposEnLista = [...new Set(lista.map(p=>p.campo||"Sin campo"))];
+    // Añadir campos desconocidos al final
+    camposEnLista.forEach(c=>{ if(!camposOrdenados.includes(c)) camposOrdenados.push(c); });
+
+    camposOrdenados.forEach(campo=>{
+      const psCampo = lista.filter(p=>(p.campo||"Sin campo")===campo);
+      if(!psCampo.length) return;
+
+      // Header de campo con franja info
+      const franjaInfo = CAMPOS_BASE[campo]
+        ? Object.entries(CAMPOS_BASE[campo]).filter(([d,f])=>d!=="dir" && f && typeof f==="object" && f.ini && f.fin).map(([d,f])=>(d==="Viernes"?"Vie":"Sáb")+": "+f.ini+"–"+f.fin).join("  ·  ")
+        : "";
+      html += `<tr><td colspan="7">
+        <div style="display:flex;justify-content:space-between;align-items:center;background:var(--verde);color:#fff;padding:7px 12px;border-radius:var(--r);margin:12px 0 4px;font-size:12px;font-weight:600">
+          <span>🏟 ${campo}</span>
+          <span style="font-weight:400;opacity:.8;font-family:var(--fm);font-size:11px">${franjaInfo}</span>
+        </div>
+      </td></tr>`;
+
+      // Dentro de cada campo, agrupar por día ordenado por hora
+      ["Viernes","Sabado"].forEach(dia=>{
+        const ps = psCampo.filter(p=>p.dia===dia);
+        if(!ps.length) return;
+        ps.sort((a,b)=>{ if(a.sinHora&&!b.sinHora) return 1; if(!a.sinHora&&b.sinHora) return -1; return toMins(a.hora)-toMins(b.hora); });
+        html += `<tr><td colspan="7"><div class="dia-header" style="margin-left:8px">${dia==="Viernes"?"Viernes":"Sábado"}</div></td></tr>`;
+        ps.forEach(p=>{ html += renderPartidoRow(p); });
+      });
+    });
+  }
+
+  tbody.innerHTML = html;
+}
+
+function renderCamposInfo(){
+  const box = document.getElementById("campos-info");
+  if(!box) return;
+  const diasLabel = {Viernes:"Vie",Sabado:"Sáb"};
+  box.innerHTML = Object.entries(CAMPOS_BASE).map(([nombre, franjas]) => {
+    const filas = Object.entries(franjas).filter(([dia, f]) => dia !== "dir" && f && typeof f === "object" && f.ini).map(([dia, f]) => {
+      const total = partidos.filter(p => p.campo === nombre && p.dia === dia).length;
+      const max = f.max || 99;
+      const pct = max ? Math.min(total/max, 1) : 0;
+      const color = total >= max ? "var(--rojo)" : total > 0 ? "var(--verde2)" : "var(--gris4)";
+      return `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+        <span style="font-size:11px;color:var(--gris5)">${diasLabel[dia] || dia} ${f.ini}–${f.fin}</span>
+        <span style="font-size:11px;font-family:var(--fm);font-weight:500;color:${color}">${total}/${max}</span>
+      </div>
+      <div style="height:4px;background:var(--gris2);border-radius:99px;margin-top:3px;overflow:hidden">
+        <div style="height:100%;width:${Math.round(pct*100)}%;background:${color};border-radius:99px;transition:width .3s"></div>
+      </div>`;
+    }).join("");
+    return `<div style="padding:8px 0;border-bottom:1px solid var(--gris2)">
+      <div style="font-size:12px;font-weight:600;color:var(--negro);margin-bottom:2px">${nombre}</div>
+      ${filas}
+    </div>`;
+  }).join("") + `<p style="font-size:11px;color:var(--gris4);margin-top:8px">Partidos asignados / máximo por franja</p>`;
+}
+
+function renderCondActivos(){
+  const box = document.getElementById("cond-activos");
+  // Show active constraints: entrenadores que tienen múltiples equipos
+  const entMap = {};
+  partidos.forEach(function(p){
+    // ent1 pertenece a eq1, ent2 pertenece a eq2
+    [[p.ent1, p.eq1],[p.ent2, p.eq2]].forEach(function(par){
+      const ents = par[0]; const equipo = par[1];
+      if(!ents || !equipo) return;
+      ents.split(",").forEach(function(e){
+        const en = e.trim();
+        if(!en) return;
+        if(!entMap[en]) entMap[en]=[];
+        // Solo añadir si no está ya este equipo
+        if(!entMap[en].includes(equipo)) entMap[en].push(equipo);
+      });
+    });
+  });
+  const conds = Object.entries(entMap).filter(([,equipos])=>equipos.length>1);
+  if(!conds.length){ box.innerHTML=`<div style="font-size:12px;color:var(--gris4)">No hay condicionantes para los partidos cargados</div>`; return; }
+  box.innerHTML = conds.map(([ent,eqs])=>`
+    <div class="cond-item">
+      <div class="cond-label">${ent}</div>
+      <div class="cond-val">${eqs.join("<br>")}</div>
+    </div>`).join("");
+}
+
+// ============ UPDATES ============
+function updatePartido(id, field, val){
+  const p = partidos.find(p=>p.id===id);
+  if(!p) return;
+  if(field==="hora"){
+    p.hora = val||"00:00";
+    p.sinHora = !val || val==="00:00";
+  }
+  if(field==="dia") p.dia = val;
+  savePartidos();
+  renderTodo();
+}
+
+function limpiarHora(id){
+  const p = partidos.find(p=>p.id===id);
+  if(!p) return;
+  p.hora = "00:00";
+  p.sinHora = true;
+  savePartidos();
+  renderTodo();
+}
+
+// ============ CARGA DE ARCHIVO ============
+function handleFile(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => cargarTexto(ev.target.result, file.name);
+  reader.readAsText(file, 'utf-8');
+}
+
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById("upload-zone").classList.remove("drag");
+  const file = e.dataTransfer.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => cargarTexto(ev.target.result, file.name);
+  reader.readAsText(file, 'utf-8');
+}
+function handleDragOver(e){ e.preventDefault(); document.getElementById("upload-zone").classList.add("drag"); }
+function handleDragLeave(){ document.getElementById("upload-zone").classList.remove("drag"); }
+
+// ============ PERSISTENCIA CON HISTORIAL ============
+let jornadaActivaId = null;
+
+function getAllJornadas(){
+  try { return JSON.parse(localStorage.getItem("kolbe_jornadas") || "[]"); } catch(e){ return []; }
+}
+function saveAllJornadas(arr){ localStorage.setItem("kolbe_jornadas", JSON.stringify(arr)); }
+
+function savePartidos(){
+  if(!jornadaActivaId) return;
+  const jornadas = getAllJornadas();
+  const idx = jornadas.findIndex(function(j){ return j.id === jornadaActivaId; });
+  if(idx >= 0){
+    jornadas[idx].partidos = partidos;
+    jornadas[idx].updatedAt = new Date().toISOString();
+    saveAllJornadas(jornadas);
+  }
+}
+
+function loadPartidos(){
+  // Migrar formato antiguo si existe
+  try {
+    const old = localStorage.getItem("kolbe_partidos");
+    if(old){
+      const saved = JSON.parse(old);
+      if(saved.partidos && saved.partidos.length){
+        const arr = getAllJornadas();
+        arr.unshift({ id:"j_migrado", semana: saved.semana||"Jornada importada", partidos: saved.partidos, createdAt: new Date().toISOString() });
+        saveAllJornadas(arr);
+        localStorage.removeItem("kolbe_partidos");
+      }
+    }
+  } catch(e){}
+  renderHistorial();
+}
+
+function renderHistorial(){
+  const jornadas = getAllJornadas();
+  const box = document.getElementById("historial-lista");
+  const hbox = document.getElementById("historial-box");
+  if(!box || !hbox) return;
+  if(!jornadas.length){ hbox.style.display="none"; return; }
+  hbox.style.display = "block";
+  box.innerHTML = jornadas.map(function(j){
+    const total = (j.partidos||[]).length;
+    const sinH  = (j.partidos||[]).filter(function(p){ return p.sinHora; }).length;
+    const conf  = (j.partidos||[]).filter(function(p){ return p.conflicto; }).length;
+    const fecha = j.createdAt ? new Date(j.createdAt).toLocaleDateString("es-ES") : "";
+    const badge = conf>0
+      ? `<span style="background:var(--rojo-s);color:var(--rojo);border:1px solid var(--rojo-b);padding:2px 8px;border-radius:99px;font-size:11px">${conf} conflicto${conf>1?"s":""}</span>`
+      : sinH>0
+      ? `<span style="background:var(--naranja-s);color:var(--naranja);border:1px solid var(--naranja-b);padding:2px 8px;border-radius:99px;font-size:11px">${sinH} sin hora</span>`
+      : `<span style="background:var(--verde-s);color:var(--verde);border:1px solid var(--verde-b);padding:2px 8px;border-radius:99px;font-size:11px">✓ Completa</span>`;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--gris2);border-radius:var(--r);margin-bottom:6px;background:#fff;cursor:pointer"
+      onclick="abrirJornada('${j.id}')"
+      onmouseover="this.style.borderColor='var(--verde2)';this.style.background='var(--verde-s)'"
+      onmouseout="this.style.borderColor='var(--gris2)';this.style.background='#fff'">
+      <div>
+        <div style="font-size:13px;font-weight:500">Semana del ${j.semana}</div>
+        <div style="font-size:11px;color:var(--gris4);margin-top:2px">${total} partidos · ${fecha}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${badge}
+        <button onclick="event.stopPropagation();eliminarJornada('${j.id}')"
+          style="padding:3px 8px;border:1px solid var(--gris3);border-radius:5px;background:transparent;cursor:pointer;color:var(--rojo);font-size:12px">✕</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function abrirJornada(id){
+  const j = getAllJornadas().find(function(j){ return j.id===id; });
+  if(!j) return;
+  jornadaActivaId = id;
+  partidos = j.partidos || [];
+  mostrarPlanificador(j.semana);
+}
+
+function eliminarJornada(id){
+  if(!confirm("¿Eliminar esta jornada?")) return;
+  saveAllJornadas(getAllJornadas().filter(function(j){ return j.id!==id; }));
+  renderHistorial();
+}
+
+function volverHistorial(){
+  jornadaActivaId = null;
+  partidos = [];
+  document.getElementById("estado-inicial").style.display = "block";
+  document.getElementById("estado-planificador").style.display = "none";
+  document.getElementById("btn-reset").style.display = "none";
+  renderHistorial();
+}
+
+function mostrarPlanificador(semanaLabel){
+  if(semanaLabel) document.getElementById("semana-label").textContent = "Semana del " + semanaLabel;
+  document.getElementById("estado-inicial").style.display = "none";
+  document.getElementById("estado-planificador").style.display = "block";
+  document.getElementById("btn-reset").style.display = "inline-flex";
+  campoActivo = "todos";
+  filtroActivo = "todos";
+  ["todos","sinHora","conHora"].forEach(function(id){
+    const el = document.getElementById("f-"+id);
+    if(el) el.classList.toggle("active", id==="todos");
+  });
+  renderReglasFijas();
+  renderTodo();
+}
+
+function cargarTexto(text, filename){
+  const nuevos = procesarCSV(text);
+  if(!nuevos.length){ alert("No se encontraron partidos en el archivo. Comprueba que es la exportación correcta de Clupik."); return; }
+  const fechas = nuevos.map(function(p){ return p.fecha; }).filter(Boolean);
+  const semana = fechas[0] || filename || "Jornada";
+  const arr = getAllJornadas();
+  const existing = arr.findIndex(function(j){ return j.semana===semana; });
+  const id = existing>=0 ? arr[existing].id : "j_"+Date.now();
+  if(existing>=0){
+    if(!confirm("Ya existe una jornada del "+semana+". ¿Sobrescribir?")) return;
+    arr[existing] = { id, semana, partidos:nuevos, createdAt:arr[existing].createdAt, updatedAt:new Date().toISOString() };
+  } else {
+    arr.unshift({ id, semana, partidos:nuevos, createdAt:new Date().toISOString() });
+  }
+  saveAllJornadas(arr);
+  jornadaActivaId = id;
+  partidos = nuevos;
+  mostrarPlanificador(semana);
+}
+
+function cargarEjemplo(){
+  const csv = `Acciones,Estado,Observaciones,Equipo 1,Resultado,Equipo 2,Fecha,Hora,Lugar,Jornada,Grupo,Estado de la competición,Competición,Deporte,Árbitros
+acc,Pendiente,,CD KOLBE VERDE,-,CD FRESNEDILLAS,11/04/2026,00:00 GMT+2,"Campo de Fútbol 7 del Colegio Internacional Kolbe, Av de la Universidad, 4 , Vv. de la Cañada",Jornada 17,LIGA F-7 INFANTIL,,LIGA F-7 INFANTIL,Fútbol 7,
+acc,Pendiente,,CD KOLBE BLANCO,-,CD ARENALES ARROYOMOLINOS,11/04/2026,00:00 GMT+2,"Campo de Fútbol 7 del Colegio Internacional Kolbe, Av de la Universidad, 4 , Vv. de la Cañada",Jornada 10,GRUPO ORO,,LIGA F-7 ALEVIN,Fútbol 7,
+acc,Pendiente,,COLEGIO ZOLA "B",-,COLEGIO HIGHLANDS LOS FRESNOS,11/04/2026,00:00 GMT+2,"Campo de Fútbol 7 del Colegio Zola Villafranca, Villafranca del Castillo",Jornada 9,GRUPO ORO,,LIGA F-7 ALEVIN,Fútbol 7,
+acc,Pendiente,,CDE NUEVO VVA. DEL PARDILLO,-,QUIJORNA CITY,11/04/2026,00:00 GMT+2,"Campo Municipal Los Pinos, Avenida de los Estudiantes, Villanueva del Pardillo, España",Jornada 18,LIGA F-7 INFANTIL,,LIGA F-7 INFANTIL,Fútbol 7,
+acc,Pendiente,,ST. MICHAEL´S SCHOOL,-,COLEGIO HIGHLANDS LOS FRESNOS "B",11/04/2026,00:00 GMT+2,"Campo Fútbol 7 Colegio St. Michael - Calle Río Guadiana, 2, 28669 Boadilla del Monte, Madrid",Jornada 10,GRUPO PLATA,,LIGA F-7 PREBENJAMIN,Fútbol 7,
+acc,Pendiente,,COLEGIO HIGHLANDS LOS FRESNOS "A",-,EVEREST "B",11/04/2026,00:00 GMT+2,"Colegio Highlands Los Fresnos, C/de la Comunidad Canaria 8, Boadilla del Monte",Jornada 10,GRUPO ORO,,LIGA F-7 PREBENJAMIN,Fútbol 7,`;
+  cargarTexto(csv, "ejemplo.csv");
+}
+
+function resetTodo(){
+  volverHistorial();
+  document.getElementById("file-input").value = "";
+}
+
+// ============ CONFIGURACIÓN EQUIPOS ============
+function renderEquiposConfig(){
+  const box = document.getElementById("equipos-config");
+  const CATS = ["","Prebenjamín","Benjamín","Alevín","Infantil","Cadete","Juvenil","Fútbol Sala"];
+  box.innerHTML = equipos.map((e,i)=>{
+    const catOpts = CATS.map(c=>`<option value="${c}" ${(e.categoria||"")=== c?"selected":""}>${c||"— Categoría —"}</option>`).join("");
+    return `<div style="display:flex;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid var(--gris2)">
+      <input type="text" value="${e.nombre}" onchange="equipos[${i}].nombre=this.value;saveEquipos()" style="flex:2;font-size:12px;padding:5px 8px;border:1px solid var(--gris3);border-radius:6px" placeholder="Nombre del equipo">
+      <select onchange="equipos[${i}].categoria=this.value;saveEquipos()" style="width:110px;font-size:12px;padding:5px 6px;border:1px solid var(--gris3);border-radius:6px;background:#fff">${catOpts}</select>
+      <input type="text" value="${e.entrenadores||""}" onchange="equipos[${i}].entrenadores=this.value;saveEquipos();recalcularEntrenadores();" style="width:150px;font-size:12px;padding:5px 8px;border:1px solid var(--gris3);border-radius:6px" placeholder="Entrenadores">
+      <button onclick="equipos.splice(${i},1);saveEquipos();renderEquiposConfig()" style="padding:5px 8px;border:1px solid var(--gris3);border-radius:6px;background:transparent;cursor:pointer;color:var(--rojo);font-size:13px">✕</button>
+    </div>`;
+  }).join("");
+}
+
+function addEquipoRow(){
+  equipos.push({nombre:"Nuevo equipo",categoria:"",entrenadores:"",liga:"f7"});
+  saveEquipos();
+  renderEquiposConfig();
+}
+
+// ============ CONFIGURACIÓN CAMPOS ============
+function saveCampos(){
+  localStorage.setItem("kolbe_campos", JSON.stringify(CAMPOS_BASE));
+}
+
+function renderCamposConfig(){
+  const box = document.getElementById("campos-config");
+  if(!box) return;
+  const diasLabel = {Viernes:"Viernes",Sabado:"Sábado"};
+  box.innerHTML = Object.entries(CAMPOS_BASE).map(([nombre]) => {
+    const franjas = CAMPOS_BASE[nombre];
+    const tienVie = !!(franjas.Viernes && franjas.Viernes.ini);
+    const tienSab = !!(franjas.Sabado && franjas.Sabado.ini);
+    const vIni = franjas.Viernes ? franjas.Viernes.ini : "18:00";
+    const vFin = franjas.Viernes ? franjas.Viernes.fin : "20:00";
+    const vMax = franjas.Viernes ? (franjas.Viernes.max||2) : 2;
+    const sIni = franjas.Sabado  ? franjas.Sabado.ini  : "09:00";
+    const sFin = franjas.Sabado  ? franjas.Sabado.fin  : "14:00";
+    const sMax = franjas.Sabado  ? (franjas.Sabado.max||5) : 5;
+    return `<div style="background:var(--gris1);border:1px solid var(--gris2);border-radius:var(--r);padding:.875rem 1rem;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+        <span style="font-size:13px;font-weight:600">${nombre}</span>
+        <button onclick="deleteCampo('${nombre}')" style="font-size:12px;padding:3px 8px;border:1px solid var(--gris3);border-radius:5px;background:transparent;cursor:pointer;color:var(--rojo)">Eliminar</button>
+      </div>
+      <div style="display:grid;grid-template-columns:auto 1fr 1fr auto;gap:8px;align-items:center;margin-bottom:6px">
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+          <input type="checkbox" ${tienVie?"checked":""} onchange="toggleDia('${nombre}','Viernes',this.checked)"> Viernes
+        </label>
+        <div style="display:flex;gap:4px;align-items:center">
+          <input type="time" value="${vIni}" ${!tienVie?"disabled":""} onchange="updateCampo('${nombre}','Viernes','ini',this.value)" style="font-size:12px;padding:4px 6px;border:1px solid var(--gris3);border-radius:5px;width:95px;font-family:var(--fm)">
+          <span style="font-size:11px;color:var(--gris4)">–</span>
+          <input type="time" value="${vFin}" ${!tienVie?"disabled":""} onchange="updateCampo('${nombre}','Viernes','fin',this.value)" style="font-size:12px;padding:4px 6px;border:1px solid var(--gris3);border-radius:5px;width:95px;font-family:var(--fm)">
+        </div>
+        <div></div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <label style="font-size:11px;color:var(--gris4)">Máx</label>
+          <input type="number" value="${vMax}" min="1" max="20" ${!tienVie?"disabled":""} onchange="updateCampo('${nombre}','Viernes','max',parseInt(this.value))" style="font-size:12px;padding:4px 6px;border:1px solid var(--gris3);border-radius:5px;width:52px;text-align:center">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:auto 1fr 1fr auto;gap:8px;align-items:center">
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+          <input type="checkbox" ${tienSab?"checked":""} onchange="toggleDia('${nombre}','Sabado',this.checked)"> Sábado
+        </label>
+        <div style="display:flex;gap:4px;align-items:center">
+          <input type="time" value="${sIni}" ${!tienSab?"disabled":""} onchange="updateCampo('${nombre}','Sabado','ini',this.value)" style="font-size:12px;padding:4px 6px;border:1px solid var(--gris3);border-radius:5px;width:95px;font-family:var(--fm)">
+          <span style="font-size:11px;color:var(--gris4)">–</span>
+          <input type="time" value="${sFin}" ${!tienSab?"disabled":""} onchange="updateCampo('${nombre}','Sabado','fin',this.value)" style="font-size:12px;padding:4px 6px;border:1px solid var(--gris3);border-radius:5px;width:95px;font-family:var(--fm)">
+        </div>
+        <div></div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <label style="font-size:11px;color:var(--gris4)">Máx</label>
+          <input type="number" value="${sMax}" min="1" max="20" ${!tienSab?"disabled":""} onchange="updateCampo('${nombre}','Sabado','max',parseInt(this.value))" style="font-size:12px;padding:4px 6px;border:1px solid var(--gris3);border-radius:5px;width:52px;text-align:center">
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function updateCampo(nombre, dia, campo, valor){
+  if(!CAMPOS_BASE[nombre][dia]) CAMPOS_BASE[nombre][dia] = {ini:"09:00",fin:"14:00",max:5};
+  CAMPOS_BASE[nombre][dia][campo] = valor;
+  saveCampos();
+  renderCamposInfo();
+}
+
+function toggleDia(nombre, dia, activo){
+  if(activo){
+    CAMPOS_BASE[nombre][dia] = dia==="Viernes" ? {ini:"18:00",fin:"20:00",max:2} : {ini:"09:00",fin:"14:00",max:5};
+  } else {
+    delete CAMPOS_BASE[nombre][dia];
+  }
+  saveCampos();
+  renderCamposConfig();
+  renderCamposInfo();
+}
+
+function addCampoRow(){
+  const nombre = prompt("Nombre del nuevo campo:");
+  if(!nombre || !nombre.trim()) return;
+  if(CAMPOS_BASE[nombre.trim()]){ alert("Ya existe un campo con ese nombre."); return; }
+  CAMPOS_BASE[nombre.trim()] = {Sabado:{ini:"09:00",fin:"14:00",max:5}};
+  saveCampos();
+  renderCamposConfig();
+  renderCamposInfo();
+}
+
+function deleteCampo(nombre){
+  if(!confirm("¿Eliminar el campo " + nombre + "?")) return;
+  delete CAMPOS_BASE[nombre];
+  saveCampos();
+  renderCamposConfig();
+  renderCamposInfo();
+}
+
+function toggleConf(seccion){
+  const panel = document.getElementById("conf-panel");
+  const eqDiv = document.getElementById("conf-equipos");
+  const caDiv = document.getElementById("conf-campos");
+  const mismaSeccion = panel.style.display !== "none" &&
+    ((seccion==="equipos" && eqDiv.style.display!=="none") ||
+     (seccion==="campos"  && caDiv.style.display!=="none"));
+  if(mismaSeccion){ panel.style.display="none"; return; }
+  panel.style.display = "block";
+  eqDiv.style.display = seccion==="equipos" ? "block" : "none";
+  caDiv.style.display = seccion==="campos"  ? "block" : "none";
+  if(seccion==="campos") renderCamposConfig();
+}
+
+// ============ EXPORT CSV ============
+function exportarExcel(){
+  if(!partidos.length) return;
+
+  // Load SheetJS dynamically
+  if(typeof XLSX === "undefined"){
+    var s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    s.onload = function(){ _doExportExcel(); };
+    document.head.appendChild(s);
+  } else {
+    _doExportExcel();
+  }
+}
+
+function _doExportExcel(){
+  const semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "semana";
+  const camposOrden = [...Object.keys(CAMPOS_BASE), "Sin campo"];
+  const extras = [...new Set(partidos.map(function(p){ return p.campo||"Sin campo"; }))].filter(function(c){ return !camposOrden.includes(c); });
+  camposOrden.push(...extras);
+
+  const wsData = [];
+  // Title row
+  wsData.push(["Club Kolbe — Horarios de jornada", "", "", "", "", "", ""]);
+  wsData.push(["Semana del " + semana, "", "", "", "", "", ""]);
+  wsData.push(["", "", "", "", "", "", ""]);
+
+  camposOrden.forEach(function(campo){
+    const ps = partidos.filter(function(p){ return (p.campo||"Sin campo")===campo; });
+    if(!ps.length) return;
+
+    // Campo header
+    wsData.push(["🏟 " + campo, "", "", "", "", "", ""]);
+
+    ["Viernes","Sabado"].forEach(function(dia){
+      const psDia = ps.filter(function(p){ return p.dia===dia; });
+      if(!psDia.length) return;
+
+      wsData.push([dia==="Viernes"?"VIERNES":"SÁBADO", "", "", "", "", "", ""]);
+      wsData.push(["Hora","Equipo Local","vs","Equipo Visitante","Categoría","Grupo","Estado"]);
+
+      psDia.sort(function(a,b){
+        if(a.sinHora&&!b.sinHora) return 1;
+        if(!a.sinHora&&b.sinHora) return -1;
+        return toMins(a.hora)-toMins(b.hora);
+      });
+      psDia.forEach(function(p){
+        wsData.push([
+          p.sinHora ? "Sin asignar" : p.hora,
+          p.eq1,
+          "vs",
+          p.eq2,
+          p.categoria||"",
+          p.grupo||"",
+          p.conflicto ? "⚠ Conflicto" : p.sinHora ? "Sin hora" : "OK"
+        ]);
+      });
+      wsData.push(["","","","","","",""]);
+    });
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  ws['!cols'] = [
+    {wch:12},{wch:32},{wch:4},{wch:32},{wch:14},{wch:10},{wch:12}
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, "Horarios");
+  XLSX.writeFile(wb, "horarios_" + semana.replace(/\//g,"-") + ".xlsx");
+}
+
+function exportarPDF(){
+  if(!partidos.length) return;
+
+  const camposOrden = [...Object.keys(CAMPOS_BASE), "Sin campo"];
+  const extras = [...new Set(partidos.map(p=>p.campo||"Sin campo"))].filter(c=>!camposOrden.includes(c));
+  camposOrden.push(...extras);
+
+  const semana = document.getElementById("semana-label").textContent || "Horarios";
+
+  let filas = "";
+  camposOrden.forEach(function(campo){
+    const ps = partidos.filter(function(p){ return (p.campo||"Sin campo")===campo; });
+    if(!ps.length) return;
+    filas += `<tr><td colspan="6" style="background:#1b5e3b;color:#fff;padding:7px 12px;font-weight:600;font-size:13px">🏟 ${campo}</td></tr>`;
+    ["Viernes","Sabado"].forEach(function(dia){
+      const psDia = ps.filter(function(p){ return p.dia===dia; });
+      if(!psDia.length) return;
+      filas += `<tr><td colspan="6" style="background:#f4f4f2;color:#5c5c57;padding:4px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">${dia==="Viernes"?"Viernes":"Sábado"}</td></tr>`;
+      psDia.sort(function(a,b){
+        if(a.sinHora&&!b.sinHora) return 1;
+        if(!a.sinHora&&b.sinHora) return -1;
+        return toMins(a.hora)-toMins(b.hora);
+      });
+      psDia.forEach(function(p){
+        const horaColor = p.sinHora ? "#e65100" : "#1b5e3b";
+        const horaText = p.sinHora ? "Sin hora" : p.hora;
+        const estadoBg = p.conflicto ? "#fdecea" : p.sinHora ? "#fff3e0" : "#e6f4ed";
+        const estadoColor = p.conflicto ? "#b71c1c" : p.sinHora ? "#e65100" : "#1b5e3b";
+        const estadoText = p.conflicto ? "⚠ Conflicto" : p.sinHora ? "Sin hora" : "✓ OK";
+        filas += `<tr style="border-bottom:1px solid #eeeeeb">
+          <td style="padding:8px 12px;font-weight:600;font-size:12px;color:${horaColor};font-family:monospace;width:60px">${horaText}</td>
+          <td style="padding:8px 8px;font-size:12px;font-weight:500">${p.eq1}</td>
+          <td style="padding:8px 4px;font-size:11px;color:#9e9e99;text-align:center">vs</td>
+          <td style="padding:8px 8px;font-size:12px">${p.eq2}</td>
+          <td style="padding:8px 8px;font-size:11px;color:#5c5c57">${p.categoria||""}${p.grupo?" · "+p.grupo:""}</td>
+          <td style="padding:8px 8px;text-align:center"><span style="background:${estadoBg};color:${estadoColor};padding:2px 8px;border-radius:99px;font-size:10px;font-weight:600">${estadoText}</span></td>
+        </tr>`;
+      });
+    });
+  });
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Horarios ${semana}</title>
+  <style>
+    body{font-family:'Helvetica Neue',Arial,sans-serif;margin:0;padding:24px;color:#1c1c1a}
+    h1{font-size:18px;font-weight:600;color:#1b5e3b;margin:0 0 4px}
+    .sub{font-size:12px;color:#9e9e99;margin-bottom:20px}
+    table{width:100%;border-collapse:collapse}
+    .wa-modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem}
+.wa-modal{background:#fff;border-radius:var(--radio-grande);padding:1.5rem;max-width:600px;width:100%;max-height:85vh;overflow-y:auto}
+.wa-modal-title{font-size:15px;font-weight:600;margin-bottom:1rem;color:var(--negro)}
+.wa-equipo-bloque{border:1px solid var(--gris-medio);border-radius:var(--radio);margin-bottom:1rem;overflow:hidden}
+.wa-equipo-head{background:var(--verde);color:#fff;padding:8px 14px;font-size:12px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.wa-equipo-msg{padding:10px 14px;font-size:13px;white-space:pre-wrap;line-height:1.6;background:#f7f7f5;font-family:var(--fuente-mono)}
+.wa-copy-btn{padding:4px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.4);background:transparent;color:#fff;font-size:11px;cursor:pointer;font-family:var(--fuente)}
+.wa-copy-btn:hover{background:rgba(255,255,255,0.2)}
+@media print{body{padding:12px}@page{margin:1cm}}
+  </style></head><body>
+  <h1>Club Kolbe — Planificador de jornada</h1>
+  <div class="sub">${semana}</div>
+  <table>${filas}</table>
+  </body></html>`;
+
+  const w = window.open("","_blank");
+  w.document.write(html);
+  w.document.close();
+  setTimeout(function(){ w.print(); }, 400);
+}
+
+// ============ AUTO ASIGNACIÓN ============
+const REGLAS_FIJAS = [
+  { id:"highlands_primero",     desc:"Highlands: sábado 09:00–11:00 (primero)" },
+  { id:"zola_vs_zola",          desc:"Zola vs Zola → viernes campo Zola" },
+  { id:"zola_alevin_no_coincidir", desc:"Zola Alevín A y Alevín B no coincidir — comparten jugadores" },
+  { id:"kolbe_alevin_viernes",  desc:"Kolbe Alevín → viernes 18:00" },
+  { id:"kolbe_alevin2_viernes", desc:"2× Kolbe Alevín → segundo va a las 19:00" },
+  { id:"fresnedillas_1entren",  desc:"Fresnedillas: 1 entrenador, ningún partido coincide. Fuera de casa → preferencia viernes 19:00" },
+  { id:"quercus_mismoentren",   desc:"Quercus: mismo entrenador ambos equipos, no coincidir" },
+  { id:"highlands_entren",      desc:"Highlands: Carlos(Alevín) / Julián(PrebB+BenjA+Chupetín) / Alejandro(PrebA+BenjB)" },
+  { id:"stmichael_no_preb_benj",desc:"St. Michael: Preb y Benjamín Green no coincidir" },
+  { id:"arenales_entren",       desc:"Arenales: Prebenjamín y Alevín mismo entrenador, no coincidir" },
+  { id:"everest_entren",        desc:"Everest: Prebenjamín B y Benjamín B no coincidir" },
+  { id:"zarzalejo_hora",        desc:"Rayo Zarzalejo: en casa → sábado 11:00" },
+  { id:"pardillo_benj_hora",    desc:"Unión Pardillo: Prebenjamín siempre a las 13:00" },
+];
+
+// Condicionantes detallados por equipo (para detección de conflictos)
+const CONDICIONANTES = {
+  // Fresnedillas: todos comparten entrenador
+  fresnedillas: {
+    entrenador: "ENTREN_FRESNEDILLAS",
+    equipos: ["FRESNEDILLAS"],
+    preferencia_fuera: {dia:"Viernes", hora:"19:00"},
+  },
+  // Quercus: mismo entrenador ambos equipos
+  quercus: {
+    entrenador: "ENTREN_QUERCUS",
+    equipos: ["QUERCUS"],
+  },
+  // Highlands: 3 entrenadores con equipos distintos
+  highlands: {
+    grupos: [
+      { entrenador:"CARLOS",    keywords:["ALEVÍN","ALEVIN"] },
+      { entrenador:"JULIÁN",    keywords:["PREB","PREB. B","BENJAMÍN A","BENJAMIN A","CHUPETÍN","CHUPETIN"] },
+      { entrenador:"ALEJANDRO", keywords:["PREB. A","PREBENJAMÍN A","BENJAMÍN B","BENJAMIN B"] },
+    ],
+  },
+  // St. Michael: Preb y Benjamín Green no coincidir
+  stmichael: {
+    no_coincidir: [["PREB","BENJAMIN GREEN","BENJAMIN GREEN"]],
+  },
+  // Arenales: Preb y Alevín mismo entrenador
+  arenales: {
+    entrenador: "ENTREN_ARENALES",
+    equipos: ["ARENALES"],
+  },
+  // Everest: Preb B y Benjamín B no coincidir
+  everest: {
+    no_coincidir: [["PREB","BENJAMIN B"]],
+  },
+  // Rayo Zarzalejo: en casa sábado 11:00
+  zarzalejo: {
+    en_casa: { dia:"Sabado", hora:"11:00" },
+  },
+  // Unión Pardillo: Benjamín a las 13:00
+  pardillo: {
+    benjamin_hora: "13:00",
+  },
+};
+
+function renderReglasFijas(){
+  const box = document.getElementById("reglas-fijas-display");
+  if(!box) return;
+  box.innerHTML = REGLAS_FIJAS.map(r =>
+    `<span style="background:var(--verde-b);color:var(--verde);padding:3px 9px;border-radius:99px;font-size:11px;font-weight:500">${r.desc}</span>`
+  ).join("");
+}
+
+function parseReglasExtra(texto){
+  if(!texto.trim()) return [];
+  return texto.trim().split("\n").map(function(l){ return l.trim(); }).filter(Boolean);
+}
+
+function equipoContiene(nombre, termino){
+  return nombre.toUpperCase().includes(termino.toUpperCase());
+}
+
+function normCat(s){
+  if(!s) return "";
+  return s.toLowerCase().replace(/[íi]/g,"i").replace(/[éeè]/g,"e").replace(/[áa]/g,"a").replace(/[óo]/g,"o").replace(/[úu]/g,"u");
+}
+
+const CATEGORIAS_MAP = {
+  "benjamin":"Benjamín","benjamín":"Benjamín",
+  "prebenjamin":"Prebenjamín","prebenjamín":"Prebenjamín","preb":"Prebenjamín",
+  "alevin":"Alevín","alevín":"Alevín",
+  "infantil":"Infantil","cadete":"Cadete","juvenil":"Juvenil",
+};
+
+function extraerHoraStr(s){
+  if(!s) return null;
+  const h = s.replace(/h$/i,"").trim();
+  return h.includes(":") ? h : h+":00";
+}
+
+function aplicarReglaExtra(p, regla){
+  const horaM = regla.match(/(\d{1,2}(?::\d{2})?)\s*h/i) || regla.match(/las?\s+(\d{1,2}(?::\d{2})?)/i);
+  if(!horaM) return null;
+  const hora = extraerHoraStr(horaM[1]);
+  if(!hora) return null;
+
+  let texto = regla;
+  texto = texto.replace(/(\d{1,2}(?::\d{2})?)\s*h/gi,"");
+  ["me han dicho que tienen que jugar","tienen que jugar","juega a las","juegan a las",
+   "juega a","juegan a","jugar a las","jugar","a las","empieza a","empieza","no antes de","campo","que"]
+  .forEach(function(w){ texto = texto.replace(new RegExp("\\b"+w+"\\b","gi"),""); });
+  const palabras = texto.split(/\s+/).map(function(w){ return w.trim(); }).filter(function(w){ return w.length > 1; });
+
+  var cat_match = null;
+  var equipo_palabras = [];
+  palabras.forEach(function(w){
+    const wn = normCat(w);
+    if(CATEGORIAS_MAP[wn]){ cat_match = CATEGORIAS_MAP[wn]; }
+    else { equipo_palabras.push(w); }
+  });
+
+  if(!equipo_palabras.length) return null;
+
+  const coincideEquipo = equipo_palabras.some(function(w){
+    return equipoContiene(p.eq1,w) || equipoContiene(p.eq2,w) || equipoContiene(p.campo,w);
+  });
+  if(!coincideEquipo) return null;
+
+  if(cat_match){
+    if(normCat(p.categoria||"") !== normCat(cat_match)) return null;
+  }
+
+  const esExacta = /juega a|juegan a|jugar a|tienen que jugar/i.test(regla);
+  return { minHora: hora, exacta: esExacta };
+}
+
+function autoAsignar(){
+  const sinHora = partidos.filter(p => p.sinHora);
+  if(!sinHora.length){ alert("Todos los partidos ya tienen hora asignada."); return; }
+
+  const reglasExtra = parseReglasExtra(document.getElementById("reglas-extra").value || "");
+
+  // Copia para no mutar hasta el final
+  const asignados = {};
+
+  // Función: siguiente slot libre en un campo/día desde una hora mínima
+  function nextSlot(campo, dia, minHoraStr, excluir){
+    const franja = getFranja(campo, dia);
+    if(!franja) return null;
+    let slot = Math.max(toMins(franja.ini), toMins(minHoraStr || franja.ini));
+    const finFranja = toMins(franja.fin);
+    while(slot + 60 <= finFranja){
+      const slotStr = String(Math.floor(slot/60)).padStart(2,"0") + ":" + String(slot%60).padStart(2,"0");
+      // Comprobar ocupación: partidos ya guardados + partidos recién asignados en esta sesión
+      const ocupado = partidos.some(function(p) {
+        if(excluir.includes(p.id)) return false;
+        // Usar datos de asignados[] si existen, si no los del partido
+        const pDia   = asignados[p.id] ? asignados[p.id].dia   : p.dia;
+        const pCampo = asignados[p.id] ? asignados[p.id].campo : p.campo;
+        const pHora  = asignados[p.id] ? asignados[p.id].hora  : p.hora;
+        // Solo contar si tiene hora real (no 00:00 y no sin asignar)
+        const tienHora = asignados[p.id] || (!p.sinHora && p.hora !== "00:00");
+        if(!tienHora) return false;
+        if(pDia !== dia) return false;
+        if(pCampo !== campo) return false;
+        return toMins(pHora) < slot+60 && slot < toMins(pHora)+60;
+      });
+      if(!ocupado) return slotStr;
+      slot += 60;
+    }
+    return null;
+  }
+
+  // Función: hay conflicto de entrenador en ese slot
+  function hayConflictoEnt(p, dia, hora, idIgnorar){
+    const pIni = toMins(hora), pFin = pIni+60;
+    const entsP = [...(p.ent1||"").split(","), ...(p.ent2||"").split(",")].map(e=>e.trim().toUpperCase()).filter(Boolean);
+    return partidos.some(q => {
+      if(q.id === p.id || q.id === idIgnorar) return false;
+      if(q.sinHora && !asignados[q.id]) return false;
+      const qDia = asignados[q.id]?.dia || q.dia;
+      if(qDia !== dia) return false;
+      const qHora = asignados[q.id]?.hora || q.hora;
+      if(q.sinHora && !asignados[q.id]) return false;
+      const qIni = toMins(qHora), qFin = qIni+60;
+      if(pIni >= qFin || qIni >= pFin) return false;
+      const entsQ = [...(q.ent1||"").split(","), ...(q.ent2||"").split(",")].map(e=>e.trim().toUpperCase()).filter(Boolean);
+      return entsP.some(e => e && entsQ.includes(e));
+    });
+  }
+
+  function asignar(p, dia, campo, hora){
+    asignados[p.id] = { dia, campo, hora };
+  }
+
+  // ── REGLA 1: Zola vs Zola → viernes campo Zola ──
+  sinHora.forEach(p => {
+    const esZolaVsZola = equipoContiene(p.eq1,"ZOLA") && equipoContiene(p.eq2,"ZOLA");
+    if(esZolaVsZola){
+      const slot = nextSlot("Zola","Viernes","17:00",[p.id]);
+      if(slot) asignar(p,"Viernes","Zola",slot);
+    }
+  });
+
+  // ── REGLA 2: Kolbe Alevín → viernes 18:00, segundo a 19:00 ──
+  const alevinesKolbe = sinHora.filter(p =>
+    (equipoContiene(p.eq1,"KOLBE") || equipoContiene(p.eq2,"KOLBE")) &&
+    (equipoContiene(p.categoria || p.comp,"ALEVIN") || equipoContiene(p.eq1,"ALEVIN") || equipoContiene(p.eq2,"ALEVIN")) &&
+    !asignados[p.id]
+  );
+  alevinesKolbe.forEach((p, i) => {
+    const hora = i === 0 ? "18:00" : "19:00";
+    const dia = "Viernes";
+    const campo = p.campo && p.campo !== "Sin campo" ? p.campo : "Kolbe";
+    if(!hayConflictoEnt(p, dia, hora, p.id)){
+      asignar(p, dia, campo, hora);
+    }
+  });
+
+  // ── REGLA: Rayo Zarzalejo en casa → sábado 11:00 ──
+  sinHora.forEach(p => {
+    if(asignados[p.id]) return;
+    if(equipoContiene(p.eq1,"ZARZALEJO") && p.campo && equipoContiene(p.campo,"ZARZALEJO")){
+      if(!hayConflictoEnt(p,"Sabado","11:00",p.id)) asignar(p,"Sabado",p.campo,"11:00");
+    }
+  });
+
+  // ── REGLA: Unión Pardillo Prebenjamín → 13:00 ──
+  sinHora.forEach(p => {
+    if(asignados[p.id]) return;
+    const esPardiilloBenj = (equipoContiene(p.eq1,"PARDILLO") || equipoContiene(p.eq2,"PARDILLO")) &&
+      (equipoContiene(p.categoria||"","PREBENJAMIN") || equipoContiene(p.categoria||"","PREB"));
+    if(esPardiilloBenj){
+      const campo = p.campo && p.campo!=="Sin campo" ? p.campo : "Los Pinos";
+      const franja = getFranja(campo,"Sabado");
+      if(franja && toMins("13:00") + 60 <= toMins(franja.fin)){
+        if(!hayConflictoEnt(p,"Sabado","13:00",p.id)) asignar(p,"Sabado",campo,"13:00");
+      }
+    }
+  });
+
+  // ── REGLA: Fresnedillas fuera de casa → preferencia viernes 19:00 ──
+  sinHora.forEach(p => {
+    if(asignados[p.id]) return;
+    const esFresneVisitante = (equipoContiene(p.eq1,"FRESNEDILLAS") || equipoContiene(p.eq2,"FRESNEDILLAS")) &&
+      p.campo && !equipoContiene(p.campo,"FRESNE");
+    if(esFresneVisitante){
+      const franja = getFranja(p.campo,"Viernes");
+      if(franja && toMins("19:00")+60 <= toMins(franja.fin)){
+        if(!hayConflictoEnt(p,"Viernes","19:00",p.id)) asignar(p,"Viernes",p.campo,"19:00");
+      }
+    }
+  });
+
+  // ── REGLA 3: Highlands → sábado, primero en asignar ──
+  const highlandsPs = sinHora.filter(p => p.campo === "Highlands" && !asignados[p.id]);
+  highlandsPs.forEach(p => {
+    let minH = "09:00";
+    let horaExactaH = null;
+    reglasExtra.forEach(function(r){
+      const res = aplicarReglaExtra(p, r);
+      if(res && res.minHora){
+        if(res.exacta) horaExactaH = res.minHora;
+        else minH = toMins(res.minHora) > toMins(minH) ? res.minHora : minH;
+      }
+    });
+    const slot = horaExactaH || nextSlot("Highlands","Sabado",minH,[p.id]);
+    if(slot) asignar(p,"Sabado","Highlands",slot);
+  });
+
+  // ── RESTO: asignar campo a campo, repartiendo uniforme ──
+  // Incluir todos los campos configurados + extras dinámicamente
+  const camposOrden = [...Object.keys(CAMPOS_BASE), "Sin campo"];
+  const camposEnPartidos = partidos.map(function(p){ return p.campo||"Sin campo"; });
+  camposEnPartidos.forEach(function(c){ if(!camposOrden.includes(c)) camposOrden.push(c); });
+  const diasOrden = ["Viernes","Sabado"];
+
+  camposOrden.forEach(campo => {
+    diasOrden.forEach(dia => {
+      const ps = sinHora.filter(p => {
+        if(asignados[p.id]) return false;
+        const c = p.campo && p.campo !== "Sin campo" ? p.campo : "Sin campo";
+        return c === campo;
+      });
+      if(!ps.length) return;
+      const franja = getFranja(campo, dia);
+      if(!franja) return;
+
+      // Repartir uniforme: calcular slot ideal
+      const ini = toMins(franja.ini);
+      const fin = toMins(franja.fin);
+      const slots = Math.floor((fin - ini) / 60);
+      if(slots <= 0) return;
+
+      ps.forEach((p, i) => {
+        // Hora mínima por reglas extra
+        let minH = franja.ini;
+        let horaExacta = null;
+        reglasExtra.forEach(function(r){
+          const res = aplicarReglaExtra(p, r);
+          if(res && res.minHora){
+            if(res.exacta) horaExacta = res.minHora;
+            else minH = toMins(res.minHora) > toMins(minH) ? res.minHora : minH;
+          }
+        });
+
+        // Si hay hora exacta por regla, usarla directamente sin buscar slot
+        // Si no, buscar el siguiente slot libre
+        let slot;
+        if(horaExacta){
+          slot = horaExacta; // regla exacta: respetar siempre
+        } else {
+          slot = nextSlot(campo, dia, minH, [p.id]);
+          let intentos2 = 0;
+          while(slot && hayConflictoEnt(p, dia, slot, p.id) && intentos2 < slots){
+            const next2 = toMins(slot) + 60;
+            slot = next2 + 60 <= fin ? String(Math.floor(next2/60)).padStart(2,"0")+":"+String(next2%60).padStart(2,"0") : null;
+            intentos2++;
+          }
+        }
+        let intentos = 0;
+        while(slot && false){ // placeholder to keep variable
+          intentos++;
+        }
+        if(slot) asignar(p, dia, campo, slot);
+      });
+    });
+  });
+
+  // ── APLICAR asignaciones y detectar sin slot ──
+  let asignados_count = 0;
+  const sinSlot = []; // partidos que no encontraron hueco
+
+  partidos.forEach(function(p) {
+    if(asignados[p.id]){
+      p.hora = asignados[p.id].hora;
+      p.dia = asignados[p.id].dia;
+      p.campo = asignados[p.id].campo || p.campo;
+      p.sinHora = false;
+      asignados_count++;
+    } else if(sinHora.includes(p)) {
+      // No se pudo asignar — guardamos para mostrar error
+      sinSlot.push(p);
+    }
+  });
+
+  savePartidos();
+  renderTodo();
+
+  // ── Feedback ──
+  const box = document.getElementById("alertas-box");
+  let alertasHtml = "";
+
+  if(asignados_count > 0){
+    const msgOk = sinSlot.length === 0
+      ? `✓ ${asignados_count} partido${asignados_count>1?"s":""} asignado${asignados_count>1?"s":""} automáticamente. Revisa si hay conflictos.`
+      : `✓ ${asignados_count} partido${asignados_count>1?"s":""} asignado${asignados_count>1?"s":""} automáticamente.`;
+    alertasHtml += `<div class="alert alert-ok"><span class="alert-icon">⚡</span><div>${msgOk}</div></div>`;
+  }
+
+  if(sinSlot.length > 0){
+    // Agrupar por campo para dar un mensaje claro
+    const porCampo = {};
+    sinSlot.forEach(function(p){
+      const c = p.campo || "Sin campo";
+      if(!porCampo[c]) porCampo[c] = [];
+      porCampo[c].push(p.eq1 + " vs " + p.eq2);
+    });
+    Object.entries(porCampo).forEach(function([campo, ps]){
+      const franjasInfo = CAMPOS_BASE[campo]
+        ? Object.entries(CAMPOS_BASE[campo]).filter(function([d,f]){ return d!=="dir" && f && typeof f==="object" && f.ini && f.fin; }).map(function([d,f]){ return (d==="Viernes"?"Vie":"Sáb")+": "+f.ini+"–"+f.fin+" (máx "+f.max+")"; }).join(", ")
+        : "campo sin franja configurada";
+      alertasHtml += `<div class="alert alert-err">
+        <span class="alert-icon">✕</span>
+        <div>
+          <strong>Sin hueco en ${campo}</strong> — ${franjasInfo}<br>
+          ${ps.map(function(p){ return "<em>"+p+"</em>"; }).join("<br>")}
+          <br><span style="font-size:11px;margin-top:4px;display:block">Asigna estos partidos manualmente o amplía la franja del campo en ⚙ Campos</span>
+        </div>
+      </div>`;
+    });
+  }
+
+  box.innerHTML = alertasHtml + box.innerHTML;
+}
+
+// ============ COPIA DE SEGURIDAD ============
+function guardarCopia(){
+  const backup = {
+    version: 1,
+    fecha: new Date().toISOString(),
+    jornadas: getAllJornadas(),
+    equipos: equipos,
+    campos: CAMPOS_BASE,
+  };
+  const json = JSON.stringify(backup, null, 2);
+  const a = document.createElement("a");
+  const fecha = new Date().toLocaleDateString("es-ES").replace(/\//g,"-");
+  a.href = "data:application/json;charset=utf-8," + encodeURIComponent(json);
+  a.download = "kolbe_backup_" + fecha + ".json";
+  a.click();
+  // Show confirmation
+  const box = document.getElementById("alertas-box");
+  if(box) box.innerHTML = `<div class="alert alert-ok"><span class="alert-icon">💾</span><div>Copia de seguridad descargada correctamente. Guárdala en un lugar seguro.</div></div>` + box.innerHTML;
+}
+
+function restaurarCopia(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    try {
+      const backup = JSON.parse(ev.target.result);
+      if(!backup.version || !backup.jornadas){
+        alert("El archivo no es una copia de seguridad válida de Kolbe Horarios.");
+        return;
+      }
+      const total = (backup.jornadas||[]).length;
+      if(!confirm("Se van a restaurar " + total + " jornada" + (total!==1?"s":"") + " y la configuración de entrenadores y campos. ¿Continuar?")) return;
+
+      // Restore jornadas
+      saveAllJornadas(backup.jornadas || []);
+
+      // Restore equipos
+      if(backup.equipos && backup.equipos.length){
+        equipos = backup.equipos;
+        saveEquipos();
+        renderEquiposConfig();
+      }
+
+      // Restore campos
+      if(backup.campos){
+        Object.keys(backup.campos).forEach(function(k){ CAMPOS_BASE[k] = backup.campos[k]; });
+        saveCampos();
+      }
+
+      // Go back to historial to show restored jornadas
+      volverHistorial();
+      renderHistorial();
+
+      alert("✓ Copia restaurada correctamente. Se han recuperado " + total + " jornada" + (total!==1?"s":"") + ".");
+    } catch(err){
+      alert("Error al leer el archivo. Asegúrate de que es una copia de seguridad válida.");
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+}
+
+// ============ MENSAJES WHATSAPP ============
+const DIRECCIONES_EXTRA = {
+  "Navalagamella": "Campo Fútbol Navalagamella, Juan Antonio Gutiérrez",
+  "La Cañada": "Campo Municipal, Villanueva de la Cañada",
+  "SEK": "C/ Castillo de Manzanares, Villafranca del Castillo",
+  "Everest": "Colegio Everest, Madrid",
+};
+
+function getDireccion(campo){
+  if(CAMPOS_BASE[campo] && CAMPOS_BASE[campo].dir) return CAMPOS_BASE[campo].dir;
+  if(DIRECCIONES_EXTRA[campo]) return DIRECCIONES_EXTRA[campo];
+  return campo;
+}
+
+function esEquipoKolbe(nombre){
+  if(!nombre) return false;
+  const n = nombre.toUpperCase();
+  return n.includes("KOLBE");
+}
+
+function generarMensajesWhatsApp(){
+  const kolbePartidos = partidos.filter(function(p){
+    return esEquipoKolbe(p.eq1) || esEquipoKolbe(p.eq2);
+  });
+
+  if(!kolbePartidos.length){
+    alert("No hay partidos de equipos Kolbe en esta jornada.");
+    return;
+  }
+
+  // Agrupar por equipo Kolbe
+  const porEquipo = {};
+  kolbePartidos.forEach(function(p){
+    const equipo = esEquipoKolbe(p.eq1) ? p.eq1 : p.eq2;
+    const rival  = esEquipoKolbe(p.eq1) ? p.eq2 : p.eq1;
+    const esLocal = esEquipoKolbe(p.eq1);
+    if(!porEquipo[equipo]) porEquipo[equipo] = [];
+    porEquipo[equipo].push({ ...p, equipoKolbe: equipo, rival, esLocal });
+  });
+
+  // Generar mensajes
+  const semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
+  let html = `<div style="max-width:640px;margin:0 auto">
+    <h2 style="font-size:16px;font-weight:600;margin-bottom:1rem;color:var(--verde)">📱 Mensajes para entrenadores</h2>
+    <p style="font-size:12px;color:var(--gris4);margin-bottom:1.25rem">Copia cada mensaje y mándalo al entrenador correspondiente por WhatsApp.</p>`;
+
+  Object.entries(porEquipo).forEach(function([equipo, ps]){
+    ps.forEach(function(p){
+      const dia = p.dia === "Viernes" ? "Viernes" : "Sábado";
+      const hora = p.sinHora ? "Por confirmar" : p.hora + "h";
+      const lugar = p.esLocal ? p.campo : p.campo;
+      const dir = getDireccion(p.campo);
+      const condicion = p.esLocal ? "🏠 LOCAL" : "✈️ VISITANTE";
+      const maps = "https://maps.google.com/?q=" + encodeURIComponent(dir);
+
+      // Calcular hora de convocatoria (30 min antes)
+      let convocatoria = "Por confirmar";
+      if(!p.sinHora && p.hora && p.hora !== "00:00"){
+        const mins = toMins(p.hora) - 30;
+        if(mins >= 0){
+          convocatoria = String(Math.floor(mins/60)).padStart(2,"0") + ":" + String(mins%60).padStart(2,"0") + "h";
+        }
+      }
+
+      const msg = `⚽ *${p.equipoKolbe}*
+`
+        + `📅 ${dia} ${semana}
+`
+        + `🔔 Convocatoria: *${convocatoria}*
+`
+        + `⏰ Hora: *${hora}*
+`
+        + `🏟 Campo: *${lugar}* ${condicion}
+`
+        + `📍 ${dir}
+`
+        + `👕 Rival: ${p.rival}
+`
+        + (p.categoria ? `🏆 Categoría: ${p.categoria}${p.grupo ? " · " + p.grupo : ""}
+` : "")
+        + `¡Ánimo a todos! 💪`
+        + `_Club Deportivo Kolbe_`;
+
+      html += `<div style="margin-bottom:1.25rem;border:1px solid var(--gris2);border-radius:var(--rl);overflow:hidden">
+        <div style="background:var(--verde);color:#fff;padding:8px 14px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center">
+          <span>${p.equipoKolbe}</span>
+          <span style="font-size:11px;font-weight:400;opacity:.8">${p.categoria||""} · ${condicion}</span>
+        </div>
+        <div style="padding:12px 14px">
+          <pre id="msg-${p.id}" style="font-family:var(--f);font-size:12px;line-height:1.6;white-space:pre-wrap;margin:0;color:var(--negro)">${msg}</pre>
+          <button onclick="copiarMsg('msg-${p.id}', this)" style="margin-top:10px;padding:6px 14px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f)">
+            📋 Copiar mensaje
+          </button>
+        </div>
+      </div>`;
+    });
+  });
+
+  html += `</div>`;
+
+  // Show in modal overlay
+  const overlay = document.createElement("div");
+  overlay.id = "wha-overlay";
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;overflow-y:auto;padding:2rem 1rem";
+  overlay.innerHTML = `<div style="max-width:640px;margin:0 auto;background:#fff;border-radius:var(--rl);padding:1.5rem;position:relative">
+    <button onclick="document.getElementById('wha-overlay').remove()" style="position:absolute;top:1rem;right:1rem;padding:6px 12px;border:1px solid var(--gris3);border-radius:var(--r);background:transparent;cursor:pointer;font-size:13px">✕ Cerrar</button>
+    ${html}
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function copiarMsg(id, btn){
+  const el = document.getElementById(id);
+  if(!el) return;
+  navigator.clipboard.writeText(el.textContent).then(function(){
+    btn.textContent = "✓ Copiado";
+    btn.style.background = "var(--verde2)";
+    setTimeout(function(){ btn.textContent = "📋 Copiar mensaje"; btn.style.background = "var(--verde)"; }, 2000);
+  }).catch(function(){
+    const r = document.createRange();
+    r.selectNode(el);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(r);
+    document.execCommand("copy");
+    btn.textContent = "✓ Copiado";
+    setTimeout(function(){ btn.textContent = "📋 Copiar mensaje"; }, 2000);
+  });
+}
+
+// ============ VISTA POR EQUIPOS ============
+function vistaEquipos(){
+  if(!partidos.length){ alert("No hay partidos cargados."); return; }
+
+  const semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
+
+  // Helper: obtener nombre base del club (sin sufijo A/B de grupo)
+  function clubBase(nombre){
+    let n = nombre.trim();
+    n = n.replace(/\s+"[A-Z]"$/, "");  // quita "A" o "B" entre comillas al final
+    n = n.replace(/\s+[A-B]$/, "");    // quita A o B suelto al final
+    return n.trim();
+  }
+
+  // Agrupar todos los partidos por club base
+  const clubMap = {};
+  partidos.forEach(function(p){
+    if(p.sinHora) return; // solo partidos con hora
+    [p.eq1, p.eq2].forEach(function(equipo){
+      if(!equipo) return;
+      const club = clubBase(equipo);
+      if(!clubMap[club]) clubMap[club] = [];
+      // Evitar duplicados
+      if(!clubMap[club].find(function(x){ return x.id === p.id; })){
+        clubMap[club].push(p);
+      }
+    });
+  });
+
+  // Ordenar clubs alfabéticamente
+  const clubs = Object.keys(clubMap).sort();
+
+  // Generar HTML del modal
+  let html = `<div style="max-width:680px;margin:0 auto">
+    <h2 style="font-size:16px;font-weight:600;margin-bottom:.25rem;color:var(--verde)">📋 Vista por equipos</h2>
+    <p style="font-size:12px;color:var(--gris4);margin-bottom:1.25rem">Partidos del fin de semana agrupados por club. Copia el mensaje y mándalo al coordinador.</p>`;
+
+  clubs.forEach(function(club){
+    const ps = clubMap[club];
+    if(!ps.length) return;
+
+    // Sort by day then time
+    ps.sort(function(a,b){
+      const dias = {Viernes:0, Sabado:1};
+      const dd = (dias[a.dia]||0) - (dias[b.dia]||0);
+      if(dd !== 0) return dd;
+      return (a.hora||"").localeCompare(b.hora||"");
+    });
+
+    // Build message
+    let msg = `📋 *${club}*
+Partidos del fin de semana · ${semana}
+
+`;
+
+    ps.forEach(function(p){
+      const dia = p.dia === "Viernes" ? "Viernes" : "Sábado";
+      const hora = p.sinHora ? "Por confirmar" : p.hora + "h";
+      const esLocal = p.eq1 === club;
+      const rival = esLocal ? p.eq2 : p.eq1;
+      const condicion = esLocal ? "🏠 LOCAL" : "✈️ VISITANTE";
+      const dir = (window.CAMPOS_BASE && window.CAMPOS_BASE[p.campo] && window.CAMPOS_BASE[p.campo].dir) || p.campo;
+
+      msg += `📅 ${dia}
+`;
+      msg += `⏰ ${hora} · ${p.eq1} vs ${p.eq2}
+`;
+      if(p.categoria) msg += `🏆 ${p.categoria}${p.grupo ? " · " + p.grupo : ""} · ${condicion}
+`;
+      msg += `🏟 ${p.campo}
+`;
+      msg += `📍 ${dir}
+
+`;
+    });
+
+    msg = msg.trim();
+
+    const uid = "club-" + club.replace(/[^a-zA-Z0-9]/g,"_");
+    html += `<div style="margin-bottom:1.25rem;border:1px solid var(--gris2);border-radius:var(--rl);overflow:hidden">
+      <div style="background:var(--verde);color:#fff;padding:8px 14px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center">
+        <span>${club}</span>
+        <span style="font-size:11px;font-weight:400;opacity:.8">${ps.length} partido${ps.length>1?"s":""}</span>
+      </div>
+      <div style="padding:12px 14px">
+        <pre id="${uid}" style="font-family:var(--f);font-size:12px;line-height:1.7;white-space:pre-wrap;margin:0;color:var(--negro)">${msg}</pre>
+        <button onclick="copiarVistaEquipo('${uid}',this)" style="margin-top:10px;padding:6px 14px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f)">
+          📋 Copiar mensaje
+        </button>
+      </div>
+    </div>`;
+  });
+
+  html += `</div>`;
+
+  // Show modal
+  const overlay = document.createElement("div");
+  overlay.id = "vista-equipos-overlay";
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;overflow-y:auto;padding:2rem 1rem";
+  overlay.innerHTML = `<div style="max-width:680px;margin:0 auto;background:#fff;border-radius:var(--rl);padding:1.5rem;position:relative">
+    <button onclick="document.getElementById('vista-equipos-overlay').remove()" style="position:absolute;top:1rem;right:1rem;padding:6px 12px;border:1px solid var(--gris3);border-radius:var(--r);background:transparent;cursor:pointer;font-size:13px">✕ Cerrar</button>
+    ${html}
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function copiarVistaEquipo(id, btn){
+  const el = document.getElementById(id);
+  if(!el) return;
+  navigator.clipboard.writeText(el.textContent).then(function(){
+    btn.textContent = "✓ Copiado";
+    btn.style.background = "var(--verde2)";
+    setTimeout(function(){ btn.textContent = "📋 Copiar mensaje"; btn.style.background = "var(--verde)"; }, 2000);
+  }).catch(function(){
+    const r = document.createRange();
+    r.selectNode(el);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(r);
+    document.execCommand("copy");
+    btn.textContent = "✓ Copiado";
+    setTimeout(function(){ btn.textContent = "📋 Copiar mensaje"; }, 2000);
+  });
+}
+
+// ============ INIT ============
+try {
+  const savedCampos = localStorage.getItem("kolbe_campos");
+  if(savedCampos){
+    const sc = JSON.parse(savedCampos);
+    Object.keys(sc).forEach(function(k){ CAMPOS_BASE[k] = sc[k]; });
+  }
+} catch(e){}
+renderEquiposConfig();
+loadPartidos();
+</script>
+</body>
+</html>
