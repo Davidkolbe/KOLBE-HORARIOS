@@ -2037,8 +2037,7 @@ Partidos del fin de semana · ${semana}
       const hora = p.aplazado ? "📌 APLAZADO" : p.sinHora ? "Por confirmar" : p.hora + "h";
       const esLocal = p.eq1 === club;
       const condicion = esLocal ? "🏠 LOCAL" : "✈️ VISITANTE";
-      const dir = (window.CAMPOS_BASE && window.CAMPOS_BASE[p.campo] && window.CAMPOS_BASE[p.campo].dir) || p.campo;
-      const mapsUrl = "https://maps.google.com/?q=" + encodeURIComponent(dir);
+      const dir = (CAMPOS_BASE[p.campo] && CAMPOS_BASE[p.campo].dir) ? CAMPOS_BASE[p.campo].dir : null;
 
       msg += `📅 ${dia}
 `;
@@ -2049,10 +2048,12 @@ Partidos del fin de semana · ${semana}
 `;
         msg += `🏟 ${p.campo}
 `;
-        msg += `📍 ${dir}
+        if(dir){
+          msg += `📍 ${dir}
 `;
-        msg += `🗺 ${mapsUrl}
+          msg += `🗺 https://maps.google.com/?q=${encodeURIComponent(dir)}
 `;
+        }
       }
       msg += `
 `;
