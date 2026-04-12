@@ -2034,22 +2034,27 @@ Partidos del fin de semana · ${semana}
 
     ps.forEach(function(p){
       const dia = p.dia === "Viernes" ? "Viernes" : "Sábado";
-      const hora = p.sinHora ? "Por confirmar" : p.hora + "h";
+      const hora = p.aplazado ? "📌 APLAZADO" : p.sinHora ? "Por confirmar" : p.hora + "h";
       const esLocal = p.eq1 === club;
-      const rival = esLocal ? p.eq2 : p.eq1;
       const condicion = esLocal ? "🏠 LOCAL" : "✈️ VISITANTE";
       const dir = (window.CAMPOS_BASE && window.CAMPOS_BASE[p.campo] && window.CAMPOS_BASE[p.campo].dir) || p.campo;
+      const mapsUrl = "https://maps.google.com/?q=" + encodeURIComponent(dir);
 
       msg += `📅 ${dia}
 `;
       msg += `⏰ ${hora} · ${p.eq1} vs ${p.eq2}
 `;
-      if(p.categoria) msg += `🏆 ${p.categoria}${p.grupo ? " · " + p.grupo : ""} · ${condicion}
+      if(!p.aplazado){
+        if(p.categoria) msg += `🏆 ${p.categoria}${p.grupo ? " · " + p.grupo : ""} · ${condicion}
 `;
-      msg += `🏟 ${p.campo}
+        msg += `🏟 ${p.campo}
 `;
-      msg += `📍 ${dir}
-
+        msg += `📍 ${dir}
+`;
+        msg += `🗺 ${mapsUrl}
+`;
+      }
+      msg += `
 `;
     });
 
