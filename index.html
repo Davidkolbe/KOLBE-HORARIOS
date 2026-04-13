@@ -2268,15 +2268,19 @@ function resumenKolbe(){
         var eq1n = (pp.eq1||"").toUpperCase().trim();
         var eq2n = (pp.eq2||"").toUpperCase().trim();
         var keN = ke.equipo.toUpperCase().trim();
-        var catMatch = !ke.cat || (pp.categoria||"").toUpperCase().includes(ke.cat.toUpperCase());
+        var catMatch = !ke.cat || (pp.comp||pp.categoria||"").toUpperCase().includes(ke.cat.toUpperCase());
         return (eq1n === keN || eq2n === keN) && catMatch;
       });
     }
 
     var displayLabel = ke.label || ke.equipo;
-    // Check if rival is DESCANSO
-    if(p && ((p.eq2||"").toUpperCase().includes("DESCANSO") || (p.eq1||"").toUpperCase().includes("DESCANSO"))){
-      return {equipo: displayLabel, entrenador: ke.entrenador, disc: ke.disc, partido:"🟡 DESCANSO", horario:"—", campo:"—"};
+    if(p){
+      var rival2 = (p.eq2||"").trim();
+      var eq2IsNan = !rival2 || rival2.toLowerCase()==="nan" || rival2==="";
+      var isDescanso = rival2.toUpperCase().includes("DESCANSO") || (p.eq1||"").toUpperCase().includes("DESCANSO");
+      if(isDescanso || eq2IsNan){
+        return {equipo: displayLabel, entrenador: ke.entrenador, disc: ke.disc, partido:"🟡 DESCANSO", horario:"—", campo:"—"};
+      }
     }
     if(!p) return {equipo: displayLabel, entrenador: ke.entrenador, disc: ke.disc, partido:"—", horario:"—", campo:"—"};
 
@@ -2343,11 +2347,48 @@ function resumenKolbe(){
     var tr = document.createElement("tr");
     tr.style.cssText = "background:" + (i%2===0?"#fff":"var(--gris1)");
     var sinPartido = r.partido === "—";
-    tr.innerHTML = '<td style="padding:7px 10px;border:1px solid var(--gris2);font-weight:600">' + r.equipo + '</td>'
-      + '<td style="padding:7px 10px;border:1px solid var(--gris2);color:var(--gris5)">' + r.entrenador + '</td>'
-      + '<td style="padding:7px 10px;border:1px solid var(--gris2);' + (sinPartido?'color:var(--gris3)':'') + '">' + r.partido + '</td>'
-      + '<td style="padding:7px 10px;border:1px solid var(--gris2);color:var(--gris5)">' + r.campo + '</td>'
-      + '<td style="padding:7px 10px;border:1px solid var(--gris2);font-weight:600;color:' + (sinPartido?'var(--gris3)':'var(--verde)') + '">' + r.horario + '</td>';
+
+    function makeCellEditable(content, bold, color){
+      var td = document.createElement("td");
+      td.style.cssText = "padding:7px 10px;border:1px solid var(--gris2);position:relative;"
+        + (bold ? "font-weight:600;" : "") + (color ? "color:"+color+";" : "");
+      var span = document.createElement("span");
+      span.textContent = content;
+      var btn = document.createElement("button");
+      btn.textContent = "✏️";
+      btn.title = "Editar";
+      btn.style.cssText = "position:absolute;right:3px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:10px;opacity:0;transition:opacity .15s";
+      td.addEventListener("mouseenter", function(){ btn.style.opacity = "1"; });
+      td.addEventListener("mouseleave", function(){ btn.style.opacity = "0"; });
+      btn.addEventListener("click", function(){
+        var inp = document.createElement("input");
+        inp.type = "text";
+        inp.value = span.textContent;
+        inp.style.cssText = "width:90%;font-size:12px;padding:2px 4px;border:1px solid var(--verde);border-radius:3px;font-family:var(--f)";
+        td.replaceChild(inp, span);
+        btn.style.display = "none";
+        inp.focus(); inp.select();
+        function guardar(){
+          span.textContent = inp.value;
+          td.replaceChild(span, inp);
+          btn.style.display = "";
+        }
+        inp.addEventListener("blur", guardar);
+        inp.addEventListener("keydown", function(e){
+          if(e.key === "Enter") guardar();
+          if(e.key === "Escape"){ inp.value = span.textContent; guardar(); }
+        });
+      });
+      td.appendChild(span);
+      td.appendChild(btn);
+      return td;
+    }
+
+    tr.appendChild(makeCellEditable(r.equipo, true, null));
+    tr.appendChild(makeCellEditable(r.entrenador, false, "var(--gris5)"));
+    tr.appendChild(makeCellEditable(r.partido, false, sinPartido ? "var(--gris3)" : null));
+    tr.appendChild(makeCellEditable(r.campo, false, "var(--gris5)"));
+    tr.appendChild(makeCellEditable(r.horario, true, sinPartido ? "var(--gris3)" : "var(--verde)"));
     tbody.appendChild(tr);
   });
 
