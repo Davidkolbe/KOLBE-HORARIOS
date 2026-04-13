@@ -2127,20 +2127,42 @@ Partidos del fin de semana · ${semana}
 
 function copiarVistaEquipo(id, btn){
   const el = document.getElementById(id);
-  if(!el) return;
-  navigator.clipboard.writeText(el.textContent).then(function(){
+  if(!el){ alert("Error: no se encontró el elemento."); return; }
+  const texto = el.textContent || el.innerText || "";
+  if(!texto){ alert("No hay texto para copiar."); return; }
+
+  function exito(){
     btn.textContent = "✓ Copiado";
-    btn.style.background = "var(--verde2)";
-    setTimeout(function(){ btn.textContent = "📋 Copiar mensaje"; btn.style.background = "var(--verde)"; }, 2000);
-  }).catch(function(){
-    const r = document.createRange();
-    r.selectNode(el);
-    window.getSelection().removeAllRanges();
-    window.getSelection().addRange(r);
-    document.execCommand("copy");
-    btn.textContent = "✓ Copiado";
-    setTimeout(function(){ btn.textContent = "📋 Copiar mensaje"; }, 2000);
-  });
+    btn.style.background = "var(--verde2,#2d6a4f)";
+    setTimeout(function(){ btn.textContent = "📋 Copiar mensaje"; btn.style.background = "var(--verde,#386641)"; }, 2000);
+  }
+
+  // Método 1: clipboard API moderna
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(texto).then(exito).catch(function(){
+      metodoFallback();
+    });
+  } else {
+    metodoFallback();
+  }
+
+  function metodoFallback(){
+    // Método 2: textarea temporal
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = texto;
+      ta.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      if(ok){ exito(); }
+      else { alert("No se pudo copiar automáticamente. Selecciona el texto manualmente."); }
+    } catch(e){
+      alert("No se pudo copiar: " + e.message);
+    }
+  }
 }
 
 // ============ VISTA POR CATEGORÍAS ============
