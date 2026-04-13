@@ -2179,7 +2179,6 @@ function vistaCategorias(){
 
   const semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
 
-  // Agrupar por categoria + disciplina
   const grupoMap = {};
   partidos.forEach(function(p){
     if(!p.categoria) return;
@@ -2193,36 +2192,42 @@ function vistaCategorias(){
   const grupos = Object.values(grupoMap).sort(function(a,b){
     const ia = ORDEN_CAT.indexOf(a.categoria);
     const ib = ORDEN_CAT.indexOf(b.categoria);
-    if(ia !== ib) return (ia<0?99:ia) - (ib<0?99:ib);
+    if(ia !== ib) return (ia<0?99:ia)-(ib<0?99:ib);
     return a.disciplina.localeCompare(b.disciplina);
   });
 
   if(!grupos.length){ alert("No hay partidos con categoría asignada."); return; }
 
-  var modalHtml = '<div style="max-width:680px;margin:0 auto">'
-    + '<h2 style="font-size:16px;font-weight:600;margin-bottom:.25rem;color:var(--verde)">📊 Vista por categorías</h2>'
-    + '<p style="font-size:12px;color:var(--gris4);margin-bottom:1.25rem">Partidos agrupados por categoría y disciplina.</p>';
+  // Guardar textos para copiar
+  window._catTextos = {};
 
-  grupos.forEach(function(g){
-    var ps = g.partidos.slice().sort(function(a,b){
-      var dias = {Viernes:0,Sabado:1};
-      var dd = (dias[a.dia]||0)-(dias[b.dia]||0);
+  const container = document.createElement("div");
+  container.style.cssText = "max-width:680px;margin:0 auto";
+
+  const titulo = document.createElement("div");
+  titulo.innerHTML = '<h2 style="font-size:16px;font-weight:600;margin-bottom:.25rem;color:var(--verde)">📊 Vista por categorías</h2><p style="font-size:12px;color:var(--gris4);margin-bottom:1.25rem">Partidos agrupados por categoría y disciplina.</p>';
+  container.appendChild(titulo);
+
+  grupos.forEach(function(g, gi){
+    const ps = g.partidos.slice().sort(function(a,b){
+      const dias = {Viernes:0,Sabado:1};
+      const dd = (dias[a.dia]||0)-(dias[b.dia]||0);
       if(dd!==0) return dd;
       return (a.hora||"").localeCompare(b.hora||"");
     });
 
-    var msg = "📋 *" + g.categoria.toUpperCase() + " — " + g.disciplina.toUpperCase() + "*\n";
+    let msg = "📋 *" + g.categoria.toUpperCase() + " — " + g.disciplina.toUpperCase() + "*\n";
     msg += "Jornada · " + semana + "\n\n";
 
     ["Viernes","Sabado"].forEach(function(dia){
-      var psDia = ps.filter(function(p){ return p.dia===dia; });
+      const psDia = ps.filter(function(p){ return p.dia===dia; });
       if(!psDia.length) return;
       msg += "📅 " + (dia==="Viernes"?"Viernes":"Sábado") + "\n";
       psDia.forEach(function(p){
-        var hora = p.aplazado ? "📌 APLAZADO" : p.sinHora ? "Sin hora" : p.hora+"h";
-        var campoDirKey = p.campoOriginal || p.campo;
-        var dir = (CAMPOS_BASE[campoDirKey]&&CAMPOS_BASE[campoDirKey].dir) ||
-                  (CAMPOS_BASE[p.campo]&&CAMPOS_BASE[p.campo].dir) || p.campo;
+        const hora = p.aplazado ? "📌 APLAZADO" : p.sinHora ? "Sin hora" : p.hora+"h";
+        const campoDirKey = p.campoOriginal || p.campo;
+        const dir = (CAMPOS_BASE[campoDirKey]&&CAMPOS_BASE[campoDirKey].dir)||
+                    (CAMPOS_BASE[p.campo]&&CAMPOS_BASE[p.campo].dir)||p.campo;
         msg += "⏰ " + hora + " · " + p.eq1 + " vs " + (p.eq2||"—") + "\n";
         msg += "🏟 " + (campoDirKey||p.campo) + " · 📍 " + dir + "\n";
       });
@@ -2230,28 +2235,82 @@ function vistaCategorias(){
     });
 
     msg = msg.trim();
-    var uid = "cat-" + (g.categoria+g.disciplina).replace(/[^a-zA-Z0-9]/g,"_");
+    const uid = "cat_" + gi;
+    window._catTextos[uid] = msg;
 
-    modalHtml += '<div style="margin-bottom:1.25rem;border:1px solid var(--gris2);border-radius:var(--rl);overflow:hidden">'
-      + '<div style="background:var(--verde);color:#fff;padding:8px 14px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center">'
-      + '<span>' + g.categoria + ' — ' + g.disciplina + '</span>'
-      + '<span style="font-size:11px;font-weight:400;opacity:.8">' + ps.length + ' partido' + (ps.length>1?"s":"") + '</span>'
-      + '</div>'
-      + '<div style="padding:12px 14px">'
-      + '<pre id="' + uid + '" style="font-family:var(--f);font-size:12px;line-height:1.7;white-space:pre-wrap;margin:0;color:var(--negro)">' + msg + '</pre>'
-      + '<button onclick="copiarVistaEquipo(\"'+uid+'\",this)" style="margin-top:10px;padding:6px 14px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f)">📋 Copiar mensaje</button>'
-      + '</div></div>';
+    const bloque = document.createElement("div");
+    bloque.style.cssText = "margin-bottom:1.25rem;border:1px solid var(--gris2);border-radius:var(--rl);overflow:hidden";
+
+    const header = document.createElement("div");
+    header.style.cssText = "background:var(--verde);color:#fff;padding:8px 14px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center";
+    header.innerHTML = "<span>" + g.categoria + " — " + g.disciplina + "</span>"
+      + "<span style='font-size:11px;font-weight:400;opacity:.8'>" + ps.length + " partido" + (ps.length>1?"s":"") + "</span>";
+
+    const body = document.createElement("div");
+    body.style.cssText = "padding:12px 14px";
+
+    const pre = document.createElement("pre");
+    pre.style.cssText = "font-family:var(--f);font-size:12px;line-height:1.7;white-space:pre-wrap;margin:0;color:var(--negro)";
+    pre.textContent = msg;
+
+    const btnCopiar = document.createElement("button");
+    btnCopiar.textContent = "📋 Copiar mensaje";
+    btnCopiar.style.cssText = "margin-top:10px;padding:6px 14px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f)";
+    btnCopiar.setAttribute("data-uid", uid);
+    btnCopiar.addEventListener("click", function(){
+      const u = this.getAttribute("data-uid");
+      const texto = window._catTextos[u] || "";
+      const b = this;
+      function exito(){
+        b.textContent = "✓ Copiado";
+        b.style.background = "var(--verde2,#2d6a4f)";
+        setTimeout(function(){ b.textContent = "📋 Copiar mensaje"; b.style.background = "var(--verde,#386641)"; }, 2000);
+      }
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(texto).then(exito).catch(function(){
+          const ta = document.createElement("textarea");
+          ta.value = texto;
+          ta.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0";
+          document.body.appendChild(ta);
+          ta.focus(); ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+          exito();
+        });
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = texto;
+        ta.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0";
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        exito();
+      }
+    });
+
+    body.appendChild(pre);
+    body.appendChild(btnCopiar);
+    bloque.appendChild(header);
+    bloque.appendChild(body);
+    container.appendChild(bloque);
   });
 
-  modalHtml += '</div>';
-
-  var overlay = document.createElement("div");
+  const overlay = document.createElement("div");
   overlay.id = "vista-cat-overlay";
   overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;overflow-y:auto;padding:2rem 1rem";
-  overlay.innerHTML = '<div style="max-width:680px;margin:0 auto;background:#fff;border-radius:var(--rl);padding:1.5rem;position:relative">'
-    + '<button onclick="document.getElementById(\'vista-cat-overlay\').remove()" style="position:absolute;top:1rem;right:1rem;padding:6px 12px;border:1px solid var(--gris3);border-radius:var(--r);background:transparent;cursor:pointer;font-size:13px">✕ Cerrar</button>'
-    + modalHtml
-    + '</div>';
+
+  const wrapper = document.createElement("div");
+  wrapper.style.cssText = "max-width:680px;margin:0 auto;background:#fff;border-radius:var(--rl);padding:1.5rem;position:relative";
+
+  const btnCerrar = document.createElement("button");
+  btnCerrar.textContent = "✕ Cerrar";
+  btnCerrar.style.cssText = "position:absolute;top:1rem;right:1rem;padding:6px 12px;border:1px solid var(--gris3);border-radius:var(--r);background:transparent;cursor:pointer;font-size:13px";
+  btnCerrar.addEventListener("click", function(){ overlay.remove(); });
+
+  wrapper.appendChild(btnCerrar);
+  wrapper.appendChild(container);
+  overlay.appendChild(wrapper);
   document.body.appendChild(overlay);
 }
 
