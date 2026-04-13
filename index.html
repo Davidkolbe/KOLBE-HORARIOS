@@ -2229,26 +2229,24 @@ function copiarVistaEquipo(id, btn){
 // ============ RESUMEN KOLBE PARTIDOS ============
 // Entrenadores Kolbe por equipo
 const KOLBE_EQUIPOS = [
-  // Fútbol Sala
-  {equipo:"CHUPETINES",            entrenador:"CHECHU / ALBERTO", disc:"FS"},
-  {equipo:"PREB. 1º BLANCO",       entrenador:"FRANK / ESPI",     disc:"FS"},
-  {equipo:"PREB. 1º VERDE",        entrenador:"FRANK / ESPI",     disc:"FS"},
-  {equipo:"PREB. 2º",              entrenador:"SOLER",            disc:"FS"},
-  {equipo:"BENJAMIN 3º BLANCO",    entrenador:"RODRI",            disc:"FS"},
-  {equipo:"BENJAMIN 3º VERDE",     entrenador:"FRANK",            disc:"FS"},
-  {equipo:"BENJAMIN 4º",           entrenador:"PABLO",            disc:"FS"},
-  {equipo:"ALEVIN FS",             entrenador:"RUIBI",            disc:"FS"},
-  {equipo:"INFANTIL FEDERADO FS",  entrenador:"RUIBI",            disc:"FS"},
-  {equipo:"CADETE FEDERADO FS",    entrenador:"GONZALO",          disc:"FS"},
-  {equipo:"JUVENIL FEDERADO FS",   entrenador:"GONZALO",          disc:"FS"},
-  // Fútbol 7
-  {equipo:"ALEVIN BLANCO",         entrenador:"RUIBI",            disc:"F7"},
-  {equipo:"ALEVIN MORADO",         entrenador:"SAMUEL",           disc:"F7"},
-  {equipo:"ALEVIN VERDE",          entrenador:"SAMUEL",           disc:"F7"},
-  {equipo:"INFANTIL VERDE",        entrenador:"GÓMEZ",            disc:"F7"},
-  {equipo:"INFANTIL BLANCO",       entrenador:"RUBI",             disc:"F7"},
-  {equipo:"CADETE",                entrenador:"PABLO",            disc:"F7"},
-  {equipo:"JUVENIL F7",            entrenador:"PABLO",            disc:"F7"},
+  // FÚTBOL SALA
+  {equipo:"CD KOLBE 1º BLANCO", cat:"PREBENJAMIN", label:"PREB. 1º BLANCO",     entrenador:"FRANK / ESPI", disc:"FS"},
+  {equipo:"CD KOLBE 1º VERDE",  cat:"PREBENJAMIN", label:"PREB. 1º VERDE",      entrenador:"FRANK / ESPI", disc:"FS"},
+  {equipo:"CD KOLBE 2º",        cat:"PREBENJAMIN", label:"PREB. 2º",            entrenador:"SOLER",        disc:"FS"},
+  {equipo:"CD KOLBE 3º BLANCO", cat:"BENJAMIN",    label:"BENJAMIN 3º BLANCO",  entrenador:"RODRI",        disc:"FS"},
+  {equipo:"CD KOLBE 3º VERDE",  cat:"BENJAMIN",    label:"BENJAMIN 3º VERDE",   entrenador:"FRANK",        disc:"FS"},
+  {equipo:"CD KOLBE 4º",        cat:"BENJAMIN",    label:"BENJAMIN 4º",         entrenador:"PABLO",        disc:"FS"},
+  {equipo:"",                   cat:"",            label:"ALEVIN FS",           entrenador:"RUIBI",        disc:"FS"},
+  {equipo:"",                   cat:"",            label:"INFANTIL FEDERADO FS",entrenador:"RUIBI",        disc:"FS"},
+  {equipo:"",                   cat:"",            label:"CADETE FEDERADO FS",  entrenador:"GONZALO",      disc:"FS"},
+  {equipo:"",                   cat:"",            label:"JUVENIL FEDERADO FS", entrenador:"GONZALO",      disc:"FS"},
+  // FÚTBOL 7
+  {equipo:"CD KOLBE MORADO",    cat:"ALEVIN",      label:"ALEVIN MORADO",       entrenador:"SAMUEL",       disc:"F7"},
+  {equipo:"CD KOLBE BLANCO",    cat:"ALEVIN",      label:"ALEVIN BLANCO",       entrenador:"RUIBI",        disc:"F7"},
+  {equipo:"CD KOLBE VERDE",     cat:"INFANTIL",    label:"INFANTIL VERDE",      entrenador:"GÓMEZ",        disc:"F7"},
+  {equipo:"CD KOLBE BLANCO",    cat:"INFANTIL",    label:"INFANTIL BLANCO",     entrenador:"RUBI",         disc:"F7"},
+  {equipo:"CD KOLBE CADETE",    cat:"CADETE",      label:"CADETE",              entrenador:"PABLO",        disc:"F7"},
+  {equipo:"CD KOLBE JUV.",      cat:"CADETE",      label:"JUVENIL F7",          entrenador:"PABLO",        disc:"F7"},
 ];
 
 function resumenKolbe(){
@@ -2263,18 +2261,24 @@ function resumenKolbe(){
 
   // Build rows - one per KOLBE_EQUIPOS entry
   var rows = KOLBE_EQUIPOS.map(function(ke){
-    // Try to find matching partido
-    var p = kolbePs.find(function(pp){
-      var eq1n = (pp.eq1||"").toUpperCase();
-      var eq2n = (pp.eq2||"").toUpperCase();
-      // Match by equipo name keywords
-      var keywords = ke.equipo.toUpperCase().replace("º","").replace("FS","").trim().split(/\s+/);
-      var inEq1 = keywords.every(function(k){ return k.length<=2 || eq1n.includes(k); });
-      var inEq2 = keywords.every(function(k){ return k.length<=2 || eq2n.includes(k); });
-      return inEq1 || inEq2;
-    });
+    // Match by equipo name + categoria
+    var p = null;
+    if(ke.equipo){
+      p = kolbePs.find(function(pp){
+        var eq1n = (pp.eq1||"").toUpperCase().trim();
+        var eq2n = (pp.eq2||"").toUpperCase().trim();
+        var keN = ke.equipo.toUpperCase().trim();
+        var catMatch = !ke.cat || (pp.categoria||"").toUpperCase().includes(ke.cat.toUpperCase());
+        return (eq1n === keN || eq2n === keN) && catMatch;
+      });
+    }
 
-    if(!p) return {equipo: ke.equipo, entrenador: ke.entrenador, disc: ke.disc, partido:"—", horario:"—", campo:"—"};
+    var displayLabel = ke.label || ke.equipo;
+    // Check if rival is DESCANSO
+    if(p && ((p.eq2||"").toUpperCase().includes("DESCANSO") || (p.eq1||"").toUpperCase().includes("DESCANSO"))){
+      return {equipo: displayLabel, entrenador: ke.entrenador, disc: ke.disc, partido:"🟡 DESCANSO", horario:"—", campo:"—"};
+    }
+    if(!p) return {equipo: displayLabel, entrenador: ke.entrenador, disc: ke.disc, partido:"—", horario:"—", campo:"—"};
 
     var esLocal = (p.eq1||"").toUpperCase().includes("KOLBE");
     var rival = esLocal ? p.eq2 : p.eq1;
@@ -2283,8 +2287,9 @@ function resumenKolbe(){
     var dia = p.dia === "Viernes" ? "Vie" : "Sáb";
     var campo = p.campoOriginal || p.campo || "—";
 
+    var displayLabel = ke.label || ke.equipo;
     return {
-      equipo: ke.equipo,
+      equipo: displayLabel,
       entrenador: ke.entrenador,
       disc: ke.disc,
       partido: condicion + " vs " + (rival||"—"),
