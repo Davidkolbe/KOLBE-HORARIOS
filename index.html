@@ -254,6 +254,7 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
       <button class="btn btn-verde btn-sm" onclick="generarMensajesWhatsApp()">📱 Mensajes entrenadores</button>
       <button class="btn btn-outline btn-sm" onclick="vistaEquipos()">📋 Vista por equipos</button>
       <button class="btn btn-outline btn-sm" onclick="vistaCategorias()">📊 Vista por categorías</button>
+      <button class="btn btn-verde btn-sm" onclick="resumenKolbe()">🟢 Resumen Kolbe partidos</button>
       <button class="btn btn-verde btn-sm" onclick="modalNuevoPartido()">+ Partido</button>
     </div>
 
@@ -2128,7 +2129,8 @@ Partidos del fin de semana · ${semana}
     ps.forEach(function(p){
       const dia = p.dia === "Viernes" ? "Viernes" : "Sábado";
       const hora = p.aplazado ? "📌 APLAZADO" : p.sinHora ? "Por confirmar" : p.hora + "h";
-      const esLocal = p.eq1 === club;
+      // esLocal: comparar clubBase de eq1 con el club actual
+      const esLocal = clubBase(p.eq1) === club;
       const condicion = esLocal ? "🏠 LOCAL" : "✈️ VISITANTE";
       // Usar el campo original del CSV para la dirección real del partido
       const campoDirKey = p.campoOriginal || p.campo;
@@ -2224,7 +2226,165 @@ function copiarVistaEquipo(id, btn){
   }
 }
 
-// ============ VISTA POR CATEGORÍAS ============
+// ============ RESUMEN KOLBE PARTIDOS ============
+// Entrenadores Kolbe por equipo
+const KOLBE_EQUIPOS = [
+  // Fútbol Sala
+  {equipo:"CHUPETINES",            entrenador:"CHECHU / ALBERTO", disc:"FS"},
+  {equipo:"PREB. 1º BLANCO",       entrenador:"FRANK / ESPI",     disc:"FS"},
+  {equipo:"PREB. 1º VERDE",        entrenador:"FRANK / ESPI",     disc:"FS"},
+  {equipo:"PREB. 2º",              entrenador:"SOLER",            disc:"FS"},
+  {equipo:"BENJAMIN 3º BLANCO",    entrenador:"RODRI",            disc:"FS"},
+  {equipo:"BENJAMIN 3º VERDE",     entrenador:"FRANK",            disc:"FS"},
+  {equipo:"BENJAMIN 4º",           entrenador:"PABLO",            disc:"FS"},
+  {equipo:"ALEVIN FS",             entrenador:"RUIBI",            disc:"FS"},
+  {equipo:"INFANTIL FEDERADO FS",  entrenador:"RUIBI",            disc:"FS"},
+  {equipo:"CADETE FEDERADO FS",    entrenador:"GONZALO",          disc:"FS"},
+  {equipo:"JUVENIL FEDERADO FS",   entrenador:"GONZALO",          disc:"FS"},
+  // Fútbol 7
+  {equipo:"ALEVIN BLANCO",         entrenador:"RUIBI",            disc:"F7"},
+  {equipo:"ALEVIN MORADO",         entrenador:"SAMUEL",           disc:"F7"},
+  {equipo:"ALEVIN VERDE",          entrenador:"SAMUEL",           disc:"F7"},
+  {equipo:"INFANTIL VERDE",        entrenador:"GÓMEZ",            disc:"F7"},
+  {equipo:"INFANTIL BLANCO",       entrenador:"RUBI",             disc:"F7"},
+  {equipo:"CADETE",                entrenador:"PABLO",            disc:"F7"},
+  {equipo:"JUVENIL F7",            entrenador:"PABLO",            disc:"F7"},
+];
+
+function resumenKolbe(){
+  if(!partidos || !partidos.length){ alert("No hay partidos cargados."); return; }
+
+  const semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
+
+  // Find Kolbe partidos
+  const kolbePs = partidos.filter(function(p){
+    return (p.eq1||"").toUpperCase().includes("KOLBE") || (p.eq2||"").toUpperCase().includes("KOLBE");
+  });
+
+  // Build rows - one per KOLBE_EQUIPOS entry
+  var rows = KOLBE_EQUIPOS.map(function(ke){
+    // Try to find matching partido
+    var p = kolbePs.find(function(pp){
+      var eq1n = (pp.eq1||"").toUpperCase();
+      var eq2n = (pp.eq2||"").toUpperCase();
+      // Match by equipo name keywords
+      var keywords = ke.equipo.toUpperCase().replace("º","").replace("FS","").trim().split(/\s+/);
+      var inEq1 = keywords.every(function(k){ return k.length<=2 || eq1n.includes(k); });
+      var inEq2 = keywords.every(function(k){ return k.length<=2 || eq2n.includes(k); });
+      return inEq1 || inEq2;
+    });
+
+    if(!p) return {equipo: ke.equipo, entrenador: ke.entrenador, disc: ke.disc, partido:"—", horario:"—", campo:"—"};
+
+    var esLocal = (p.eq1||"").toUpperCase().includes("KOLBE");
+    var rival = esLocal ? p.eq2 : p.eq1;
+    var condicion = esLocal ? "🏠" : "✈️";
+    var hora = p.aplazado ? "📌 APLAZADO" : p.sinHora ? "Sin hora" : p.hora+"h";
+    var dia = p.dia === "Viernes" ? "Vie" : "Sáb";
+    var campo = p.campoOriginal || p.campo || "—";
+
+    return {
+      equipo: ke.equipo,
+      entrenador: ke.entrenador,
+      disc: ke.disc,
+      partido: condicion + " vs " + (rival||"—"),
+      horario: dia + " " + hora,
+      campo: campo,
+    };
+  });
+
+  // Build HTML table
+  var overlay = document.createElement("div");
+  overlay.id = "resumen-kolbe-overlay";
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;overflow-y:auto;padding:2rem 1rem";
+
+  var wrapper = document.createElement("div");
+  wrapper.style.cssText = "max-width:820px;margin:0 auto;background:#fff;border-radius:var(--rl);padding:1.5rem;position:relative";
+
+  var btnCerrar = document.createElement("button");
+  btnCerrar.textContent = "✕ Cerrar";
+  btnCerrar.style.cssText = "position:absolute;top:1rem;right:1rem;padding:6px 12px;border:1px solid var(--gris3);border-radius:var(--r);background:transparent;cursor:pointer;font-size:13px";
+  btnCerrar.addEventListener("click", function(){ overlay.remove(); });
+
+  var titulo = document.createElement("div");
+  titulo.innerHTML = '<h2 style="font-size:16px;font-weight:700;margin-bottom:.25rem;color:var(--verde);text-align:center">🟢 PARTIDOS CD KOLBE — ' + semana.toUpperCase() + '</h2>'
+    + '<p style="font-size:11px;color:var(--gris4);margin-bottom:1rem;text-align:center">Resumen de partidos por equipo</p>';
+
+  // Table
+  var table = document.createElement("table");
+  table.style.cssText = "width:100%;border-collapse:collapse;font-size:12px";
+
+  // Header
+  var thead = document.createElement("thead");
+  thead.innerHTML = '<tr style="background:var(--verde);color:#fff">'
+    + '<th style="padding:8px 10px;text-align:left;border:1px solid #2d6a4f">EQUIPO</th>'
+    + '<th style="padding:8px 10px;text-align:left;border:1px solid #2d6a4f">ENTRENADOR</th>'
+    + '<th style="padding:8px 10px;text-align:left;border:1px solid #2d6a4f">PARTIDO</th>'
+    + '<th style="padding:8px 10px;text-align:left;border:1px solid #2d6a4f">CAMPO</th>'
+    + '<th style="padding:8px 10px;text-align:left;border:1px solid #2d6a4f">HORARIO</th>'
+    + '</tr>';
+
+  var tbody = document.createElement("tbody");
+  var lastDisc = "";
+  rows.forEach(function(r, i){
+    // Section separator
+    if(r.disc !== lastDisc){
+      lastDisc = r.disc;
+      var sepRow = document.createElement("tr");
+      sepRow.innerHTML = '<td colspan="5" style="background:var(--verde-s);color:var(--verde2);font-weight:700;padding:6px 10px;font-size:11px;letter-spacing:.5px;border:1px solid var(--gris2)">'
+        + (r.disc === "FS" ? "⚽ FÚTBOL SALA" : "⚽ FÚTBOL 7") + '</td>';
+      tbody.appendChild(sepRow);
+    }
+    var tr = document.createElement("tr");
+    tr.style.cssText = "background:" + (i%2===0?"#fff":"var(--gris1)");
+    var sinPartido = r.partido === "—";
+    tr.innerHTML = '<td style="padding:7px 10px;border:1px solid var(--gris2);font-weight:600">' + r.equipo + '</td>'
+      + '<td style="padding:7px 10px;border:1px solid var(--gris2);color:var(--gris5)">' + r.entrenador + '</td>'
+      + '<td style="padding:7px 10px;border:1px solid var(--gris2);' + (sinPartido?'color:var(--gris3)':'') + '">' + r.partido + '</td>'
+      + '<td style="padding:7px 10px;border:1px solid var(--gris2);color:var(--gris5)">' + r.campo + '</td>'
+      + '<td style="padding:7px 10px;border:1px solid var(--gris2);font-weight:600;color:' + (sinPartido?'var(--gris3)':'var(--verde)') + '">' + r.horario + '</td>';
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(thead);
+  table.appendChild(tbody);
+
+  // Copy button
+  var btnCopiar = document.createElement("button");
+  btnCopiar.textContent = "📋 Copiar tabla";
+  btnCopiar.style.cssText = "margin-top:1rem;padding:8px 16px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f)";
+  btnCopiar.addEventListener("click", function(){
+    // Build plain text table for WhatsApp
+    var txt = "🟢 *PARTIDOS CD KOLBE — " + semana.toUpperCase() + "*\n\n";
+    var lastD = "";
+    rows.forEach(function(r){
+      if(r.disc !== lastD){
+        lastD = r.disc;
+        txt += (r.disc==="FS" ? "⚽ *FÚTBOL SALA*" : "⚽ *FÚTBOL 7*") + "\n";
+      }
+      txt += r.equipo.padEnd(22) + "| " + r.entrenador.padEnd(16) + "| " + r.partido.padEnd(25) + "| " + r.horario + "\n";
+    });
+    var ta = document.createElement("textarea");
+    ta.value = txt;
+    ta.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0";
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    btnCopiar.textContent = "✓ Copiado";
+    btnCopiar.style.background = "var(--verde2,#2d6a4f)";
+    setTimeout(function(){ btnCopiar.textContent = "📋 Copiar tabla"; btnCopiar.style.background = "var(--verde)"; }, 2000);
+  });
+
+  wrapper.appendChild(btnCerrar);
+  wrapper.appendChild(titulo);
+  wrapper.appendChild(table);
+  wrapper.appendChild(btnCopiar);
+  overlay.appendChild(wrapper);
+  document.body.appendChild(overlay);
+}
+
+
 function getDisciplina(p){
   const comp = (p.comp||"").toUpperCase();
   const campo = (p.campo||"").toUpperCase();
