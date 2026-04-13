@@ -2011,13 +2011,56 @@ function vistaEquipos(){
   const semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
 
   // Helper: obtener nombre base del club (sin sufijos de equipo/color/letra)
+  // Mapa de normalización de clubs — variantes → nombre canónico
+  const CLUB_ALIAS = {
+    // Kolbe (F7 + Sala)
+    "CD KOLBE BLANCO":"CD KOLBE","CD KOLBE MORADO":"CD KOLBE","CD KOLBE VERDE":"CD KOLBE",
+    "CD KOLBE CADETE":"CD KOLBE","CD KOLBE JUV.":"CD KOLBE","CD KOLBE JUV":"CD KOLBE",
+    "CD KOLBE 1º BLANCO":"CD KOLBE","CD KOLBE 1º VERDE":"CD KOLBE",
+    "CD KOLBE 2º":"CD KOLBE","CD KOLBE 3º BLANCO":"CD KOLBE","CD KOLBE 4º":"CD KOLBE",
+    // Zola
+    'COLEGIO ZOLA "A"':"COLEGIO ZOLA",'COLEGIO ZOLA "B"':"COLEGIO ZOLA",
+    "ZOLA VILLAFRANCA A":"COLEGIO ZOLA","ZOLA VILLAFRANCA B":"COLEGIO ZOLA",
+    // Highlands
+    "COLEGIO HIGHLANDS LOS FRESNOS":"COLEGIO HIGHLANDS",
+    'COLEGIO HIGHLANDS LOS FRESNOS "A"':"COLEGIO HIGHLANDS",
+    "COLEGIO HIGHLANDS LOS FRESNOS A":"COLEGIO HIGHLANDS",
+    "COLEGIO HIGHLANDS LOS FRESNOS B":"COLEGIO HIGHLANDS",
+    // St. Michael
+    "ST. MICHAEL´S GREEN":"ST. MICHAEL'S","ST. MICHAEL'S GREEN":"ST. MICHAEL'S",
+    "ST. MICHAEL´S SCHOOL":"ST. MICHAEL'S","ST. MICHAEL'S SCHOOL":"ST. MICHAEL'S",
+    "ST. MICHAEL´S WHITE":"ST. MICHAEL'S","ST. MICHAEL'S WHITE":"ST. MICHAEL'S",
+    // Vallmont
+    "CD VALLMONT 1":"CD VALLMONT","CD VALLMONT 2":"CD VALLMONT",
+    // CE Fútsal Pardillo
+    "CE FUTSAL PARDILLO ARTRUX":"CE FÚTSAL PARDILLO",
+    "CE FÚTSAL PARDILLO ARTRUX":"CE FÚTSAL PARDILLO",
+    "CE FÚTSAL PARDILLO GESTIÓN INMOBILIARIA":"CE FÚTSAL PARDILLO",
+    "CE FÚTSAL PARDILLO GESTION INMOBILIARIA":"CE FÚTSAL PARDILLO",
+    "CE FUTSAL PARDILLO GESTION INMOBILIARIA":"CE FÚTSAL PARDILLO",
+    "CE FUTSAL PARDILLO GESTIÓN INMOBILIARIA":"CE FÚTSAL PARDILLO",
+    "CE FÚTSAL PARDILLO ARIANNAS COOKIES":"CE FÚTSAL PARDILLO",
+    "CE FUTSAL PARDILLO ARIANNAS COOKIES":"CE FÚTSAL PARDILLO",
+    "FÚTSAL PARDILLO":"CE FÚTSAL PARDILLO",
+    "FUTSAL PARDILLO":"CE FÚTSAL PARDILLO",
+    // Los Boliches
+    "LOS BOLICHES M.":"LOS BOLICHES","LOS BOLICHES M":"LOS BOLICHES",
+    // Maseral
+    "MASERAL CARPE":"MASERAL CARPE DIEM","MASERAL CARPE DIEM 1":"MASERAL CARPE DIEM",
+  };
+
   const CLUB_SUFIJOS = ["BLANCO","MORADO","VERDE","AMARILLO","ROJO","AZUL","NARANJA",
     "GREEN","WHITE","SCHOOL","BLUE","CADETE","JUVENIL","JUV","SENIOR"];
+
   function clubBase(nombre){
-    let n = nombre.trim().replace(/"([A-Z])"/g, "$1"); // quita comillas de letra
+    if(!nombre) return "";
+    const n = nombre.trim().replace(/"([A-Z])"/g,"$1").replace(/´/g,"'");
+    // Check alias map first (exact match)
+    if(CLUB_ALIAS[n]) return CLUB_ALIAS[n];
+    // Then strip trailing suffixes
     const palabras = n.split(" ");
     while(palabras.length > 1){
-      const ultima = palabras[palabras.length-1].toUpperCase().replace(/\.$/,""); // quita punto final (ej: JUV.)
+      const ultima = palabras[palabras.length-1].toUpperCase().replace(/\.$/,"");
       if(CLUB_SUFIJOS.indexOf(ultima) >= 0 || /^[A-C]$/.test(ultima)){
         palabras.pop();
       } else { break; }
