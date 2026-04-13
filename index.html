@@ -253,6 +253,7 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
       <button class="btn btn-outline btn-sm" onclick="exportarPDF()">↓ PDF</button>
       <button class="btn btn-verde btn-sm" onclick="generarMensajesWhatsApp()">📱 Mensajes entrenadores</button>
       <button class="btn btn-outline btn-sm" onclick="vistaEquipos()">📋 Vista por equipos</button>
+      <button class="btn btn-verde btn-sm" onclick="modalNuevoPartido()">+ Partido</button>
     </div>
 
     <div class="layout-main">
@@ -2106,6 +2107,111 @@ function copiarVistaEquipo(id, btn){
     btn.textContent = "✓ Copiado";
     setTimeout(function(){ btn.textContent = "📋 Copiar mensaje"; }, 2000);
   });
+}
+
+// ============ NUEVO PARTIDO MANUAL ============
+function modalNuevoPartido(){
+  const CATS = ["","Prebenjamín","Benjamín","Alevín","Infantil","Cadete","Juvenil","Fútbol Sala"];
+  const camposOpts = Object.keys(CAMPOS_BASE).map(function(c){
+    return `<option value="${c}">${c}</option>`;
+  }).join("");
+  const catOpts = CATS.map(function(c){
+    return `<option value="${c}">${c||"— Categoría —"}</option>`;
+  }).join("");
+
+  const overlay = document.createElement("div");
+  overlay.id = "nuevo-partido-overlay";
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem";
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:var(--rl);padding:1.5rem;width:100%;max-width:480px;position:relative">
+      <button onclick="document.getElementById('nuevo-partido-overlay').remove()" style="position:absolute;top:1rem;right:1rem;padding:4px 10px;border:1px solid var(--gris3);border-radius:var(--r);background:transparent;cursor:pointer;font-size:13px">✕</button>
+      <h3 style="font-size:15px;font-weight:600;margin-bottom:1.25rem;color:var(--verde)">➕ Añadir partido</h3>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label style="font-size:11px;color:var(--gris4);display:block;margin-bottom:3px">Equipo local</label>
+            <input id="np-eq1" type="text" placeholder="CD KOLBE BLANCO" style="width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--gris3);border-radius:var(--r);box-sizing:border-box">
+          </div>
+          <div style="flex:1">
+            <label style="font-size:11px;color:var(--gris4);display:block;margin-bottom:3px">Equipo visitante</label>
+            <input id="np-eq2" type="text" placeholder="CF QUIJORNA" style="width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--gris3);border-radius:var(--r);box-sizing:border-box">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label style="font-size:11px;color:var(--gris4);display:block;margin-bottom:3px">Categoría</label>
+            <select id="np-cat" style="width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--gris3);border-radius:var(--r);background:#fff;box-sizing:border-box">${catOpts}</select>
+          </div>
+          <div style="flex:1">
+            <label style="font-size:11px;color:var(--gris4);display:block;margin-bottom:3px">Grupo</label>
+            <input id="np-grupo" type="text" placeholder="ORO, PLATA..." style="width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--gris3);border-radius:var(--r);box-sizing:border-box">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label style="font-size:11px;color:var(--gris4);display:block;margin-bottom:3px">Campo</label>
+            <select id="np-campo" style="width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--gris3);border-radius:var(--r);background:#fff;box-sizing:border-box">${camposOpts}</select>
+          </div>
+          <div style="flex:1">
+            <label style="font-size:11px;color:var(--gris4);display:block;margin-bottom:3px">Día</label>
+            <select id="np-dia" style="width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--gris3);border-radius:var(--r);background:#fff;box-sizing:border-box">
+              <option value="Sabado">Sábado</option>
+              <option value="Viernes">Viernes</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <label style="font-size:11px;color:var(--gris4);display:block;margin-bottom:3px">Hora</label>
+            <input id="np-hora" type="time" style="width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--gris3);border-radius:var(--r);box-sizing:border-box">
+          </div>
+        </div>
+        <button onclick="guardarNuevoPartido()" style="margin-top:6px;padding:8px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f)">
+          ✓ Añadir partido
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function guardarNuevoPartido(){
+  const eq1   = document.getElementById("np-eq1").value.trim().toUpperCase();
+  const eq2   = document.getElementById("np-eq2").value.trim().toUpperCase();
+  const cat   = document.getElementById("np-cat").value;
+  const grupo = document.getElementById("np-grupo").value.trim().toUpperCase();
+  const campo = document.getElementById("np-campo").value;
+  const dia   = document.getElementById("np-dia").value;
+  const horaRaw = document.getElementById("np-hora").value; // "HH:MM" or ""
+
+  if(!eq1 || !eq2){ alert("Debes introducir los dos equipos."); return; }
+
+  const nuevoId = Math.max(0, ...partidos.map(function(p){ return p.id; })) + 1;
+  const hora = horaRaw || "00:00";
+
+  const nuevo = {
+    id: nuevoId,
+    eq1: eq1,
+    eq2: eq2,
+    fecha: "",
+    hora: hora,
+    sinHora: !horaRaw,
+    aplazado: false,
+    dia: dia,
+    campo: campo,
+    campoOriginal: campo,
+    jornada: "",
+    comp: "",
+    categoria: cat,
+    grupo: grupo,
+    ent1: getEntrenadores(eq1),
+    ent2: getEntrenadores(eq2),
+    conflicto: null,
+  };
+
+  partidos.push(nuevo);
+  calcConflictos();
+  savePartidos();
+  renderTodo();
+  document.getElementById("nuevo-partido-overlay").remove();
+  alert("✓ Partido añadido correctamente.");
 }
 
 // ============ INIT ============
