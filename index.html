@@ -2348,12 +2348,15 @@ function resumenKolbe(){
     tr.style.cssText = "background:" + (i%2===0?"#fff":"var(--gris1)");
     var sinPartido = r.partido === "—";
 
-    function makeCellEditable(content, bold, color){
+    function makeCellEditable(content, bold, color, rowKey, colKey){
       var td = document.createElement("td");
       td.style.cssText = "padding:7px 10px;border:1px solid var(--gris2);position:relative;"
         + (bold ? "font-weight:600;" : "") + (color ? "color:"+color+";" : "");
       var span = document.createElement("span");
-      span.textContent = content;
+      // Load saved value if exists
+      var savedVal = (window._resumenEdits && window._resumenEdits[rowKey] && window._resumenEdits[rowKey][colKey] !== undefined)
+        ? window._resumenEdits[rowKey][colKey] : content;
+      span.textContent = savedVal;
       var btn = document.createElement("button");
       btn.textContent = "✏️";
       btn.title = "Editar";
@@ -2372,6 +2375,10 @@ function resumenKolbe(){
           span.textContent = inp.value;
           td.replaceChild(span, inp);
           btn.style.display = "";
+          // Save to memory
+          if(!window._resumenEdits) window._resumenEdits = {};
+          if(!window._resumenEdits[rowKey]) window._resumenEdits[rowKey] = {};
+          window._resumenEdits[rowKey][colKey] = inp.value;
         }
         inp.addEventListener("blur", guardar);
         inp.addEventListener("keydown", function(e){
@@ -2384,16 +2391,38 @@ function resumenKolbe(){
       return td;
     }
 
-    tr.appendChild(makeCellEditable(r.equipo, true, null));
-    tr.appendChild(makeCellEditable(r.entrenador, false, "var(--gris5)"));
-    tr.appendChild(makeCellEditable(r.partido, false, sinPartido ? "var(--gris3)" : null));
-    tr.appendChild(makeCellEditable(r.campo, false, "var(--gris5)"));
-    tr.appendChild(makeCellEditable(r.horario, true, sinPartido ? "var(--gris3)" : "var(--verde)"));
+    var rk = r.equipo; // row key
+    tr.appendChild(makeCellEditable(r.equipo,    true,  null,              rk, "equipo"));
+    tr.appendChild(makeCellEditable(r.entrenador,false, "var(--gris5)",    rk, "entrenador"));
+    tr.appendChild(makeCellEditable(r.partido,   false, sinPartido?"var(--gris3)":null, rk, "partido"));
+    tr.appendChild(makeCellEditable(r.campo,     false, "var(--gris5)",    rk, "campo"));
+    tr.appendChild(makeCellEditable(r.horario,   true,  sinPartido?"var(--gris3)":"var(--verde)", rk, "horario"));
     tbody.appendChild(tr);
   });
 
   table.appendChild(thead);
   table.appendChild(tbody);
+
+  // Load saved edits from localStorage
+  try {
+    var saved = localStorage.getItem("kolbe_resumen_edits_" + semana);
+    if(saved) window._resumenEdits = JSON.parse(saved);
+    else window._resumenEdits = {};
+  } catch(e){ window._resumenEdits = {}; }
+
+  // Save button
+  var btnGuardar = document.createElement("button");
+  btnGuardar.textContent = "💾 Guardar cambios";
+  btnGuardar.style.cssText = "margin-top:1rem;margin-right:8px;padding:8px 16px;background:#fff;color:var(--verde);border:2px solid var(--verde);border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f)";
+  btnGuardar.addEventListener("click", function(){
+    try {
+      localStorage.setItem("kolbe_resumen_edits_" + semana, JSON.stringify(window._resumenEdits || {}));
+      btnGuardar.textContent = "✓ Guardado";
+      btnGuardar.style.background = "var(--verde)";
+      btnGuardar.style.color = "#fff";
+      setTimeout(function(){ btnGuardar.textContent = "💾 Guardar cambios"; btnGuardar.style.background="#fff"; btnGuardar.style.color="var(--verde)"; }, 2000);
+    } catch(e){ alert("No se pudo guardar."); }
+  });
 
   // Copy button
   var btnCopiar = document.createElement("button");
@@ -2425,6 +2454,7 @@ function resumenKolbe(){
   wrapper.appendChild(btnCerrar);
   wrapper.appendChild(titulo);
   wrapper.appendChild(table);
+  wrapper.appendChild(btnGuardar);
   wrapper.appendChild(btnCopiar);
   overlay.appendChild(wrapper);
   document.body.appendChild(overlay);
