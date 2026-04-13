@@ -253,6 +253,7 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
       <button class="btn btn-outline btn-sm" onclick="exportarPDF()">↓ PDF</button>
       <button class="btn btn-verde btn-sm" onclick="generarMensajesWhatsApp()">📱 Mensajes entrenadores</button>
       <button class="btn btn-outline btn-sm" onclick="vistaEquipos()">📋 Vista por equipos</button>
+      <button class="btn btn-outline btn-sm" onclick="vistaCategorias()">📊 Vista por categorías</button>
       <button class="btn btn-verde btn-sm" onclick="modalNuevoPartido()">+ Partido</button>
     </div>
 
@@ -424,9 +425,27 @@ const CAMPOS_BASE = {
   "Santa María":     {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo de Fútbol Santa María de la Alameda"},
   "Brunete":         {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo Municipal de Brunete"},
   "Vallmont":        {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Vallmont, Madrid"},
+  // ── FÚTBOL SALA ──
+  "Pabellón Vallmont":          {Sabado:{ini:"09:00",fin:"14:00",max:4}, dir:"Colegio Vallmont, Villanueva de la Cañada"},
+  "Pabellón Kolbe":             {Viernes:{ini:"17:00",fin:"20:00",max:3}, Sabado:{ini:"09:00",fin:"14:00",max:4}, dir:"Av. de la Universidad, 4, Villanueva de la Cañada"},
+  "Pabellón Infanta Cristina":  {Viernes:{ini:"17:00",fin:"20:00",max:3}, Sabado:{ini:"09:00",fin:"14:00",max:4}, dir:"Camino Retamar, Villanueva del Pardillo"},
+  "Pista Exterior Infanta Cristina": {Viernes:{ini:"17:00",fin:"20:00",max:3}, Sabado:{ini:"09:00",fin:"14:00",max:4}, dir:"Camino Retamar, Villanueva del Pardillo"},
+  "Colegio Arcadia":            {Viernes:{ini:"17:00",fin:"20:00",max:3}, Sabado:{ini:"09:00",fin:"14:00",max:4}, dir:"Colegio Arcadia, Madrid"},
+  "Pabellón Zola":              {Viernes:{ini:"17:00",fin:"20:00",max:3}, Sabado:{ini:"09:00",fin:"14:00",max:4}, dir:"Colegio Zola, Villafranca del Castillo"},
+  "Pista Kolbe Secundaria":     {Viernes:{ini:"17:00",fin:"20:00",max:3}, Sabado:{ini:"09:00",fin:"14:00",max:4}, dir:"Av. de la Universidad, 4, Villanueva de la Cañada"},
 };
 
 const LUGAR_MAP = [
+  // ── FÚTBOL SALA (más específicos primero) ──
+  ["pista secundaria",          "Pista Kolbe Secundaria"],
+  ["pista semicubierta",        "Pista Exterior Infanta Cristina"],
+  ["pabellón infanta cristina", "Pabellón Infanta Cristina"],
+  ["infanta cristina",          "Pabellón Infanta Cristina"],
+  ["pabellón vallmont",         "Pabellón Vallmont"],
+  ["pabellón kolbe",            "Pabellón Kolbe"],
+  ["pabellón zola",             "Pabellón Zola"],
+  ["arcadia",                   "Colegio Arcadia"],
+  // ── FÚTBOL 7 ──
   ["kolbe",          "Kolbe"],
   ["zola",           "Zola"],
   ["pinos",          "Los Pinos"],
@@ -456,7 +475,11 @@ const CATEG_MAP = {
   "PREBENJAMIN":"Prebenjamín","PREBENJAMÍN":"Prebenjamín",
   "BENJAMIN":"Benjamín","BENJAMÍN":"Benjamín",
   "ALEVIN":"Alevín","ALEVÍN":"Alevín",
-  "INFANTIL":"Infantil","CADETE":"Cadete","JUVENIL":"Juvenil","SENIOR":"Senior"
+  "INFANTIL":"Infantil","CADETE":"Cadete","JUVENIL":"Juvenil","SENIOR":"Senior",
+  "LIGA FS PREBENJAMIN":"Prebenjamín","LIGA FS PREBENJAMÍN":"Prebenjamín",
+  "LIGA FS BENJAMIN":"Benjamín","LIGA FS BENJAMÍN":"Benjamín",
+  "LIGA FS ALEVIN":"Alevín","LIGA FS ALEVÍN":"Alevín",
+  "LIGA FS INFANTIL":"Infantil","LIGA FS CADETE":"Cadete"
 };
 
 // ============ ESTADO ============
@@ -593,6 +616,17 @@ function getEntrenadores(nombreEquipo){
 
   // Unión Pardillo
   if(n.includes("PARDILLO") && n.includes("UNI")) return "ENTREN_PARDILLO";
+
+  // Kolbe Fútbol Sala — detectar por KOLBE en nombre
+  if(n.includes("KOLBE") && (n.includes("1º") || n.includes("2º") || n.includes("3º") || n.includes("4º") || n.includes("1°") || n.includes("2°") || n.includes("3°") || n.includes("4°"))){
+    // Buscar en equipos configurados primero
+    const eqSala = equipos.find(function(e){
+      const en = e.nombre.toUpperCase().replace(/["""]/g,"").trim();
+      return n === en;
+    });
+    if(eqSala) return eqSala.entrenadores;
+    return "ENTREN_KOLBE_SALA";
+  }
 
   // Buscar en equipos configurados — coincidencia estricta
   const eq = equipos.find(function(e){
@@ -2107,6 +2141,96 @@ function copiarVistaEquipo(id, btn){
     btn.textContent = "✓ Copiado";
     setTimeout(function(){ btn.textContent = "📋 Copiar mensaje"; }, 2000);
   });
+}
+
+// ============ VISTA POR CATEGORÍAS ============
+function getDisciplina(p){
+  const comp = (p.comp||"").toUpperCase();
+  const campo = (p.campo||"").toUpperCase();
+  if(comp.includes("FS") || comp.includes("FUTSAL") || comp.includes("FÚTSAL") ||
+     campo.includes("PABELLÓN") || campo.includes("PISTA")) return "Fútbol Sala";
+  return "Fútbol 7";
+}
+
+function vistaCategorias(){
+  if(!partidos || !partidos.length){ alert("No hay partidos cargados."); return; }
+
+  const semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
+
+  // Agrupar por categoria + disciplina
+  const grupoMap = {};
+  partidos.forEach(function(p){
+    if(!p.categoria) return;
+    const disc = getDisciplina(p);
+    const key = p.categoria + "|||" + disc;
+    if(!grupoMap[key]) grupoMap[key] = { categoria: p.categoria, disciplina: disc, partidos: [] };
+    grupoMap[key].partidos.push(p);
+  });
+
+  const ORDEN_CAT = ["Prebenjamín","Benjamín","Alevín","Infantil","Cadete","Juvenil","Senior"];
+  const grupos = Object.values(grupoMap).sort(function(a,b){
+    const ia = ORDEN_CAT.indexOf(a.categoria);
+    const ib = ORDEN_CAT.indexOf(b.categoria);
+    if(ia !== ib) return (ia<0?99:ia) - (ib<0?99:ib);
+    return a.disciplina.localeCompare(b.disciplina);
+  });
+
+  if(!grupos.length){ alert("No hay partidos con categoría asignada."); return; }
+
+  var modalHtml = '<div style="max-width:680px;margin:0 auto">'
+    + '<h2 style="font-size:16px;font-weight:600;margin-bottom:.25rem;color:var(--verde)">📊 Vista por categorías</h2>'
+    + '<p style="font-size:12px;color:var(--gris4);margin-bottom:1.25rem">Partidos agrupados por categoría y disciplina.</p>';
+
+  grupos.forEach(function(g){
+    var ps = g.partidos.slice().sort(function(a,b){
+      var dias = {Viernes:0,Sabado:1};
+      var dd = (dias[a.dia]||0)-(dias[b.dia]||0);
+      if(dd!==0) return dd;
+      return (a.hora||"").localeCompare(b.hora||"");
+    });
+
+    var msg = "📋 *" + g.categoria.toUpperCase() + " — " + g.disciplina.toUpperCase() + "*\n";
+    msg += "Jornada · " + semana + "\n\n";
+
+    ["Viernes","Sabado"].forEach(function(dia){
+      var psDia = ps.filter(function(p){ return p.dia===dia; });
+      if(!psDia.length) return;
+      msg += "📅 " + (dia==="Viernes"?"Viernes":"Sábado") + "\n";
+      psDia.forEach(function(p){
+        var hora = p.aplazado ? "📌 APLAZADO" : p.sinHora ? "Sin hora" : p.hora+"h";
+        var campoDirKey = p.campoOriginal || p.campo;
+        var dir = (CAMPOS_BASE[campoDirKey]&&CAMPOS_BASE[campoDirKey].dir) ||
+                  (CAMPOS_BASE[p.campo]&&CAMPOS_BASE[p.campo].dir) || p.campo;
+        msg += "⏰ " + hora + " · " + p.eq1 + " vs " + (p.eq2||"—") + "\n";
+        msg += "🏟 " + (campoDirKey||p.campo) + " · 📍 " + dir + "\n";
+      });
+      msg += "\n";
+    });
+
+    msg = msg.trim();
+    var uid = "cat-" + (g.categoria+g.disciplina).replace(/[^a-zA-Z0-9]/g,"_");
+
+    modalHtml += '<div style="margin-bottom:1.25rem;border:1px solid var(--gris2);border-radius:var(--rl);overflow:hidden">'
+      + '<div style="background:var(--verde);color:#fff;padding:8px 14px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center">'
+      + '<span>' + g.categoria + ' — ' + g.disciplina + '</span>'
+      + '<span style="font-size:11px;font-weight:400;opacity:.8">' + ps.length + ' partido' + (ps.length>1?"s":"") + '</span>'
+      + '</div>'
+      + '<div style="padding:12px 14px">'
+      + '<pre id="' + uid + '" style="font-family:var(--f);font-size:12px;line-height:1.7;white-space:pre-wrap;margin:0;color:var(--negro)">' + msg + '</pre>'
+      + '<button onclick="copiarVistaEquipo(\"'+uid+'\",this)" style="margin-top:10px;padding:6px 14px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f)">📋 Copiar mensaje</button>'
+      + '</div></div>';
+  });
+
+  modalHtml += '</div>';
+
+  var overlay = document.createElement("div");
+  overlay.id = "vista-cat-overlay";
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;overflow-y:auto;padding:2rem 1rem";
+  overlay.innerHTML = '<div style="max-width:680px;margin:0 auto;background:#fff;border-radius:var(--rl);padding:1.5rem;position:relative">'
+    + '<button onclick="document.getElementById(\'vista-cat-overlay\').remove()" style="position:absolute;top:1rem;right:1rem;padding:6px 12px;border:1px solid var(--gris3);border-radius:var(--r);background:transparent;cursor:pointer;font-size:13px">✕ Cerrar</button>'
+    + modalHtml
+    + '</div>';
+  document.body.appendChild(overlay);
 }
 
 // ============ NUEVO PARTIDO MANUAL ============
