@@ -851,7 +851,7 @@ function renderPartidoRow(p){
     <td>${estado}</td>
     <td style="display:flex;gap:4px;align-items:center">
       <button class="btn btn-sm" style="padding:3px 7px;font-size:11px;border:1px solid ${p.aplazado?'#ffc107':'var(--gris3)'};background:${p.aplazado?'#fff3cd':'transparent'};cursor:pointer;border-radius:5px;color:${p.aplazado?'#856404':'var(--gris5)'}" onclick="toggleAplazado(${p.id})" title="Marcar como aplazado">📌</button>
-      <button class="btn btn-sm" style="padding:3px 7px;font-size:12px;border:1px solid var(--gris3);background:transparent;cursor:pointer;border-radius:5px;color:var(--gris5)" onclick="limpiarHora(${p.id})" title="Quitar hora">✕</button>
+      <button class="btn btn-sm" style="padding:3px 7px;font-size:12px;border:1px solid var(--gris3);background:transparent;cursor:pointer;border-radius:5px;color:var(--rojo)" onclick="eliminarPartido(${p.id})" title="Eliminar partido">✕</button>
     </td>
   </tr>`;
 }
@@ -986,6 +986,43 @@ function toggleAplazado(id){
   }
   savePartidos();
   renderTodo();
+}
+
+function eliminarPartido(id){
+  const p = partidos.find(function(p){ return p.id===id; });
+  if(!p) return;
+
+  // Use custom modal instead of confirm() which may be blocked
+  var overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem";
+
+  var box = document.createElement("div");
+  box.style.cssText = "background:#fff;border-radius:var(--rl);padding:1.5rem;max-width:400px;width:100%;text-align:center";
+  box.innerHTML = "<p style='font-size:14px;font-weight:600;margin-bottom:.5rem;color:var(--negro)'>¿Eliminar partido?</p>"
+    + "<p style='font-size:13px;color:var(--gris5);margin-bottom:1.25rem'>" + p.eq1 + " vs " + (p.eq2||"—") + "<br><small>Podrás añadirlo de nuevo con + Partido</small></p>";
+
+  var btnSi = document.createElement("button");
+  btnSi.textContent = "✓ Sí, eliminar";
+  btnSi.style.cssText = "padding:8px 18px;background:var(--rojo,#c0392b);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;margin-right:8px;font-family:var(--f)";
+
+  var btnNo = document.createElement("button");
+  btnNo.textContent = "Cancelar";
+  btnNo.style.cssText = "padding:8px 18px;background:transparent;color:var(--gris5);border:1px solid var(--gris3);border-radius:var(--r);font-size:13px;cursor:pointer;font-family:var(--f)";
+
+  btnSi.addEventListener("click", function(){
+    overlay.remove();
+    partidos = partidos.filter(function(pp){ return pp.id !== id; });
+    savePartidos();
+    calcConflictos();
+    renderTodo();
+  });
+
+  btnNo.addEventListener("click", function(){ overlay.remove(); });
+
+  box.appendChild(btnSi);
+  box.appendChild(btnNo);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
 }
 
 function limpiarHora(id){
@@ -2230,23 +2267,25 @@ function copiarVistaEquipo(id, btn){
 // Entrenadores Kolbe por equipo
 const KOLBE_EQUIPOS = [
   // FÚTBOL SALA
-  {equipo:"CD KOLBE 1º BLANCO", cat:"PREBENJAMIN", label:"PREB. 1º BLANCO",     entrenador:"FRANK / ESPI", disc:"FS"},
-  {equipo:"CD KOLBE 1º VERDE",  cat:"PREBENJAMIN", label:"PREB. 1º VERDE",      entrenador:"FRANK / ESPI", disc:"FS"},
-  {equipo:"CD KOLBE 2º",        cat:"PREBENJAMIN", label:"PREB. 2º",            entrenador:"SOLER",        disc:"FS"},
-  {equipo:"CD KOLBE 3º BLANCO", cat:"BENJAMIN",    label:"BENJAMIN 3º BLANCO",  entrenador:"RODRI",        disc:"FS"},
-  {equipo:"CD KOLBE 3º VERDE",  cat:"BENJAMIN",    label:"BENJAMIN 3º VERDE",   entrenador:"FRANK",        disc:"FS"},
-  {equipo:"CD KOLBE 4º",        cat:"BENJAMIN",    label:"BENJAMIN 4º",         entrenador:"PABLO",        disc:"FS"},
-  {equipo:"",                   cat:"",            label:"ALEVIN FS",           entrenador:"RUIBI",        disc:"FS"},
-  {equipo:"",                   cat:"",            label:"INFANTIL FEDERADO FS",entrenador:"RUIBI",        disc:"FS"},
-  {equipo:"",                   cat:"",            label:"CADETE FEDERADO FS",  entrenador:"GONZALO",      disc:"FS"},
-  {equipo:"",                   cat:"",            label:"JUVENIL FEDERADO FS", entrenador:"GONZALO",      disc:"FS"},
+  {equipo:"CD KOLBE 1º BLANCO", cat:"PREBENJAMIN", label:"CD KOLBE 1º BLANCO", categoria:"Prebenjamín", entrenador:"FRANK / ESPI", disc:"FS"},
+  {equipo:"CD KOLBE 1º VERDE",  cat:"PREBENJAMIN", label:"CD KOLBE 1º VERDE",  categoria:"Prebenjamín", entrenador:"FRANK / ESPI", disc:"FS"},
+  {equipo:"CD KOLBE 2º",        cat:"PREBENJAMIN", label:"CD KOLBE 2º",        categoria:"Prebenjamín", entrenador:"SOLER",        disc:"FS"},
+  {equipo:"CD KOLBE 3º BLANCO", cat:"BENJAMIN",    label:"CD KOLBE 3º BLANCO", categoria:"Benjamín",    entrenador:"RODRI",        disc:"FS"},
+  {equipo:"CD KOLBE 3º VERDE",  cat:"BENJAMIN",    label:"CD KOLBE 3º VERDE",  categoria:"Benjamín",    entrenador:"FRANK",        disc:"FS"},
+  {equipo:"CD KOLBE 4º",        cat:"BENJAMIN",    label:"CD KOLBE 4º",        categoria:"Benjamín",    entrenador:"PABLO",        disc:"FS"},
+  {equipo:"",                   cat:"",            label:"CD KOLBE CHUPETINES",categoria:"Chupetín",    entrenador:"CHECHU / ALBERTO", disc:"FS"},
+  // FÚTBOL SALA FEDERADO
+  {equipo:"",                   cat:"",            label:"CD KOLBE INFANTIL",  categoria:"Infantil",    entrenador:"RUIBI",        disc:"FS"},
+  {equipo:"",                   cat:"",            label:"CD KOLBE CADETE FS", categoria:"Cadete",      entrenador:"GONZALO",      disc:"FS"},
+  {equipo:"",                   cat:"",            label:"CD KOLBE JUVENIL FS",categoria:"Juvenil",     entrenador:"GONZALO",      disc:"FS"},
   // FÚTBOL 7
-  {equipo:"CD KOLBE MORADO",    cat:"ALEVIN",      label:"ALEVIN MORADO",       entrenador:"SAMUEL",       disc:"F7"},
-  {equipo:"CD KOLBE BLANCO",    cat:"ALEVIN",      label:"ALEVIN BLANCO",       entrenador:"RUIBI",        disc:"F7"},
-  {equipo:"CD KOLBE VERDE",     cat:"INFANTIL",    label:"INFANTIL VERDE",      entrenador:"GÓMEZ",        disc:"F7"},
-  {equipo:"CD KOLBE BLANCO",    cat:"INFANTIL",    label:"INFANTIL BLANCO",     entrenador:"RUBI",         disc:"F7"},
-  {equipo:"CD KOLBE CADETE",    cat:"CADETE",      label:"CADETE",              entrenador:"PABLO",        disc:"F7"},
-  {equipo:"CD KOLBE JUV.",      cat:"CADETE",      label:"JUVENIL F7",          entrenador:"PABLO",        disc:"F7"},
+  {equipo:"CD KOLBE BLANCO",    cat:"ALEVIN",      label:"CD KOLBE BLANCO",    categoria:"Alevín",      entrenador:"RUIBI",        disc:"F7"},
+  {equipo:"CD KOLBE VERDE",     cat:"ALEVIN",      label:"CD KOLBE VERDE",     categoria:"Alevín",      entrenador:"SAMUEL",       disc:"F7"},
+  {equipo:"CD KOLBE MORADO",    cat:"ALEVIN",      label:"CD KOLBE MORADO",    categoria:"Alevín",      entrenador:"SAMUEL",       disc:"F7"},
+  {equipo:"CD KOLBE BLANCO",    cat:"INFANTIL",    label:"CD KOLBE BLANCO",    categoria:"Infantil",    entrenador:"RUBI",         disc:"F7"},
+  {equipo:"CD KOLBE VERDE",     cat:"INFANTIL",    label:"CD KOLBE VERDE",     categoria:"Infantil",    entrenador:"GÓMEZ",        disc:"F7"},
+  {equipo:"CD KOLBE CADETE",    cat:"CADETE",      label:"CD KOLBE CADETE",    categoria:"Cadete",      entrenador:"PABLO",        disc:"F7"},
+  {equipo:"CD KOLBE JUV.",      cat:"CADETE",      label:"CD KOLBE JUVENIL",   categoria:"Juvenil",     entrenador:"PABLO",        disc:"F7"},
 ];
 
 function resumenKolbe(){
@@ -2279,10 +2318,10 @@ function resumenKolbe(){
       var eq2IsNan = !rival2 || rival2.toLowerCase()==="nan" || rival2==="";
       var isDescanso = rival2.toUpperCase().includes("DESCANSO") || (p.eq1||"").toUpperCase().includes("DESCANSO");
       if(isDescanso || eq2IsNan){
-        return {equipo: displayLabel, entrenador: ke.entrenador, disc: ke.disc, partido:"🟡 DESCANSO", horario:"—", campo:"—"};
+        return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: ke.entrenador, disc: ke.disc, partido:"🟡 DESCANSO", horario:"—", campo:"—"};
       }
     }
-    if(!p) return {equipo: displayLabel, entrenador: ke.entrenador, disc: ke.disc, partido:"—", horario:"—", campo:"—"};
+    if(!p) return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: ke.entrenador, disc: ke.disc, partido:"—", horario:"—", campo:"—"};
 
     var esLocal = (p.eq1||"").toUpperCase().includes("KOLBE");
     var rival = esLocal ? p.eq2 : p.eq1;
@@ -2294,6 +2333,7 @@ function resumenKolbe(){
     var displayLabel = ke.label || ke.equipo;
     return {
       equipo: displayLabel,
+      categoria: ke.categoria||"",
       entrenador: ke.entrenador,
       disc: ke.disc,
       partido: condicion + " vs " + (rival||"—"),
@@ -2327,6 +2367,7 @@ function resumenKolbe(){
   var thead = document.createElement("thead");
   thead.innerHTML = '<tr style="background:var(--verde);color:#fff">'
     + '<th style="padding:8px 10px;text-align:left;border:1px solid #2d6a4f">EQUIPO</th>'
+    + '<th style="padding:8px 10px;text-align:left;border:1px solid #2d6a4f">CATEGORÍA</th>'
     + '<th style="padding:8px 10px;text-align:left;border:1px solid #2d6a4f">ENTRENADOR</th>'
     + '<th style="padding:8px 10px;text-align:left;border:1px solid #2d6a4f">PARTIDO</th>'
     + '<th style="padding:8px 10px;text-align:left;border:1px solid #2d6a4f">CAMPO</th>'
@@ -2340,7 +2381,7 @@ function resumenKolbe(){
     if(r.disc !== lastDisc){
       lastDisc = r.disc;
       var sepRow = document.createElement("tr");
-      sepRow.innerHTML = '<td colspan="5" style="background:var(--verde-s);color:var(--verde2);font-weight:700;padding:6px 10px;font-size:11px;letter-spacing:.5px;border:1px solid var(--gris2)">'
+      sepRow.innerHTML = '<td colspan="6" style="background:var(--verde-s);color:var(--verde2);font-weight:700;padding:6px 10px;font-size:11px;letter-spacing:.5px;border:1px solid var(--gris2)">'
         + (r.disc === "FS" ? "⚽ FÚTBOL SALA" : "⚽ FÚTBOL 7") + '</td>';
       tbody.appendChild(sepRow);
     }
@@ -2391,8 +2432,9 @@ function resumenKolbe(){
       return td;
     }
 
-    var rk = r.equipo; // row key
+    var rk = r.disc + "_" + r.equipo + "_" + r.categoria; // unique row key
     tr.appendChild(makeCellEditable(r.equipo,    true,  null,              rk, "equipo"));
+    tr.appendChild(makeCellEditable(r.categoria, false, "var(--gris4)",    rk, "categoria"));
     tr.appendChild(makeCellEditable(r.entrenador,false, "var(--gris5)",    rk, "entrenador"));
     tr.appendChild(makeCellEditable(r.partido,   false, sinPartido?"var(--gris3)":null, rk, "partido"));
     tr.appendChild(makeCellEditable(r.campo,     false, "var(--gris5)",    rk, "campo"));
@@ -2437,7 +2479,7 @@ function resumenKolbe(){
         lastD = r.disc;
         txt += (r.disc==="FS" ? "⚽ *FÚTBOL SALA*" : "⚽ *FÚTBOL 7*") + "\n";
       }
-      txt += r.equipo.padEnd(22) + "| " + r.entrenador.padEnd(16) + "| " + r.partido.padEnd(25) + "| " + r.horario + "\n";
+      txt += r.equipo.padEnd(22) + "| " + (r.categoria||"").padEnd(14) + "| " + r.entrenador.padEnd(16) + "| " + r.partido.padEnd(25) + "| " + r.horario + "\n";
     });
     var ta = document.createElement("textarea");
     ta.value = txt;
