@@ -644,8 +644,12 @@ function getEntrenadores(nombreEquipo){
 }
 
 function getDiasDisp(campo){
-  if(!campo || !CAMPOS_BASE[campo]) return ["Viernes","Sabado"];
-  return Object.keys(CAMPOS_BASE[campo]).filter(function(k){ return k !== "dir" && k !== "max"; });
+  if(!campo || !CAMPOS_BASE[campo]) return ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado","Domingo"];
+  var diasCampo = Object.keys(CAMPOS_BASE[campo]).filter(function(k){ return k !== "dir" && k !== "max"; });
+  // Always include all days so user can override if needed
+  var todosDias = ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado","Domingo"];
+  todosDias.forEach(function(d){ if(diasCampo.indexOf(d)<0) diasCampo.push(d); });
+  return diasCampo;
 }
 
 function getFranja(campo, dia){
@@ -832,7 +836,8 @@ function renderPartidoRow(p){
                  p.sinHora   ? `<span class="estado-badge estado-pend">! Sin hora</span>` :
                                `<span class="estado-badge estado-ok">✓ OK</span>`;
   const diasDisp = getDiasDisp(p.campo);
-  const diaOpts = diasDisp.map(d=>`<option value="${d}" ${p.dia===d?"selected":""}>${d==="Viernes"?"Viernes":"Sábado"}</option>`).join("");
+  const diasLabel = {Lunes:"Lunes",Martes:"Martes",Miercoles:"Miércoles",Jueves:"Jueves",Viernes:"Viernes",Sabado:"Sábado",Domingo:"Domingo"};
+  const diaOpts = diasDisp.map(d=>`<option value="${d}" ${p.dia===d?"selected":""}>${diasLabel[d]||d}</option>`).join("");
   const entDisplay = [p.ent1,p.ent2].filter(Boolean).join(" / ") || `<span style="color:var(--gris4);font-size:11px">—</span>`;
   return `<tr class="${rowClass}" data-id="${p.id}">
     <td>
@@ -851,6 +856,7 @@ function renderPartidoRow(p){
     <td>${estado}</td>
     <td style="display:flex;gap:4px;align-items:center">
       <button class="btn btn-sm" style="padding:3px 7px;font-size:11px;border:1px solid ${p.aplazado?'#ffc107':'var(--gris3)'};background:${p.aplazado?'#fff3cd':'transparent'};cursor:pointer;border-radius:5px;color:${p.aplazado?'#856404':'var(--gris5)'}" onclick="toggleAplazado(${p.id})" title="Marcar como aplazado">📌</button>
+      <button class="btn btn-sm" style="padding:3px 7px;font-size:11px;border:1px solid var(--gris3);background:transparent;cursor:pointer;border-radius:5px;color:var(--gris5)" onclick="cambiarDia(${p.id})" title="Cambiar día">📅</button>
       <button class="btn btn-sm" style="padding:3px 7px;font-size:12px;border:1px solid var(--gris3);background:transparent;cursor:pointer;border-radius:5px;color:var(--rojo)" onclick="eliminarPartido(${p.id})" title="Eliminar partido">✕</button>
     </td>
   </tr>`;
@@ -986,6 +992,78 @@ function toggleAplazado(id){
   }
   savePartidos();
   renderTodo();
+}
+
+const DIAS_SEMANA = ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado","Domingo"];
+
+function cambiarDia(id){
+  const p = partidos.find(function(pp){ return pp.id===id; });
+  if(!p) return;
+
+  var overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem";
+
+  var box = document.createElement("div");
+  box.style.cssText = "background:#fff;border-radius:var(--rl);padding:1.5rem;max-width:360px;width:100%";
+
+  var titulo = document.createElement("p");
+  titulo.style.cssText = "font-size:14px;font-weight:600;margin-bottom:.25rem;color:var(--negro)";
+  titulo.textContent = "📅 Cambiar día del partido";
+
+  var subtitulo = document.createElement("p");
+  subtitulo.style.cssText = "font-size:12px;color:var(--gris5);margin-bottom:1rem";
+  subtitulo.textContent = p.eq1 + " vs " + (p.eq2||"—");
+
+  var selectDia = document.createElement("select");
+  selectDia.style.cssText = "width:100%;font-size:13px;padding:8px;border:1px solid var(--gris3);border-radius:var(--r);background:#fff;margin-bottom:.75rem;font-family:var(--f)";
+  DIAS_SEMANA.forEach(function(d){
+    var opt = document.createElement("option");
+    opt.value = d;
+    opt.textContent = d === "Sabado" ? "Sábado" : d === "Miercoles" ? "Miércoles" : d;
+    if(p.dia === d) opt.selected = true;
+    selectDia.appendChild(opt);
+  });
+
+  var labelHora = document.createElement("label");
+  labelHora.style.cssText = "font-size:11px;color:var(--gris4);display:block;margin-bottom:4px";
+  labelHora.textContent = "Hora (opcional)";
+
+  var inputHora = document.createElement("input");
+  inputHora.type = "time";
+  inputHora.value = p.sinHora ? "" : p.hora;
+  inputHora.style.cssText = "width:100%;font-size:13px;padding:8px;border:1px solid var(--gris3);border-radius:var(--r);margin-bottom:1rem;box-sizing:border-box;font-family:var(--f)";
+
+  var btnGuardar = document.createElement("button");
+  btnGuardar.textContent = "✓ Guardar";
+  btnGuardar.style.cssText = "padding:8px 18px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;margin-right:8px;font-family:var(--f)";
+
+  var btnCancelar = document.createElement("button");
+  btnCancelar.textContent = "Cancelar";
+  btnCancelar.style.cssText = "padding:8px 18px;background:transparent;color:var(--gris5);border:1px solid var(--gris3);border-radius:var(--r);font-size:13px;cursor:pointer;font-family:var(--f)";
+
+  btnGuardar.addEventListener("click", function(){
+    p.dia = selectDia.value;
+    if(inputHora.value){
+      p.hora = inputHora.value;
+      p.sinHora = false;
+    }
+    overlay.remove();
+    savePartidos();
+    calcConflictos();
+    renderTodo();
+  });
+
+  btnCancelar.addEventListener("click", function(){ overlay.remove(); });
+
+  box.appendChild(titulo);
+  box.appendChild(subtitulo);
+  box.appendChild(selectDia);
+  box.appendChild(labelHora);
+  box.appendChild(inputHora);
+  box.appendChild(btnGuardar);
+  box.appendChild(btnCancelar);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
 }
 
 function eliminarPartido(id){
@@ -2707,7 +2785,7 @@ function modalNuevoPartido(){
     + '<select id="np-campo" style="width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--gris3);border-radius:var(--r);background:#fff;box-sizing:border-box">'+buildCamposOpts("Fútbol 7")+'</select></div>'
     + '<div style="flex:1"><label style="font-size:11px;color:var(--gris4);display:block;margin-bottom:3px">Día</label>'
     + '<select id="np-dia" style="width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--gris3);border-radius:var(--r);background:#fff;box-sizing:border-box">'
-    + '<option value="Sabado">Sábado</option><option value="Viernes">Viernes</option></select></div>'
+    + '<option value="Sabado">Sábado</option><option value="Viernes">Viernes</option><option value="Jueves">Jueves</option><option value="Miercoles">Miércoles</option><option value="Martes">Martes</option><option value="Lunes">Lunes</option><option value="Domingo">Domingo</option></select></div>'
     + '<div style="flex:1"><label style="font-size:11px;color:var(--gris4);display:block;margin-bottom:3px">Hora</label>'
     + '<input id="np-hora" type="time" style="width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--gris3);border-radius:var(--r);box-sizing:border-box"></div>'
     + '</div>'
