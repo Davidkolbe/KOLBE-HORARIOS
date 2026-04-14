@@ -873,11 +873,11 @@ function renderTabla(){
 
   if(campoActivo !== "todos"){
     // Vista de campo individual: agrupar por día
-    ["Viernes","Sabado"].forEach(dia=>{
+    ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado","Domingo"].forEach(dia=>{
       const ps = lista.filter(p=>p.dia===dia);
       if(!ps.length) return;
       ps.sort((a,b)=>{ if(a.sinHora&&!b.sinHora) return 1; if(!a.sinHora&&b.sinHora) return -1; return toMins(a.hora)-toMins(b.hora); });
-      html += `<tr><td colspan="7"><div class="dia-header">${dia==="Viernes"?"Viernes":"Sábado"}</div></td></tr>`;
+      html += `<tr><td colspan="7"><div class="dia-header">${{Lunes:"Lunes",Martes:"Martes",Miercoles:"Miércoles",Jueves:"Jueves",Viernes:"Viernes",Sabado:"Sábado",Domingo:"Domingo"}[dia]||dia}</div></td></tr>`;
       ps.forEach(p=>{ html += renderPartidoRow(p); });
     });
   } else {
@@ -904,11 +904,12 @@ function renderTabla(){
       </td></tr>`;
 
       // Dentro de cada campo, agrupar por día ordenado por hora
-      ["Viernes","Sabado"].forEach(dia=>{
+      ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado","Domingo"].forEach(dia=>{
         const ps = psCampo.filter(p=>p.dia===dia);
         if(!ps.length) return;
         ps.sort((a,b)=>{ if(a.sinHora&&!b.sinHora) return 1; if(!a.sinHora&&b.sinHora) return -1; return toMins(a.hora)-toMins(b.hora); });
-        html += `<tr><td colspan="7"><div class="dia-header" style="margin-left:8px">${dia==="Viernes"?"Viernes":"Sábado"}</div></td></tr>`;
+        const _dl={Lunes:"Lunes",Martes:"Martes",Miercoles:"Miércoles",Jueves:"Jueves",Viernes:"Viernes",Sabado:"Sábado",Domingo:"Domingo"};
+        html += `<tr><td colspan="7"><div class="dia-header" style="margin-left:8px">${_dl[dia]||dia}</div></td></tr>`;
         ps.forEach(p=>{ html += renderPartidoRow(p); });
       });
     });
@@ -920,7 +921,7 @@ function renderTabla(){
 function renderCamposInfo(){
   const box = document.getElementById("campos-info");
   if(!box) return;
-  const diasLabel = {Viernes:"Vie",Sabado:"Sáb"};
+  const diasLabel = {Lunes:"Lun",Martes:"Mar",Miercoles:"Mié",Jueves:"Jue",Viernes:"Vie",Sabado:"Sáb",Domingo:"Dom"};
   box.innerHTML = Object.entries(CAMPOS_BASE).map(([nombre, franjas]) => {
     const filas = Object.entries(franjas).filter(([dia, f]) => dia !== "dir" && f && typeof f === "object" && f.ini).map(([dia, f]) => {
       const total = partidos.filter(p => p.campo === nombre && p.dia === dia).length;
@@ -1440,11 +1441,12 @@ function _doExportExcel(){
     // Campo header
     wsData.push(["🏟 " + campo, "", "", "", "", "", ""]);
 
-    ["Viernes","Sabado"].forEach(function(dia){
+    ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado","Domingo"].forEach(function(dia){
       const psDia = ps.filter(function(p){ return p.dia===dia; });
       if(!psDia.length) return;
 
-      wsData.push([dia==="Viernes"?"VIERNES":"SÁBADO", "", "", "", "", "", ""]);
+      const _exDL={Lunes:"LUNES",Martes:"MARTES",Miercoles:"MIÉRCOLES",Jueves:"JUEVES",Viernes:"VIERNES",Sabado:"SÁBADO",Domingo:"DOMINGO"};
+      wsData.push([_exDL[dia]||dia.toUpperCase(), "", "", "", "", "", ""]);
       wsData.push(["Hora","Equipo Local","vs","Equipo Visitante","Categoría","Grupo","Estado"]);
 
       psDia.sort(function(a,b){
@@ -1493,7 +1495,7 @@ function exportarPDF(){
     const ps = partidos.filter(function(p){ return (p.campo||"Sin campo")===campo; });
     if(!ps.length) return;
     filas += `<tr><td colspan="6" style="background:#1b5e3b;color:#fff;padding:7px 12px;font-weight:600;font-size:13px">🏟 ${campo}</td></tr>`;
-    ["Viernes","Sabado"].forEach(function(dia){
+    ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado","Domingo"].forEach(function(dia){
       const psDia = ps.filter(function(p){ return p.dia===dia; });
       if(!psDia.length) return;
       filas += `<tr><td colspan="6" style="background:#f4f4f2;color:#5c5c57;padding:4px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">${dia==="Viernes"?"Viernes":"Sábado"}</td></tr>`;
@@ -1819,7 +1821,7 @@ function autoAsignar(){
   const camposOrden = [...Object.keys(CAMPOS_BASE), "Sin campo"];
   const camposEnPartidos = partidos.map(function(p){ return p.campo||"Sin campo"; });
   camposEnPartidos.forEach(function(c){ if(!camposOrden.includes(c)) camposOrden.push(c); });
-  const diasOrden = ["Viernes","Sabado"];
+  const diasOrden = ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado","Domingo"];
 
   camposOrden.forEach(campo => {
     diasOrden.forEach(dia => {
@@ -2041,7 +2043,7 @@ function generarMensajesWhatsApp(){
 
   Object.entries(porEquipo).forEach(function([equipo, ps]){
     ps.forEach(function(p){
-      const dia = p.dia === "Viernes" ? "Viernes" : "Sábado";
+      const dia = p.dia === "Viernes" ? "Viernes" : dia==="Sabado" ? "Sábado" : dia==="Jueves" ? "Jueves" : dia==="Miercoles" ? "Miércoles" : dia==="Martes" ? "Martes" : dia==="Lunes" ? "Lunes" : "Domingo";
       const hora = p.sinHora ? "Por confirmar" : p.hora + "h";
       const lugar = p.esLocal ? p.campo : p.campo;
       const dir = getDireccion(p.campo);
@@ -2242,7 +2244,7 @@ Partidos del fin de semana · ${semana}
 `;
 
     ps.forEach(function(p){
-      const dia = p.dia === "Viernes" ? "Viernes" : "Sábado";
+      const dia = p.dia === "Viernes" ? "Viernes" : dia==="Sabado" ? "Sábado" : dia==="Jueves" ? "Jueves" : dia==="Miercoles" ? "Miércoles" : dia==="Martes" ? "Martes" : dia==="Lunes" ? "Lunes" : "Domingo";
       const hora = p.aplazado ? "📌 APLAZADO" : p.sinHora ? "Por confirmar" : p.hora + "h";
       // esLocal: comparar clubBase de eq1 con el club actual
       const esLocal = clubBase(p.eq1) === club;
@@ -2634,7 +2636,7 @@ function vistaCategorias(){
     let msg = "📋 *" + g.categoria.toUpperCase() + " — " + g.disciplina.toUpperCase() + "*\n";
     msg += "Jornada · " + semana + "\n\n";
 
-    ["Viernes","Sabado"].forEach(function(dia){
+    ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado","Domingo"].forEach(function(dia){
       const psDia = ps.filter(function(p){ return p.dia===dia; });
       if(!psDia.length) return;
       msg += "📅 " + (dia==="Viernes"?"Viernes":"Sábado") + "\n";
