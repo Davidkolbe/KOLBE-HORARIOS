@@ -2036,14 +2036,17 @@ function generarMensajesWhatsApp(){
   var NL = "\n";
   var diasLabel = {Lunes:"Lunes",Martes:"Martes",Miercoles:"Miércoles",Jueves:"Jueves",Viernes:"Viernes",Sabado:"Sábado",Domingo:"Domingo"};
 
-  // Agrupar por equipo Kolbe
+  // Agrupar por equipo Kolbe — si los dos son Kolbe, crear entrada para cada uno
   var porEquipo = {};
   kolbePartidos.forEach(function(p){
-    var equipo  = esEquipoKolbe(p.eq1) ? p.eq1 : p.eq2;
-    var rival   = esEquipoKolbe(p.eq1) ? p.eq2 : p.eq1;
-    var esLocal = esEquipoKolbe(p.eq1);
-    if(!porEquipo[equipo]) porEquipo[equipo] = [];
-    porEquipo[equipo].push({p:p, equipo:equipo, rival:rival, esLocal:esLocal});
+    var ambosKolbe = esEquipoKolbe(p.eq1) && esEquipoKolbe(p.eq2);
+    var equipos = ambosKolbe
+      ? [{equipo:p.eq1, rival:p.eq2, esLocal:true}, {equipo:p.eq2, rival:p.eq1, esLocal:false}]
+      : [{equipo: esEquipoKolbe(p.eq1)?p.eq1:p.eq2, rival: esEquipoKolbe(p.eq1)?p.eq2:p.eq1, esLocal: esEquipoKolbe(p.eq1)}];
+    equipos.forEach(function(item){
+      if(!porEquipo[item.equipo]) porEquipo[item.equipo] = [];
+      porEquipo[item.equipo].push({p:p, equipo:item.equipo, rival:item.rival, esLocal:item.esLocal});
+    });
   });
 
   // Store msgs for copy
