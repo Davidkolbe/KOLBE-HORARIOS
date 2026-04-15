@@ -2023,7 +2023,7 @@ function esEquipoKolbe(nombre){
 }
 
 function generarMensajesWhatsApp(){
-  const kolbePartidos = partidos.filter(function(p){
+  var kolbePartidos = partidos.filter(function(p){
     return esEquipoKolbe(p.eq1) || esEquipoKolbe(p.eq2);
   });
 
@@ -2032,84 +2032,121 @@ function generarMensajesWhatsApp(){
     return;
   }
 
+  var semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
+  var NL = "\n";
+  var diasLabel = {Lunes:"Lunes",Martes:"Martes",Miercoles:"Miércoles",Jueves:"Jueves",Viernes:"Viernes",Sabado:"Sábado",Domingo:"Domingo"};
+
   // Agrupar por equipo Kolbe
-  const porEquipo = {};
+  var porEquipo = {};
   kolbePartidos.forEach(function(p){
-    const equipo = esEquipoKolbe(p.eq1) ? p.eq1 : p.eq2;
-    const rival  = esEquipoKolbe(p.eq1) ? p.eq2 : p.eq1;
-    const esLocal = esEquipoKolbe(p.eq1);
+    var equipo  = esEquipoKolbe(p.eq1) ? p.eq1 : p.eq2;
+    var rival   = esEquipoKolbe(p.eq1) ? p.eq2 : p.eq1;
+    var esLocal = esEquipoKolbe(p.eq1);
     if(!porEquipo[equipo]) porEquipo[equipo] = [];
-    porEquipo[equipo].push({ ...p, equipoKolbe: equipo, rival, esLocal });
+    porEquipo[equipo].push({p:p, equipo:equipo, rival:rival, esLocal:esLocal});
   });
 
-  // Generar mensajes
-  const semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
-  let html = `<div style="max-width:640px;margin:0 auto">
-    <h2 style="font-size:16px;font-weight:600;margin-bottom:1rem;color:var(--verde)">📱 Mensajes para entrenadores</h2>
-    <p style="font-size:12px;color:var(--gris4);margin-bottom:1.25rem">Copia cada mensaje y mándalo al entrenador correspondiente por WhatsApp.</p>`;
+  // Store msgs for copy
+  window._whaMsgs = {};
 
-  Object.entries(porEquipo).forEach(function([equipo, ps]){
-    ps.forEach(function(p){
-      const dia = p.dia === "Viernes" ? "Viernes" : dia==="Sabado" ? "Sábado" : dia==="Jueves" ? "Jueves" : dia==="Miercoles" ? "Miércoles" : dia==="Martes" ? "Martes" : dia==="Lunes" ? "Lunes" : "Domingo";
-      const hora = p.sinHora ? "Por confirmar" : p.hora + "h";
-      const lugar = p.esLocal ? p.campo : p.campo;
-      const dir = getDireccion(p.campo);
-      const condicion = p.esLocal ? "🏠 LOCAL" : "✈️ VISITANTE";
-      // Calcular hora de convocatoria (30 min antes)
-      let convocatoria = "Por confirmar";
-      if(!p.sinHora && p.hora && p.hora !== "00:00"){
-        const mins = toMins(p.hora) - 30;
+  // Build overlay with DOM
+  var overlay = document.createElement("div");
+  overlay.id = "wha-overlay";
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;overflow-y:auto;padding:2rem 1rem";
+
+  var wrapper = document.createElement("div");
+  wrapper.style.cssText = "max-width:640px;margin:0 auto;background:#fff;border-radius:var(--rl);padding:1.5rem;position:relative";
+
+  var btnCerrar = document.createElement("button");
+  btnCerrar.textContent = "✕ Cerrar";
+  btnCerrar.style.cssText = "position:absolute;top:1rem;right:1rem;padding:6px 12px;border:1px solid var(--gris3);border-radius:var(--r);background:transparent;cursor:pointer;font-size:13px";
+  btnCerrar.addEventListener("click", function(){ overlay.remove(); });
+
+  var titulo = document.createElement("div");
+  titulo.innerHTML = "<h2 style='font-size:16px;font-weight:600;margin-bottom:.5rem;color:var(--verde)'>📱 Mensajes para entrenadores</h2>"
+    + "<p style='font-size:12px;color:var(--gris4);margin-bottom:1.25rem'>Copia cada mensaje y mándalo al entrenador por WhatsApp.</p>";
+
+  wrapper.appendChild(btnCerrar);
+  wrapper.appendChild(titulo);
+
+  Object.keys(porEquipo).forEach(function(equipo, gi){
+    porEquipo[equipo].forEach(function(item, ii){
+      var p = item.p;
+      var dia = diasLabel[p.dia] || p.dia || "";
+      var hora = p.aplazado ? "📌 APLAZADO" : p.sinHora ? "Por confirmar" : p.hora + "h";
+      var condicion = item.esLocal ? "🏠 LOCAL" : "✈️ VISITANTE";
+      var campo = p.campoOriginal || p.campo || "";
+      var dir = (CAMPOS_BASE[campo] && CAMPOS_BASE[campo].dir) || campo || "";
+
+      // Convocatoria 30 min antes
+      var convocatoria = "Por confirmar";
+      if(!p.sinHora && !p.aplazado && p.hora && p.hora !== "00:00"){
+        var mins = toMins(p.hora) - 30;
         if(mins >= 0){
           convocatoria = String(Math.floor(mins/60)).padStart(2,"0") + ":" + String(mins%60).padStart(2,"0") + "h";
         }
       }
 
-      const msg = `⚽ *${p.equipoKolbe}*
-`
-        + `📅 ${dia} ${semana}
-`
-        + `🔔 Convocatoria: *${convocatoria}*
-`
-        + `⏰ Hora: *${hora}*
-`
-        + `🏟 Campo: *${lugar}* ${condicion}
-`
-        + `📍 ${dir}
-`
-        + `👕 Rival: ${p.rival}
-`
-        + (p.categoria ? `🏆 Categoría: ${p.categoria}${p.grupo ? " · " + p.grupo : ""}
-` : "")
-        + `¡Ánimo a todos! 💪`
-        + `_Club Deportivo Kolbe_`;
+      var msg = "⚽ *" + p.equipoKolbe + "*" + NL
+        + "📅 " + dia + " " + semana + NL
+        + "🔔 Convocatoria: *" + convocatoria + "*" + NL
+        + "⏰ Hora partido: *" + hora + "*" + NL
+        + "🏟 Campo: *" + campo + "* " + condicion + NL
+        + "📍 " + dir + NL
+        + "👕 Rival: " + (item.rival||"—") + NL
+        + (p.categoria ? "🏆 " + p.categoria + (p.grupo?" · "+p.grupo:"") + NL : "")
+        + NL + "¡Ánimo a todos! 💪" + NL
+        + "_Club Deportivo Kolbe_";
 
-      html += `<div style="margin-bottom:1.25rem;border:1px solid var(--gris2);border-radius:var(--rl);overflow:hidden">
-        <div style="background:var(--verde);color:#fff;padding:8px 14px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center">
-          <span>${p.equipoKolbe}</span>
-          <span style="font-size:11px;font-weight:400;opacity:.8">${p.categoria||""} · ${condicion}</span>
-        </div>
-        <div style="padding:12px 14px">
-          <pre id="msg-${p.id}" style="font-family:var(--f);font-size:12px;line-height:1.6;white-space:pre-wrap;margin:0;color:var(--negro)">${msg}</pre>
-          <button onclick="copiarMsg('msg-${p.id}', this)" style="margin-top:10px;padding:6px 14px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f)">
-            📋 Copiar mensaje
-          </button>
-        </div>
-      </div>`;
+      var uid = "wha-" + gi + "-" + ii;
+      window._whaMsgs[uid] = msg;
+
+      // Build bloque DOM
+      var bloque = document.createElement("div");
+      bloque.style.cssText = "margin-bottom:1.25rem;border:1px solid var(--gris2);border-radius:var(--rl);overflow:hidden";
+
+      var header = document.createElement("div");
+      header.style.cssText = "background:var(--verde);color:#fff;padding:8px 14px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center";
+      header.innerHTML = "<span>" + equipo + "</span><span style='font-size:11px;font-weight:400;opacity:.8'>" + (p.categoria||"") + " · " + condicion + "</span>";
+
+      var body = document.createElement("div");
+      body.style.cssText = "padding:12px 14px";
+
+      var pre = document.createElement("pre");
+      pre.id = "msg-" + p.id;
+      pre.style.cssText = "font-family:var(--f);font-size:12px;line-height:1.6;white-space:pre-wrap;margin:0;color:var(--negro)";
+      pre.textContent = msg;
+
+      var btnCopy = document.createElement("button");
+      btnCopy.textContent = "📋 Copiar mensaje";
+      btnCopy.setAttribute("data-uid", uid);
+      btnCopy.style.cssText = "margin-top:10px;padding:6px 14px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f)";
+      btnCopy.addEventListener("click", function(){
+        var u = this.getAttribute("data-uid");
+        var texto = (window._whaMsgs && window._whaMsgs[u]) || "";
+        var b = this;
+        function ok(){ b.textContent="✓ Copiado"; b.style.background="var(--verde2,#2d6a4f)"; setTimeout(function(){ b.textContent="📋 Copiar mensaje"; b.style.background="var(--verde)"; },2000); }
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          navigator.clipboard.writeText(texto).then(ok).catch(function(){
+            var ta=document.createElement("textarea"); ta.value=texto; ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); ok();
+          });
+        } else {
+          var ta=document.createElement("textarea"); ta.value=texto; ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); ok();
+        }
+      });
+
+      body.appendChild(pre);
+      body.appendChild(btnCopy);
+      bloque.appendChild(header);
+      bloque.appendChild(body);
+      wrapper.appendChild(bloque);
     });
   });
 
-  html += `</div>`;
-
-  // Show in modal overlay
-  const overlay = document.createElement("div");
-  overlay.id = "wha-overlay";
-  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;overflow-y:auto;padding:2rem 1rem";
-  overlay.innerHTML = `<div style="max-width:640px;margin:0 auto;background:#fff;border-radius:var(--rl);padding:1.5rem;position:relative">
-    <button onclick="document.getElementById('wha-overlay').remove()" style="position:absolute;top:1rem;right:1rem;padding:6px 12px;border:1px solid var(--gris3);border-radius:var(--r);background:transparent;cursor:pointer;font-size:13px">✕ Cerrar</button>
-    ${html}
-  </div>`;
+  overlay.appendChild(wrapper);
   document.body.appendChild(overlay);
 }
+
 
 function copiarMsg(id, btn){
   const el = document.getElementById(id);
