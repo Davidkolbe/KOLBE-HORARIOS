@@ -352,58 +352,47 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
 <script>
 // ============ DATOS BASE ============
 const EQUIPOS_BASE = [
-  // CD KOLBE
-  {nombre:"CD KOLBE BLANCO",             categoria:"Alevín",       entrenadores:"GON, RUBÉN",           liga:"f7"},
-  {nombre:"CD KOLBE VERDE",              categoria:"Infantil",     entrenadores:"GON, RODRI",            liga:"f7"},
-  {nombre:"CD KOLBE MORADO",             categoria:"Alevín",       entrenadores:"SAMUEL, RUIBI",         liga:"f7"},
-  {nombre:"CD KOLBE PRE 1 BLANCO",       categoria:"Prebenjamín",  entrenadores:"FRANK, ESPI",           liga:"f7"},
-  {nombre:"CD KOLBE PRE 1 VERDE",        categoria:"Prebenjamín",  entrenadores:"FRANK, ESPI",           liga:"f7"},
-  {nombre:"CD KOLBE PRE 2",              categoria:"Prebenjamín",  entrenadores:"SOLER",                 liga:"f7"},
-  {nombre:"CD KOLBE BENJAMÍN 3 BLANCO",  categoria:"Benjamín",     entrenadores:"RODRI",                 liga:"f7"},
-  {nombre:"CD KOLBE BENJAMÍN 3 VERDE",   categoria:"Benjamín",     entrenadores:"FRANK",                 liga:"f7"},
-  {nombre:"CD KOLBE BENJAMÍN 4",         categoria:"Benjamín",     entrenadores:"PABLO",                 liga:"f7"},
-  {nombre:"CD KOLBE ALEVÍN BLANCO",      categoria:"Alevín",       entrenadores:"RUIBI",                 liga:"f7"},
-  {nombre:"CD KOLBE ALEVÍN MORADO",      categoria:"Alevín",       entrenadores:"SAMUEL, RUIBI",         liga:"f7"},
-  {nombre:"CD KOLBE ALEVÍN VERDE",       categoria:"Alevín",       entrenadores:"SAMUEL, RUIBI",         liga:"f7"},
-  {nombre:"CD KOLBE INFANTIL VERDE",     categoria:"Infantil",     entrenadores:"GÓMEZ, RUIBI",          liga:"f7"},
-  {nombre:"CD KOLBE INFANTIL BLANCO",    categoria:"Infantil",     entrenadores:"RUBI, RUIBI",           liga:"f7"},
-  {nombre:"CD KOLBE CADETE",             categoria:"Cadete",       entrenadores:"PABLO",                 liga:"f7"},
-  {nombre:"CD KOLBE JUVENIL",            categoria:"Juvenil",      entrenadores:"PABLO",                 liga:"f7"},
+  // FÚTBOL SALA — nombres exactos como vienen en CSV Clupik
+  {nombre:"CD KOLBE 1º BLANCO",  categoria:"Prebenjamín", entrenadores:"FRANK, ESPI",      liga:"sala"},
+  {nombre:"CD KOLBE 1º VERDE",   categoria:"Prebenjamín", entrenadores:"FRANK, ESPI",      liga:"sala"},
+  {nombre:"CD KOLBE 2º",         categoria:"Prebenjamín", entrenadores:"SOLER",            liga:"sala"},
+  {nombre:"CD KOLBE 3º BLANCO",  categoria:"Benjamín",    entrenadores:"RODRI",            liga:"sala"},
+  {nombre:"CD KOLBE 3º VERDE",   categoria:"Benjamín",    entrenadores:"FRANK",            liga:"sala"},
+  {nombre:"CD KOLBE 4º",         categoria:"Benjamín",    entrenadores:"PABLO",            liga:"sala"},
+  // FÚTBOL 7 — nombres exactos como vienen en CSV Clupik
+  {nombre:"CD KOLBE BLANCO",     categoria:"Alevín",      entrenadores:"RUIBI",            liga:"f7"},
+  {nombre:"CD KOLBE MORADO",     categoria:"Alevín",      entrenadores:"SAMUEL",           liga:"f7"},
+  {nombre:"CD KOLBE VERDE",      categoria:"Alevín",      entrenadores:"SAMUEL",           liga:"f7"},
+  {nombre:"CD KOLBE BLANCO",     categoria:"Infantil",    entrenadores:"RUBI",             liga:"f7"},
+  {nombre:"CD KOLBE VERDE",      categoria:"Infantil",    entrenadores:"GÓMEZ",            liga:"f7"},
+  {nombre:"CD KOLBE CADETE",     categoria:"Cadete",      entrenadores:"PABLO",            liga:"f7"},
+  {nombre:"CD KOLBE JUV.",       categoria:"Juvenil",     entrenadores:"PABLO",            liga:"f7"},
   // ZOLA
-  {nombre:"COLEGIO ZOLA A",              categoria:"",             entrenadores:"TOMÁS",                 liga:"f7"},
-  {nombre:"COLEGIO ZOLA B",              categoria:"",             entrenadores:"ANDRÉS",                liga:"f7"},
-  {nombre:"COLEGIO ZOLA FEMENINO",       categoria:"",             entrenadores:"RODRIGO",               liga:"f7"},
-  // FRESNEDILLAS (1 entrenador para todos — ningún partido puede coincidir)
-  {nombre:"CD FRESNEDILLAS",             categoria:"",             entrenadores:"ENTREN_FRESNE",         liga:"f7"},
-  {nombre:"CD FRESNEDILLAS A",           categoria:"",             entrenadores:"ENTREN_FRESNE",         liga:"f7"},
-  {nombre:"CD FRESNEDILLAS B",           categoria:"",             entrenadores:"ENTREN_FRESNE",         liga:"f7"},
-  // QUERCUS (mismo entrenador ambos equipos)
-  {nombre:"CDE QUERCUS EDUCAJUNIOR A",   entrenadores:"ENTREN_QUERCUS",        liga:"f7"},
-  {nombre:"CDE QUERCUS EDUCAJUNIOR B",   entrenadores:"ENTREN_QUERCUS",        liga:"f7"},
-  // HIGHLANDS (3 entrenadores distintos)
-  {nombre:"COLEGIO HIGHLANDS ALEVIN",    entrenadores:"CARLOS",                liga:"f7"},
-  {nombre:"COLEGIO HIGHLANDS PREB A",    entrenadores:"ALEJANDRO",             liga:"f7"},
-  {nombre:"COLEGIO HIGHLANDS BENJ B",    entrenadores:"ALEJANDRO",             liga:"f7"},
-  {nombre:"COLEGIO HIGHLANDS PREB B",    entrenadores:"JULIÁN",                liga:"f7"},
-  {nombre:"COLEGIO HIGHLANDS BENJ A",    entrenadores:"JULIÁN",                liga:"f7"},
-  {nombre:"COLEGIO HIGHLANDS CHUPETIN",  entrenadores:"JULIÁN",                liga:"f7"},
+  {nombre:'COLEGIO ZOLA A',  categoria:"",            entrenadores:"TOMÁS",            liga:"f7"},
+  {nombre:'COLEGIO ZOLA B',  categoria:"",            entrenadores:"ANDRÉS",           liga:"f7"},
+  {nombre:"COLEGIO ZOLA FEMENINO", categoria:"",          entrenadores:"RODRIGO",          liga:"f7"},
+  {nombre:"ZOLA VILLAFRANCA A",  categoria:"",            entrenadores:"TOMÁS",            liga:"sala"},
+  {nombre:"ZOLA VILLAFRANCA B",  categoria:"",            entrenadores:"ANDRÉS",           liga:"sala"},
+  // FRESNEDILLAS
+  {nombre:"CD FRESNEDILLAS",     categoria:"",            entrenadores:"ENTREN_FRESNE",    liga:"f7"},
+  // QUERCUS
+  {nombre:"CDE QUERCUS EDUCAJUNIOR A", entrenadores:"ENTREN_QUERCUS", liga:"f7"},
+  {nombre:"CDE QUERCUS EDUCAJUNIOR B", entrenadores:"ENTREN_QUERCUS", liga:"f7"},
+  // HIGHLANDS
+  {nombre:"COLEGIO HIGHLANDS LOS FRESNOS",     entrenadores:"JULIÁN",     liga:"f7"},
+  {nombre:'COLEGIO HIGHLANDS LOS FRESNOS A', entrenadores:"ALEJANDRO", liga:"f7"},
   // ST. MICHAEL
-  {nombre:"ST MICHAEL PREB",             entrenadores:"ENTREN_STM_PREB",       liga:"f7"},
-  {nombre:"ST MICHAEL BENJAMIN GREEN",   entrenadores:"ENTREN_STM_BGREEN",     liga:"f7"},
-  {nombre:"ST MICHAEL BENJAMIN WHITE",   entrenadores:"ENTREN_STM_BWHITE",     liga:"f7"},
-  // ARENALES (Preb y Alevín mismo entrenador)
-  {nombre:"CD ARENALES PREB",            entrenadores:"ENTREN_ARENALES",       liga:"f7"},
-  {nombre:"CD ARENALES ALEVIN",          entrenadores:"ENTREN_ARENALES",       liga:"f7"},
-  {nombre:"CD ARENALES ARROYOMOLINOS",   entrenadores:"ENTREN_ARENALES",       liga:"f7"},
-  // EVEREST (Preb B y Benjamín B no coincidir)
-  {nombre:"EVEREST A",                   entrenadores:"ENTREN_EVEREST_A",      liga:"f7"},
-  {nombre:"EVEREST B",                   entrenadores:"ENTREN_EVEREST_B",      liga:"f7"},
-  {nombre:"EVEREST C",                   entrenadores:"ENTREN_EVEREST_C",      liga:"f7"},
+  {nombre:"ST. MICHAEL´S GREEN", entrenadores:"ENTREN_STM_GREEN",  liga:"f7"},
+  {nombre:"ST. MICHAEL´S SCHOOL",entrenadores:"ENTREN_STM_SCHOOL", liga:"f7"},
+  // ARENALES
+  {nombre:"CD ARENALES ARROYOMOLINOS", entrenadores:"ENTREN_ARENALES", liga:"f7"},
+  // EVEREST
+  {nombre:'EVEREST B',       entrenadores:"ENTREN_EVEREST_B",  liga:"f7"},
   // RAYO ZARZALEJO
-  {nombre:"RAYO ZARZALEJO",              entrenadores:"ENTREN_ZARZALEJO",      liga:"f7"},
+  {nombre:"RAYO ZARZALEJO",      entrenadores:"ENTREN_ZARZALEJO",  liga:"f7"},
   // UNIÓN PARDILLO
-  {nombre:"UNIÓN PARDILLO",              entrenadores:"ENTREN_PARDILLO",       liga:"f7"},
-  {nombre:"CF UNIÓN VVA DEL PARDILLO",   entrenadores:"ENTREN_PARDILLO",       liga:"f7"},
+  {nombre:"UNIÓN PARDILLO",      entrenadores:"ENTREN_PARDILLO",   liga:"f7"},
+  {nombre:"UNIÓN PARDILLO FEM ALEVIN", entrenadores:"ENTREN_PARDILLO", liga:"sala"},
 ];
 
 const CAMPOS_BASE = {
@@ -1429,25 +1418,29 @@ function _doExportExcel(){
   camposOrden.push(...extras);
 
   const diasLabel = {Lunes:"LUNES",Martes:"MARTES",Miercoles:"MIÉRCOLES",Jueves:"JUEVES",Viernes:"VIERNES",Sabado:"SÁBADO",Domingo:"DOMINGO"};
-  const TODOS_DIAS = ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado","Domingo"];
+
+  // Detectar disciplina por competición o campo
+  function getDisc(p){
+    var comp  = (p.comp||"").toUpperCase();
+    var campo = (p.campo||"").toUpperCase();
+    if(comp.includes("FS") || comp.includes("FUTSAL") || comp.includes("FÚTSAL") ||
+       campo.includes("PABELLÓN") || campo.includes("PISTA")) return "Fútbol Sala";
+    return "Fútbol 7";
+  }
 
   const wsData = [];
-  // Title rows — same as template
-  wsData.push(["Club Kolbe — Horarios de jornada", "", "", "", "", "", ""]);
-  wsData.push(["Semana del " + semana, "", "", "", "", "", ""]);
-  wsData.push(["", "", "", "", "", "", ""]);
-  wsData.push(["", "", "", "", "", "", ""]);
+  wsData.push(["Club Kolbe — Horarios de jornada", "", "", "", "", "", "", ""]);
+  wsData.push(["Semana del " + semana, "", "", "", "", "", "", ""]);
+  wsData.push(["", "", "", "", "", "", "", ""]);
+  wsData.push(["", "", "", "", "", "", "", ""]);
 
   camposOrden.forEach(function(campo){
     const ps = partidos.filter(function(p){ return (p.campo||"Sin campo")===campo; });
     if(!ps.length) return;
 
-    // Campo header row
-    wsData.push(["🏟 " + campo, "", "", "", "", "", ""]);
-    // Column headers — format: Fecha | Categoría | Equipo Local | Equipo Visitante | Hora | Grupo | Estado
-    wsData.push(["Fecha", "Categoría", "Equipo Local", "Equipo Visitante", "Hora", "Grupo", "Estado"]);
+    wsData.push(["🏟 " + campo, "", "", "", "", "", "", ""]);
+    wsData.push(["Fecha", "Disciplina", "Categoría", "Equipo Local", "Equipo Visitante", "Hora", "Grupo", "Estado"]);
 
-    // All partidos for this campo sorted by dia then hora
     var psCampo = ps.slice().sort(function(a,b){
       var dOrder = {Lunes:0,Martes:1,Miercoles:2,Jueves:3,Viernes:4,Sabado:5,Domingo:6};
       var dd = (dOrder[a.dia]||0)-(dOrder[b.dia]||0);
@@ -1458,30 +1451,31 @@ function _doExportExcel(){
     });
 
     psCampo.forEach(function(p){
-      var fecha = diasLabel[p.dia] || p.dia || "";
-      var hora  = p.aplazado ? "APLAZADO" : p.sinHora ? "" : p.hora;
+      var fecha  = diasLabel[p.dia] || p.dia || "";
+      var disc   = getDisc(p);
+      var cat    = p.categoria || "";
+      var hora   = p.aplazado ? "APLAZADO" : p.sinHora ? "" : p.hora;
       var estado = p.aplazado ? "APLAZADO" : p.sinHora ? "" : "OK";
-      var grupo = p.grupo || "";
-      var cat   = p.categoria || "";
-      wsData.push([fecha, cat, p.eq1||"", p.eq2||"", hora, grupo, estado]);
+      var grupo  = p.grupo || "";
+      wsData.push([fecha, disc, cat, p.eq1||"", p.eq2||"", hora, grupo, estado]);
     });
 
-    wsData.push(["", "", "", "", "", "", ""]);
-    wsData.push(["", "", "", "", "", "", ""]);
+    wsData.push(["", "", "", "", "", "", "", ""]);
+    wsData.push(["", "", "", "", "", "", "", ""]);
   });
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-  // Column widths matching template exactly
   ws["!cols"] = [
-    {wch:26},  // A: Fecha
-    {wch:15},  // B: Categoría
-    {wch:33},  // C: Equipo Local
-    {wch:33},  // D: Equipo Visitante
-    {wch:8},   // E: Hora
-    {wch:22},  // F: Grupo
-    {wch:13},  // G: Estado
+    {wch:12},  // Fecha
+    {wch:13},  // Disciplina
+    {wch:15},  // Categoría
+    {wch:30},  // Equipo Local
+    {wch:30},  // Equipo Visitante
+    {wch:8},   // Hora
+    {wch:20},  // Grupo
+    {wch:10},  // Estado
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, "Horarios");
@@ -2177,11 +2171,11 @@ const CLUB_ALIAS = {
   "CD KOLBE 1º BLANCO":"CD KOLBE","CD KOLBE 1º VERDE":"CD KOLBE","CD KOLBE 1º":"CD KOLBE","CD KOLBE 1":"CD KOLBE",
   "CD KOLBE 1 BLANCO":"CD KOLBE","CD KOLBE 1 VERDE":"CD KOLBE",
   "CD KOLBE 2º":"CD KOLBE","CD KOLBE 2":"CD KOLBE",
-  "CD KOLBE 3º BLANCO":"CD KOLBE","CD KOLBE 3":"CD KOLBE",
+  "CD KOLBE 3º BLANCO":"CD KOLBE","CD KOLBE 3º VERDE":"CD KOLBE","CD KOLBE 3":"CD KOLBE",
   "CD KOLBE 4º":"CD KOLBE","CD KOLBE 4":"CD KOLBE",
   "COLEGIO ZOLA \"A\"":"COLEGIO ZOLA","COLEGIO ZOLA \"B\"":"COLEGIO ZOLA",
   "COLEGIO ZOLA A":"COLEGIO ZOLA","COLEGIO ZOLA B":"COLEGIO ZOLA",
-  "ZOLA VILLAFRANCA A":"COLEGIO ZOLA","ZOLA VILLAFRANCA B":"COLEGIO ZOLA",
+  "ZOLA VILLAFRANCA A":"COLEGIO ZOLA","ZOLA VILLAFRANCA B":"COLEGIO ZOLA","COLEGIO ZOLA FEMENINO":"COLEGIO ZOLA",
   "COLEGIO HIGHLANDS LOS FRESNOS":"COLEGIO HIGHLANDS",
   "COLEGIO HIGHLANDS LOS FRESNOS \"A\"":"COLEGIO HIGHLANDS",
   "COLEGIO HIGHLANDS LOS FRESNOS A":"COLEGIO HIGHLANDS",
@@ -2193,7 +2187,7 @@ const CLUB_ALIAS = {
   "CE FÚT SAL PARDILLO ARIANNAS COOKIES":"CE FÚT SAL PARDILLO",
   "CE FÚT SAL PARDILLO ARIANNAS":"CE FÚT SAL PARDILLO",
   "FÚT SAL PARDILLO":"CE FÚT SAL PARDILLO",
-  "LOS BOLICHES M.":"LOS BOLICHES","LOS BOLICHES M":"LOS BOLICHES",
+  "LOS BOLICHES M.":"LOS BOLICHES","LOS BOLICHES M":"LOS BOLICHES","LOS BOLICHES G.":"LOS BOLICHES","LOS BOLICHES G":"LOS BOLICHES",
   "BOLICHES M.":"LOS BOLICHES","BOLICHES M":"LOS BOLICHES",
   "BOLICHES G":"LOS BOLICHES","BOLICHES G.":"LOS BOLICHES",
   "BOLICHE":"LOS BOLICHES",
