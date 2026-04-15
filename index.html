@@ -1428,57 +1428,64 @@ function _doExportExcel(){
   const extras = [...new Set(partidos.map(function(p){ return p.campo||"Sin campo"; }))].filter(function(c){ return !camposOrden.includes(c); });
   camposOrden.push(...extras);
 
+  const diasLabel = {Lunes:"LUNES",Martes:"MARTES",Miercoles:"MIÉRCOLES",Jueves:"JUEVES",Viernes:"VIERNES",Sabado:"SÁBADO",Domingo:"DOMINGO"};
+  const TODOS_DIAS = ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado","Domingo"];
+
   const wsData = [];
-  // Title row
+  // Title rows — same as template
   wsData.push(["Club Kolbe — Horarios de jornada", "", "", "", "", "", ""]);
   wsData.push(["Semana del " + semana, "", "", "", "", "", ""]);
+  wsData.push(["", "", "", "", "", "", ""]);
   wsData.push(["", "", "", "", "", "", ""]);
 
   camposOrden.forEach(function(campo){
     const ps = partidos.filter(function(p){ return (p.campo||"Sin campo")===campo; });
     if(!ps.length) return;
 
-    // Campo header
+    // Campo header row
     wsData.push(["🏟 " + campo, "", "", "", "", "", ""]);
+    // Column headers — format: Fecha | Categoría | Equipo Local | Equipo Visitante | Hora | Grupo | Estado
+    wsData.push(["Fecha", "Categoría", "Equipo Local", "Equipo Visitante", "Hora", "Grupo", "Estado"]);
 
-    ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado","Domingo"].forEach(function(dia){
-      const psDia = ps.filter(function(p){ return p.dia===dia; });
-      if(!psDia.length) return;
-
-      const _exDL={Lunes:"LUNES",Martes:"MARTES",Miercoles:"MIÉRCOLES",Jueves:"JUEVES",Viernes:"VIERNES",Sabado:"SÁBADO",Domingo:"DOMINGO"};
-      wsData.push([_exDL[dia]||dia.toUpperCase(), "", "", "", "", "", ""]);
-      wsData.push(["Hora","Equipo Local","vs","Equipo Visitante","Categoría","Grupo","Estado"]);
-
-      psDia.sort(function(a,b){
-        if(a.sinHora&&!b.sinHora) return 1;
-        if(!a.sinHora&&b.sinHora) return -1;
-        return toMins(a.hora)-toMins(b.hora);
-      });
-      psDia.forEach(function(p){
-        wsData.push([
-          p.sinHora ? "Sin asignar" : p.hora,
-          p.eq1,
-          "vs",
-          p.eq2,
-          p.categoria||"",
-          p.grupo||"",
-          p.aplazado ? "📌 Aplazado" : p.conflicto ? "⚠ Conflicto" : p.sinHora ? "Sin hora" : "OK"
-        ]);
-      });
-      wsData.push(["","","","","","",""]);
+    // All partidos for this campo sorted by dia then hora
+    var psCampo = ps.slice().sort(function(a,b){
+      var dOrder = {Lunes:0,Martes:1,Miercoles:2,Jueves:3,Viernes:4,Sabado:5,Domingo:6};
+      var dd = (dOrder[a.dia]||0)-(dOrder[b.dia]||0);
+      if(dd!==0) return dd;
+      if(a.sinHora&&!b.sinHora) return 1;
+      if(!a.sinHora&&b.sinHora) return -1;
+      return toMins(a.hora)-toMins(b.hora);
     });
+
+    psCampo.forEach(function(p){
+      var fecha = diasLabel[p.dia] || p.dia || "";
+      var hora  = p.aplazado ? "APLAZADO" : p.sinHora ? "" : p.hora;
+      var estado = p.aplazado ? "APLAZADO" : p.sinHora ? "" : "OK";
+      var grupo = p.grupo || "";
+      var cat   = p.categoria || "";
+      wsData.push([fecha, cat, p.eq1||"", p.eq2||"", hora, grupo, estado]);
+    });
+
+    wsData.push(["", "", "", "", "", "", ""]);
+    wsData.push(["", "", "", "", "", "", ""]);
   });
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-  // Column widths
-  ws['!cols'] = [
-    {wch:12},{wch:32},{wch:4},{wch:32},{wch:14},{wch:10},{wch:12}
+  // Column widths matching template exactly
+  ws["!cols"] = [
+    {wch:26},  // A: Fecha
+    {wch:15},  // B: Categoría
+    {wch:33},  // C: Equipo Local
+    {wch:33},  // D: Equipo Visitante
+    {wch:8},   // E: Hora
+    {wch:22},  // F: Grupo
+    {wch:13},  // G: Estado
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, "Horarios");
-  XLSX.writeFile(wb, "horarios_" + semana.replace(/\//g,"-") + ".xlsx");
+  XLSX.writeFile(wb, "horarios_arbitros_" + semana.replace(/\//g,"-") + ".xlsx");
 }
 
 function exportarPDF(){
@@ -2123,185 +2130,182 @@ function copiarMsg(id, btn){
 }
 
 // ============ VISTA POR EQUIPOS ============
+// ── CLUB ALIAS & BASE ──────────────────────────────────────────────
+const CLUB_ALIAS = {
+  "CD KOLBE BLANCO":"CD KOLBE","CD KOLBE MORADO":"CD KOLBE","CD KOLBE VERDE":"CD KOLBE",
+  "CD KOLBE CADETE":"CD KOLBE","CD KOLBE JUV.":"CD KOLBE","CD KOLBE JUV":"CD KOLBE",
+  "CD KOLBE 1º BLANCO":"CD KOLBE","CD KOLBE 1º VERDE":"CD KOLBE","CD KOLBE 1º":"CD KOLBE","CD KOLBE 1":"CD KOLBE",
+  "CD KOLBE 1 BLANCO":"CD KOLBE","CD KOLBE 1 VERDE":"CD KOLBE",
+  "CD KOLBE 2º":"CD KOLBE","CD KOLBE 2":"CD KOLBE",
+  "CD KOLBE 3º BLANCO":"CD KOLBE","CD KOLBE 3":"CD KOLBE",
+  "CD KOLBE 4º":"CD KOLBE","CD KOLBE 4":"CD KOLBE",
+  "COLEGIO ZOLA \"A\"":"COLEGIO ZOLA","COLEGIO ZOLA \"B\"":"COLEGIO ZOLA",
+  "COLEGIO ZOLA A":"COLEGIO ZOLA","COLEGIO ZOLA B":"COLEGIO ZOLA",
+  "ZOLA VILLAFRANCA A":"COLEGIO ZOLA","ZOLA VILLAFRANCA B":"COLEGIO ZOLA",
+  "COLEGIO HIGHLANDS LOS FRESNOS":"COLEGIO HIGHLANDS",
+  "COLEGIO HIGHLANDS LOS FRESNOS \"A\"":"COLEGIO HIGHLANDS",
+  "COLEGIO HIGHLANDS LOS FRESNOS A":"COLEGIO HIGHLANDS",
+  "ST. MICHAEL´S GREEN":"ST. MICHAEL'S","ST. MICHAEL'S GREEN":"ST. MICHAEL'S",
+  "ST. MICHAEL´S SCHOOL":"ST. MICHAEL'S","ST. MICHAEL'S SCHOOL":"ST. MICHAEL'S",
+  "CD VALLMONT 1":"CD VALLMONT","CD VALLMONT 2":"CD VALLMONT",
+  "CE FUTSAL PARDILLO ARTRUX":"CE FÚT SAL PARDILLO",
+  "CE FÚT SAL PARDILLO GESTÓN INMOBILIARIA":"CE FÚT SAL PARDILLO",
+  "CE FÚT SAL PARDILLO ARIANNAS COOKIES":"CE FÚT SAL PARDILLO",
+  "CE FÚT SAL PARDILLO ARIANNAS":"CE FÚT SAL PARDILLO",
+  "FÚT SAL PARDILLO":"CE FÚT SAL PARDILLO",
+  "LOS BOLICHES M.":"LOS BOLICHES","LOS BOLICHES M":"LOS BOLICHES",
+  "BOLICHES M.":"LOS BOLICHES","BOLICHES M":"LOS BOLICHES",
+  "BOLICHES G":"LOS BOLICHES","BOLICHES G.":"LOS BOLICHES",
+  "BOLICHE":"LOS BOLICHES",
+  "MASERAL CARPE":"MASERAL CARPE DIEM","MASERAL CARPE DIEM 1":"MASERAL CARPE DIEM",
+  "UNIÓN PARDILLO FEM ALEVIN":"UNIÓN PARDILLO","UNIÓN PARDILLO FEM":"UNIÓN PARDILLO",
+};
+
+const CLUB_SUFIJOS = ["BLANCO","MORADO","VERDE","AMARILLO","ROJO","AZUL","NARANJA",
+  "GREEN","WHITE","SCHOOL","BLUE","CADETE","JUVENIL","JUV","SENIOR"];
+
+function clubBase(nombre){
+  if(!nombre) return "";
+  var n = nombre.trim().replace(/´/g,"'");
+  n = n.replace(/"([A-Z])"/g,"$1");
+  if(CLUB_ALIAS[n]) return CLUB_ALIAS[n];
+  var palabras = n.split(" ");
+  while(palabras.length > 1){
+    var ultima = palabras[palabras.length-1].toUpperCase().replace(/\.$/,"");
+    if(CLUB_SUFIJOS.indexOf(ultima)>=0 || /^[A-C]$/.test(ultima)){
+      palabras.pop();
+    } else { break; }
+  }
+  return palabras.join(" ").trim();
+}
+
 function vistaEquipos(){
   if(!partidos.length){ alert("No hay partidos cargados."); return; }
 
   const semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
 
-  // Helper: obtener nombre base del club (sin sufijos de equipo/color/letra)
-  // Mapa de normalización de clubs — variantes → nombre canónico
-  const CLUB_ALIAS = {
-    // Kolbe (F7 + Sala) — todas las variantes posibles
-    "CD KOLBE BLANCO":"CD KOLBE","CD KOLBE MORADO":"CD KOLBE","CD KOLBE VERDE":"CD KOLBE",
-    "CD KOLBE AMARILLO":"CD KOLBE","CD KOLBE ROJO":"CD KOLBE","CD KOLBE AZUL":"CD KOLBE",
-    "CD KOLBE CADETE":"CD KOLBE","CD KOLBE JUV.":"CD KOLBE","CD KOLBE JUV":"CD KOLBE","CD KOLBE JUVENIL":"CD KOLBE",
-    "CD KOLBE 1º BLANCO":"CD KOLBE","CD KOLBE 1º VERDE":"CD KOLBE","CD KOLBE 1º":"CD KOLBE","CD KOLBE 1":"CD KOLBE","CD KOLBE 1 BLANCO":"CD KOLBE","CD KOLBE 1 VERDE":"CD KOLBE","CD KOLBE 1 BLANCO":"CD KOLBE",
-    "CD KOLBE 2º BLANCO":"CD KOLBE","CD KOLBE 2º VERDE":"CD KOLBE","CD KOLBE 2º":"CD KOLBE",
-    "CD KOLBE 3º BLANCO":"CD KOLBE","CD KOLBE 3º VERDE":"CD KOLBE","CD KOLBE 3º":"CD KOLBE",
-    "CD KOLBE 4º BLANCO":"CD KOLBE","CD KOLBE 4º VERDE":"CD KOLBE","CD KOLBE 4º":"CD KOLBE",
-    "CD KOLBE 5º":"CD KOLBE","CD KOLBE 6º":"CD KOLBE",
-    // Zola — todas las variantes
-    'COLEGIO ZOLA "A"':"COLEGIO ZOLA",'COLEGIO ZOLA "B"':"COLEGIO ZOLA",
-    "ZOLA VILLAFRANCA A":"COLEGIO ZOLA","ZOLA VILLAFRANCA B":"COLEGIO ZOLA",
-    "ZOLA FEMENINO":"COLEGIO ZOLA","COLEGIO ZOLA FEMENINO":"COLEGIO ZOLA",
-    "ZOLA VILLAFRANCA FEMENINO":"COLEGIO ZOLA","ZOLA FEM":"COLEGIO ZOLA",
-    "COLEGIO ZOLA FEM":"COLEGIO ZOLA",
-    // Highlands
-    "COLEGIO HIGHLANDS LOS FRESNOS":"COLEGIO HIGHLANDS",
-    'COLEGIO HIGHLANDS LOS FRESNOS "A"':"COLEGIO HIGHLANDS",
-    "COLEGIO HIGHLANDS LOS FRESNOS A":"COLEGIO HIGHLANDS",
-    "COLEGIO HIGHLANDS LOS FRESNOS B":"COLEGIO HIGHLANDS",
-    // St. Michael
-    "ST. MICHAEL´S GREEN":"ST. MICHAEL'S","ST. MICHAEL'S GREEN":"ST. MICHAEL'S",
-    "ST. MICHAEL´S SCHOOL":"ST. MICHAEL'S","ST. MICHAEL'S SCHOOL":"ST. MICHAEL'S",
-    "ST. MICHAEL´S WHITE":"ST. MICHAEL'S","ST. MICHAEL'S WHITE":"ST. MICHAEL'S",
-    // Vallmont
-    "CD VALLMONT 1":"CD VALLMONT","CD VALLMONT 2":"CD VALLMONT",
-    // CE Fútsal Pardillo
-    "CE FUTSAL PARDILLO ARTRUX":"CE FÚTSAL PARDILLO",
-    "CE FÚTSAL PARDILLO ARTRUX":"CE FÚTSAL PARDILLO",
-    "CE FÚTSAL PARDILLO GESTIÓN INMOBILIARIA":"CE FÚTSAL PARDILLO",
-    "CE FÚTSAL PARDILLO GESTION INMOBILIARIA":"CE FÚTSAL PARDILLO",
-    "CE FUTSAL PARDILLO GESTION INMOBILIARIA":"CE FÚTSAL PARDILLO",
-    "CE FUTSAL PARDILLO GESTIÓN INMOBILIARIA":"CE FÚTSAL PARDILLO",
-    "CE FÚTSAL PARDILLO ARIANNAS COOKIES":"CE FÚTSAL PARDILLO",
-    "CE FUTSAL PARDILLO ARIANNAS COOKIES":"CE FÚTSAL PARDILLO",
-    "CE FÚTSAL PARDILLO ARIANNAS":"CE FÚTSAL PARDILLO",
-    "CE FUTSAL PARDILLO ARIANNAS":"CE FÚTSAL PARDILLO",
-    "FÚTSAL PARDILLO":"CE FÚTSAL PARDILLO",
-    "FUTSAL PARDILLO":"CE FÚTSAL PARDILLO",
-    // Los Boliches
-    "LOS BOLICHES M.":"LOS BOLICHES","LOS BOLICHES M":"LOS BOLICHES",
-    "BOLICHES M.":"LOS BOLICHES","BOLICHES M":"LOS BOLICHES",
-    "BOLICHES G":"LOS BOLICHES","BOLICHES G.":"LOS BOLICHES",
-    "BOLICHE":"LOS BOLICHES","LOS BOLICHE":"LOS BOLICHES",
-    "UNIÓN PARDILLO FEM ALEVIN":"UNIÓN PARDILLO",
-    "UNION PARDILLO FEM ALEVIN":"UNIÓN PARDILLO",
-    "UNIÓN PARDILLO FEM":"UNIÓN PARDILLO",
-    "UNION PARDILLO FEM":"UNIÓN PARDILLO",
-    // Maseral
-    "MASERAL CARPE":"MASERAL CARPE DIEM","MASERAL CARPE DIEM 1":"MASERAL CARPE DIEM",
-  };
-
-  const CLUB_SUFIJOS = ["BLANCO","MORADO","VERDE","AMARILLO","ROJO","AZUL","NARANJA",
-    "GREEN","WHITE","SCHOOL","BLUE","CADETE","JUVENIL","JUV","SENIOR"];
-
-  function clubBase(nombre){
-    if(!nombre) return "";
-    const n = nombre.trim().replace(/"([A-Z])"/g,"$1").replace(/´/g,"'");
-    // Check alias map first (exact match)
-    if(CLUB_ALIAS[n]) return CLUB_ALIAS[n];
-    // Then strip trailing suffixes
-    const palabras = n.split(" ");
-    while(palabras.length > 1){
-      const ultima = palabras[palabras.length-1].toUpperCase().replace(/\.$/,"");
-      if(CLUB_SUFIJOS.indexOf(ultima) >= 0 || /^[A-C]$/.test(ultima)){
-        palabras.pop();
-      } else { break; }
-    }
-    return palabras.join(" ").trim();
-  }
-
-  // Agrupar todos los partidos por club base
-  const clubMap = {};
+  // Agrupar partidos por club base
+  const porClub = {};
   partidos.forEach(function(p){
-    if(p.sinHora) return; // solo partidos con hora
-    [p.eq1, p.eq2].forEach(function(equipo){
-      if(!equipo) return;
-      const club = clubBase(equipo);
-      if(!clubMap[club]) clubMap[club] = [];
-      // Evitar duplicados
-      if(!clubMap[club].find(function(x){ return x.id === p.id; })){
-        clubMap[club].push(p);
-      }
+    var clubs = [];
+    if(p.eq1) clubs.push(clubBase(p.eq1));
+    if(p.eq2) clubs.push(clubBase(p.eq2));
+    clubs.forEach(function(club){
+      if(!club || club==="Sin campo") return;
+      if(!porClub[club]) porClub[club] = [];
+      porClub[club].push(p);
     });
   });
 
-  // Ordenar clubs alfabéticamente
-  const clubs = Object.keys(clubMap).sort();
+  if(!Object.keys(porClub).length){ alert("No hay partidos con equipos reconocidos."); return; }
 
-  // Generar HTML del modal
-  let html = `<div style="max-width:680px;margin:0 auto">
-    <h2 style="font-size:16px;font-weight:600;margin-bottom:.25rem;color:var(--verde)">📋 Vista por equipos</h2>
-    <p style="font-size:12px;color:var(--gris4);margin-bottom:1.25rem">Partidos del fin de semana agrupados por club. Copia el mensaje y mándalo al coordinador.</p>`;
+  // Store texts for copy
+  window._equipoTextos = {};
 
-  clubs.forEach(function(club){
-    const ps = clubMap[club];
-    if(!ps.length) return;
+  // Build overlay with DOM
+  var overlay = document.createElement("div");
+  overlay.id = "vista-equipos-overlay";
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;overflow-y:auto;padding:2rem 1rem";
 
-    // Sort by day then time
-    ps.sort(function(a,b){
-      const dias = {Viernes:0, Sabado:1};
-      const dd = (dias[a.dia]||0) - (dias[b.dia]||0);
-      if(dd !== 0) return dd;
+  var wrapper = document.createElement("div");
+  wrapper.style.cssText = "max-width:680px;margin:0 auto;background:#fff;border-radius:var(--rl);padding:1.5rem;position:relative";
+
+  var btnCerrar = document.createElement("button");
+  btnCerrar.textContent = "✕ Cerrar";
+  btnCerrar.style.cssText = "position:absolute;top:1rem;right:1rem;padding:6px 12px;border:1px solid var(--gris3);border-radius:var(--r);background:transparent;cursor:pointer;font-size:13px";
+  btnCerrar.addEventListener("click", function(){ overlay.remove(); });
+
+  var titulo = document.createElement("div");
+  titulo.innerHTML = "<h2 style='font-size:16px;font-weight:600;margin-bottom:.25rem;color:var(--verde)'>📋 Vista por equipos</h2>"
+    + "<p style='font-size:12px;color:var(--gris4);margin-bottom:1.25rem'>Partidos agrupados por club. Copia el mensaje para mandarlo por WhatsApp.</p>";
+
+  wrapper.appendChild(btnCerrar);
+  wrapper.appendChild(titulo);
+
+  const diasLabel = {Lunes:"Lunes",Martes:"Martes",Miercoles:"Miércoles",Jueves:"Jueves",Viernes:"Viernes",Sabado:"Sábado",Domingo:"Domingo"};
+
+  Object.keys(porClub).sort().forEach(function(club, gi){
+    var ps = porClub[club].slice().sort(function(a,b){
+      var orden = {Lunes:0,Martes:1,Miercoles:2,Jueves:3,Viernes:4,Sabado:5,Domingo:6};
+      var dd = (orden[a.dia]||0) - (orden[b.dia]||0);
+      if(dd!==0) return dd;
       return (a.hora||"").localeCompare(b.hora||"");
     });
 
-    // Build message
-    let msg = `📋 *${club}*
-Partidos del fin de semana · ${semana}
+    // Build message text
+    var NL = "\n";
+    var msg = "📋 *" + club.toUpperCase() + "*" + NL;
+    msg += "Partidos del fin de semana · " + semana + NL;
 
-`;
-
+    var lastDia = "";
     ps.forEach(function(p){
-      const dia = p.dia === "Viernes" ? "Viernes" : dia==="Sabado" ? "Sábado" : dia==="Jueves" ? "Jueves" : dia==="Miercoles" ? "Miércoles" : dia==="Martes" ? "Martes" : dia==="Lunes" ? "Lunes" : "Domingo";
-      const hora = p.aplazado ? "📌 APLAZADO" : p.sinHora ? "Por confirmar" : p.hora + "h";
-      // esLocal: comparar clubBase de eq1 con el club actual
-      const esLocal = clubBase(p.eq1) === club;
-      const condicion = esLocal ? "🏠 LOCAL" : "✈️ VISITANTE";
-      // Usar el campo original del CSV para la dirección real del partido
-      const campoDirKey = p.campoOriginal || p.campo;
-      const dir = (CAMPOS_BASE[campoDirKey] && CAMPOS_BASE[campoDirKey].dir) ? CAMPOS_BASE[campoDirKey].dir :
-                  (CAMPOS_BASE[p.campo] && CAMPOS_BASE[p.campo].dir) ? CAMPOS_BASE[p.campo].dir : null;
-      const campoNombre = campoDirKey || p.campo;
-
-      msg += `📅 ${dia}
-`;
-      msg += `⏰ ${hora} · ${p.eq1} vs ${p.eq2}
-`;
-      if(!p.aplazado){
-        if(p.categoria) msg += `🏆 ${p.categoria}${p.grupo ? " · " + p.grupo : ""} · ${condicion}
-`;
-        msg += `🏟 ${campoNombre}
-`;
-        if(dir){
-          msg += `📍 ${dir}
-`;
-        }
+      var dia = p.dia;
+      if(dia !== lastDia){
+        lastDia = dia;
+        msg += NL + "📅 " + (diasLabel[dia]||dia) + NL;
       }
-      msg += `
-`;
+      var hora = p.aplazado ? "📌 APLAZADO" : p.sinHora ? "Sin hora" : p.hora+"h";
+      var esLocal = clubBase(p.eq1) === club;
+      var condicion = esLocal ? "🏠 LOCAL" : "✈️ VISITANTE";
+      var campoDirKey = p.campoOriginal || p.campo;
+      var dir = (CAMPOS_BASE[campoDirKey]&&CAMPOS_BASE[campoDirKey].dir) ||
+                (CAMPOS_BASE[p.campo]&&CAMPOS_BASE[p.campo].dir) || p.campo;
+
+      msg += "⏰ " + hora + " · " + (p.eq1||"") + " vs " + (p.eq2||"") + NL;
+      if(p.categoria) msg += "🏆 " + p.categoria + (p.grupo?" · "+p.grupo:"") + " · " + condicion + NL;
+      if(!p.aplazado){
+        msg += "🏟 " + (campoDirKey||p.campo||"") + NL;
+        if(dir) msg += "📍 " + dir + NL;
+      }
+    });
+    msg = msg.trim();
+    var uid = "club-" + gi;
+    window._equipoTextos[uid] = msg;
+
+    // Build DOM bloque
+    var bloque = document.createElement("div");
+    bloque.style.cssText = "margin-bottom:1.25rem;border:1px solid var(--gris2);border-radius:var(--rl);overflow:hidden";
+
+    var header = document.createElement("div");
+    header.style.cssText = "background:var(--verde);color:#fff;padding:8px 14px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center";
+    header.innerHTML = "<span>" + club + "</span><span style='font-size:11px;font-weight:400;opacity:.8'>" + ps.length + " partido" + (ps.length>1?"s":"") + "</span>";
+
+    var body = document.createElement("div");
+    body.style.cssText = "padding:12px 14px";
+
+    var pre = document.createElement("pre");
+    pre.style.cssText = "font-family:var(--f);font-size:12px;line-height:1.7;white-space:pre-wrap;margin:0;color:var(--negro)";
+    pre.textContent = msg;
+
+    var btnCopy = document.createElement("button");
+    btnCopy.textContent = "📋 Copiar mensaje";
+    btnCopy.setAttribute("data-uid", uid);
+    btnCopy.style.cssText = "margin-top:10px;padding:6px 14px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f)";
+    btnCopy.addEventListener("click", function(){
+      var u = this.getAttribute("data-uid");
+      var texto = (window._equipoTextos && window._equipoTextos[u]) || "";
+      var b = this;
+      function ok(){ b.textContent="✓ Copiado"; b.style.background="var(--verde2,#2d6a4f)"; setTimeout(function(){ b.textContent="📋 Copiar mensaje"; b.style.background="var(--verde)"; },2000); }
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(texto).then(ok).catch(function(){
+          var ta=document.createElement("textarea"); ta.value=texto; ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); ok();
+        });
+      } else {
+        var ta=document.createElement("textarea"); ta.value=texto; ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); ok();
+      }
     });
 
-    msg = msg.trim();
-
-    const uid = "club-" + club.replace(/[^a-zA-Z0-9]/g,"_");
-    html += `<div style="margin-bottom:1.25rem;border:1px solid var(--gris2);border-radius:var(--rl);overflow:hidden">
-      <div style="background:var(--verde);color:#fff;padding:8px 14px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center">
-        <span>${club}</span>
-        <span style="font-size:11px;font-weight:400;opacity:.8">${ps.length} partido${ps.length>1?"s":""}</span>
-      </div>
-      <div style="padding:12px 14px">
-        <pre id="${uid}" style="font-family:var(--f);font-size:12px;line-height:1.7;white-space:pre-wrap;margin:0;color:var(--negro)">${msg}</pre>
-        <button onclick="copiarVistaEquipo('${uid}',this)" style="margin-top:10px;padding:6px 14px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f)">
-          📋 Copiar mensaje
-        </button>
-      </div>
-    </div>`;
+    body.appendChild(pre);
+    body.appendChild(btnCopy);
+    bloque.appendChild(header);
+    bloque.appendChild(body);
+    wrapper.appendChild(bloque);
   });
 
-  html += `</div>`;
-
-  // Show modal
-  const overlay = document.createElement("div");
-  overlay.id = "vista-equipos-overlay";
-  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;overflow-y:auto;padding:2rem 1rem";
-  overlay.innerHTML = `<div style="max-width:680px;margin:0 auto;background:#fff;border-radius:var(--rl);padding:1.5rem;position:relative">
-    <button onclick="document.getElementById('vista-equipos-overlay').remove()" style="position:absolute;top:1rem;right:1rem;padding:6px 12px;border:1px solid var(--gris3);border-radius:var(--r);background:transparent;cursor:pointer;font-size:13px">✕ Cerrar</button>
-    ${html}
-  </div>`;
+  overlay.appendChild(wrapper);
   document.body.appendChild(overlay);
 }
+
 
 function copiarVistaEquipo(id, btn){
   const el = document.getElementById(id);
@@ -2513,6 +2517,7 @@ function resumenKolbe(){
     }
 
     var rk = r.disc + "_" + r.equipo + "_" + r.categoria; // unique row key
+    tr.setAttribute("data-rowkey", rk);
     tr.appendChild(makeCellEditable(r.equipo,    true,  null,              rk, "equipo"));
     tr.appendChild(makeCellEditable(r.categoria, false, "var(--gris4)",    rk, "categoria"));
     tr.appendChild(makeCellEditable(r.entrenador,false, "var(--gris5)",    rk, "entrenador"));
@@ -2551,15 +2556,62 @@ function resumenKolbe(){
   btnCopiar.textContent = "📋 Copiar tabla";
   btnCopiar.style.cssText = "margin-top:1rem;padding:8px 16px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f)";
   btnCopiar.addEventListener("click", function(){
-    // Build plain text table for WhatsApp
-    var txt = "🟢 *PARTIDOS CD KOLBE — " + semana.toUpperCase() + "*\n\n";
+    // Build WhatsApp-friendly text (line by line per team)
+    // Read current values from table cells (includes edits)
+    var tableRows = tbody.querySelectorAll("tr[data-rowkey]");
+    var editedRows = {};
+    tableRows.forEach(function(tr){
+      var rk = tr.getAttribute("data-rowkey");
+      var cells = tr.querySelectorAll("span");
+      if(cells.length >= 6){
+        editedRows[rk] = {
+          equipo:     cells[0].textContent,
+          categoria:  cells[1].textContent,
+          entrenador: cells[2].textContent,
+          partido:    cells[3].textContent,
+          campo:      cells[4].textContent,
+          horario:    cells[5].textContent,
+        };
+      }
+    });
+
+    var txt = "🟢 *PARTIDOS CD KOLBE — " + semana.toUpperCase() + "*\n";
     var lastD = "";
     rows.forEach(function(r){
+      // Get possibly-edited values
+      var rk = r.disc + "_" + r.equipo + "_" + r.categoria;
+      var d = editedRows[rk] || r;
+      var partido  = d.partido  || r.partido;
+      var campo    = d.campo    || r.campo;
+      var horario  = d.horario  || r.horario;
+      var equipo   = d.equipo   || r.equipo;
+      var entren   = d.entrenador || r.entrenador;
+      var cat      = d.categoria  || r.categoria;
+
       if(r.disc !== lastD){
         lastD = r.disc;
-        txt += (r.disc==="FS" ? "⚽ *FÚTBOL SALA*" : "⚽ *FÚTBOL 7*") + "\n";
+        txt += "\n" + (r.disc==="FS" ? "⚽ *FÚTBOL SALA*" : "⚽ *FÚTBOL 7*") + "\n";
       }
-      txt += r.equipo.padEnd(22) + "| " + (r.categoria||"").padEnd(14) + "| " + r.entrenador.padEnd(16) + "| " + r.partido.padEnd(25) + "| " + r.horario + "\n";
+
+      var sinPartido = partido === "—" || !partido;
+      var esDescanso = partido && partido.includes("DESCANSO");
+
+      txt += "\n";
+      // Line 1: team + category + trainer
+      txt += "📋 *" + equipo + "* (" + cat + ") · " + entren + "\n";
+
+      if(esDescanso){
+        txt += "🟡 DESCANSO\n";
+      } else if(sinPartido){
+        txt += "⏳ Partido por confirmar\n";
+      } else {
+        // Line 2: match info
+        txt += partido + "\n";
+        // Line 3: venue + time
+        var campoStr = (campo && campo !== "—") ? "🏟 " + campo : "";
+        var horaStr  = (horario && horario !== "—") ? "⏰ " + horario : "";
+        if(campoStr || horaStr) txt += [campoStr, horaStr].filter(Boolean).join(" · ") + "\n";
+      }
     });
     var ta = document.createElement("textarea");
     ta.value = txt;
