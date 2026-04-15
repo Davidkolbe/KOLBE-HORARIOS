@@ -198,6 +198,7 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
         <span style="font-size:13px;font-weight:600">Equipos y entrenadores</span>
         <div style="display:flex;gap:6px">
           <button class="btn btn-verde btn-sm" onclick="recalcularEntrenadoresBtn(this)" title="Actualiza los entrenadores en todos los partidos cargados">↺ Actualizar entrenadores</button>
+          <button class="btn btn-sm" style="border:1px solid var(--gris3);background:transparent;font-size:11px" onclick="resetEquiposDefault()">↺ Restaurar por defecto</button>
           <button class="btn btn-verde btn-sm" onclick="addEquipoRow()">+ Añadir equipo</button>
         </div>
       </div>
@@ -501,6 +502,38 @@ function recalcularEntrenadoresBtn(btn){
 function saveEquipos(){
   localStorage.setItem('kolbe_equipos', JSON.stringify(equipos));
   recalcularEntrenadores();
+}
+
+function resetEquiposDefault(){
+  var overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem";
+  var box = document.createElement("div");
+  box.style.cssText = "background:#fff;border-radius:var(--rl);padding:1.5rem;max-width:380px;width:100%;text-align:center";
+  box.innerHTML = "<p style='font-size:14px;font-weight:600;margin-bottom:.5rem'>¿Restaurar equipos por defecto?</p>"
+    + "<p style='font-size:12px;color:var(--gris5);margin-bottom:1.25rem'>Se reemplazarán los nombres actuales por los nombres exactos del CSV de Clupik. Los entrenadores se mantendrán si el nombre coincide.</p>";
+  var btnSi = document.createElement("button");
+  btnSi.textContent = "✓ Sí, restaurar";
+  btnSi.style.cssText = "padding:8px 18px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;margin-right:8px;font-family:var(--f)";
+  var btnNo = document.createElement("button");
+  btnNo.textContent = "Cancelar";
+  btnNo.style.cssText = "padding:8px 18px;background:transparent;color:var(--gris5);border:1px solid var(--gris3);border-radius:var(--r);font-size:13px;cursor:pointer;font-family:var(--f)";
+  btnSi.addEventListener("click", function(){
+    overlay.remove();
+    // Keep trainers mapped by old name
+    var trainerMap = {};
+    equipos.forEach(function(e){ trainerMap[e.nombre.toUpperCase().trim()] = e.entrenadores||""; });
+    equipos = EQUIPOS_BASE.map(function(e){
+      var ent = trainerMap[e.nombre.toUpperCase().trim()] || e.entrenadores || "";
+      return {nombre:e.nombre, categoria:e.categoria||"", entrenadores:ent, liga:e.liga||""};
+    });
+    saveEquipos();
+    renderEquiposConfig();
+  });
+  btnNo.addEventListener("click", function(){ overlay.remove(); });
+  box.appendChild(btnSi);
+  box.appendChild(btnNo);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
 }
 
 // ============ UTILIDADES ============
@@ -1270,11 +1303,16 @@ function resetTodo(){
 // ============ CONFIGURACIÓN EQUIPOS ============
 function renderEquiposConfig(){
   const box = document.getElementById("equipos-config");
-  const CATS = ["","Prebenjamín","Benjamín","Alevín","Infantil","Cadete","Juvenil","Fútbol Sala"];
+  const CATS  = ["","Prebenjamín","Benjamín","Alevín","Infantil","Cadete","Juvenil"];
+  const DISCS = ["","Fútbol 7","Fútbol Sala"];
   box.innerHTML = equipos.map((e,i)=>{
-    const catOpts = CATS.map(c=>`<option value="${c}" ${(e.categoria||"")=== c?"selected":""}>${c||"— Categoría —"}</option>`).join("");
+    const catOpts  = CATS.map(c=>`<option value="${c}" ${(e.categoria||"")=== c?"selected":""}>${c||"— Categoría —"}</option>`).join("");
+    const _ligaLabel = {"f7":"Fútbol 7","sala":"Fútbol Sala","Fútbol 7":"Fútbol 7","Fútbol Sala":"Fútbol Sala"};
+    const _ligaCur = _ligaLabel[e.liga] || e.liga || "";
+    const discOpts = DISCS.map(d=>`<option value="${d}" ${_ligaCur===d?"selected":""}>${d||"— Disciplina —"}</option>`).join("");
     return `<div style="display:flex;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid var(--gris2)">
       <input type="text" value="${e.nombre}" onchange="equipos[${i}].nombre=this.value;saveEquipos()" style="flex:2;font-size:12px;padding:5px 8px;border:1px solid var(--gris3);border-radius:6px" placeholder="Nombre del equipo">
+      <select onchange="equipos[${i}].liga=this.value;saveEquipos()" style="width:110px;font-size:12px;padding:5px 6px;border:1px solid var(--gris3);border-radius:6px;background:#fff">${discOpts}</select>
       <select onchange="equipos[${i}].categoria=this.value;saveEquipos()" style="width:110px;font-size:12px;padding:5px 6px;border:1px solid var(--gris3);border-radius:6px;background:#fff">${catOpts}</select>
       <input type="text" value="${e.entrenadores||""}" onchange="equipos[${i}].entrenadores=this.value;saveEquipos();recalcularEntrenadores();" style="width:150px;font-size:12px;padding:5px 8px;border:1px solid var(--gris3);border-radius:6px" placeholder="Entrenadores">
       <button onclick="equipos.splice(${i},1);saveEquipos();renderEquiposConfig()" style="padding:5px 8px;border:1px solid var(--gris3);border-radius:6px;background:transparent;cursor:pointer;color:var(--rojo);font-size:13px">✕</button>
@@ -1283,7 +1321,7 @@ function renderEquiposConfig(){
 }
 
 function addEquipoRow(){
-  equipos.push({nombre:"Nuevo equipo",categoria:"",entrenadores:"",liga:"f7"});
+  equipos.push({liga:'',nombre:"Nuevo equipo",categoria:"",entrenadores:"",liga:"f7"});
   saveEquipos();
   renderEquiposConfig();
 }
