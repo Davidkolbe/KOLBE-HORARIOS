@@ -253,6 +253,7 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
       <button class="btn btn-outline btn-sm" onclick="exportarExcel()">↓ Excel</button>
       <button class="btn btn-outline btn-sm" onclick="exportarPDF()">↓ PDF</button>
       <button class="btn btn-verde btn-sm" onclick="generarMensajesWhatsApp()">📱 Mensajes entrenadores</button>
+      <button class="btn btn-outline btn-sm" onclick="mensajeUnicoKolbe()">📋 Mensaje único Kolbe</button>
       <button class="btn btn-outline btn-sm" onclick="vistaEquipos()">📋 Vista por equipos</button>
       <button class="btn btn-outline btn-sm" onclick="vistaCategorias()">📊 Vista por categorías</button>
       <button class="btn btn-verde btn-sm" onclick="resumenKolbe()">🟢 Resumen Kolbe partidos</button>
@@ -2052,6 +2053,117 @@ function esEquipoKolbe(nombre){
   if(!nombre) return false;
   const n = nombre.toUpperCase();
   return n.includes("KOLBE");
+}
+
+function mensajeUnicoKolbe(){
+  var kolbePs = partidos.filter(function(p){
+    return esEquipoKolbe(p.eq1) || esEquipoKolbe(p.eq2);
+  });
+
+  if(!kolbePs.length){ alert("No hay partidos de equipos Kolbe en esta jornada."); return; }
+
+  var semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
+  var NL = "\n";
+  var diasLabel = {Lunes:"Lunes",Martes:"Martes",Miercoles:"Miércoles",Jueves:"Jueves",Viernes:"Viernes",Sabado:"Sábado",Domingo:"Domingo"};
+
+  // Sort by dia then hora
+  kolbePs = kolbePs.slice().sort(function(a,b){
+    var dOrder = {Lunes:0,Martes:1,Miercoles:2,Jueves:3,Viernes:4,Sabado:5,Domingo:6};
+    var dd = (dOrder[a.dia]||0)-(dOrder[b.dia]||0);
+    if(dd!==0) return dd;
+    if(a.sinHora&&!b.sinHora) return 1;
+    if(!a.sinHora&&b.sinHora) return -1;
+    return toMins(a.hora)-toMins(b.hora);
+  });
+
+  // Build single message
+  var msg = "🟢 *PARTIDOS CD KOLBE — " + semana.toUpperCase() + "*" + NL;
+  msg += "_Copia tu partido y reenvíaselo a tus padres_" + NL;
+
+  var lastDisc = "";
+  kolbePs.forEach(function(p){
+    var esLocal = esEquipoKolbe(p.eq1);
+    var equipo  = esLocal ? p.eq1 : p.eq2;
+    var rival   = esLocal ? p.eq2 : p.eq1;
+    var condicion = esLocal ? "🏠 LOCAL" : "✈️ VISITANTE";
+    var hora    = p.aplazado ? "📌 APLAZADO" : p.sinHora ? "Sin hora" : p.hora+"h";
+    var dia     = diasLabel[p.dia] || p.dia || "";
+    var campo   = p.campoOriginal || p.campo || "";
+    var dir     = (CAMPOS_BASE[campo]&&CAMPOS_BASE[campo].dir) || campo || "";
+    var ent     = getEntrenadores(equipo);
+
+    // Section separator by disc
+    var disc = getDisciplina(p);
+    if(disc !== lastDisc){
+      lastDisc = disc;
+      msg += NL + "⚽ *" + disc.toUpperCase() + "*" + NL;
+    }
+
+    msg += NL;
+    msg += "📋 *" + equipo + "*";
+    if(p.categoria) msg += " (" + p.categoria + ")";
+    if(ent && ent !== "—") msg += " · " + ent;
+    msg += NL;
+
+    if(p.aplazado){
+      msg += "📌 APLAZADO" + NL;
+    } else {
+      msg += condicion + " vs " + (rival||"—") + NL;
+      msg += "📅 " + dia + " · ⏰ " + hora + NL;
+      if(campo) msg += "🏟 " + campo + NL;
+      if(dir && dir !== campo) msg += "📍 " + dir + NL;
+    }
+    msg += "—————————————" + NL;
+  });
+
+  msg = msg.trim();
+
+  // Store for copy
+  window._mensajeUnico = msg;
+
+  // Build overlay
+  var overlay = document.createElement("div");
+  overlay.id = "msg-unico-overlay";
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;overflow-y:auto;padding:2rem 1rem";
+
+  var wrapper = document.createElement("div");
+  wrapper.style.cssText = "max-width:640px;margin:0 auto;background:#fff;border-radius:var(--rl);padding:1.5rem;position:relative";
+
+  var btnCerrar = document.createElement("button");
+  btnCerrar.textContent = "✕ Cerrar";
+  btnCerrar.style.cssText = "position:absolute;top:1rem;right:1rem;padding:6px 12px;border:1px solid var(--gris3);border-radius:var(--r);background:transparent;cursor:pointer;font-size:13px";
+  btnCerrar.addEventListener("click", function(){ overlay.remove(); });
+
+  var titulo = document.createElement("div");
+  titulo.innerHTML = "<h2 style='font-size:16px;font-weight:600;margin-bottom:.25rem;color:var(--verde)'>📋 Mensaje único Kolbe</h2>"
+    + "<p style='font-size:12px;color:var(--gris4);margin-bottom:1rem'>Copia el mensaje completo y compártelo con todos los entrenadores. Cada uno copia su partido y lo reenvía a sus padres.</p>";
+
+  var pre = document.createElement("pre");
+  pre.style.cssText = "font-family:var(--f);font-size:12px;line-height:1.7;white-space:pre-wrap;margin:0 0 1rem 0;color:var(--negro);background:var(--gris1);padding:1rem;border-radius:var(--r);max-height:60vh;overflow-y:auto";
+  pre.textContent = msg;
+
+  var btnCopy = document.createElement("button");
+  btnCopy.textContent = "📋 Copiar mensaje completo";
+  btnCopy.style.cssText = "width:100%;padding:10px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f)";
+  btnCopy.addEventListener("click", function(){
+    var texto = window._mensajeUnico || "";
+    var b = this;
+    function ok(){ b.textContent="✓ Copiado"; b.style.background="var(--verde2,#2d6a4f)"; setTimeout(function(){ b.textContent="📋 Copiar mensaje completo"; b.style.background="var(--verde)"; },2000); }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(texto).then(ok).catch(function(){
+        var ta=document.createElement("textarea"); ta.value=texto; ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); ok();
+      });
+    } else {
+      var ta=document.createElement("textarea"); ta.value=texto; ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); ok();
+    }
+  });
+
+  wrapper.appendChild(btnCerrar);
+  wrapper.appendChild(titulo);
+  wrapper.appendChild(pre);
+  wrapper.appendChild(btnCopy);
+  overlay.appendChild(wrapper);
+  document.body.appendChild(overlay);
 }
 
 function generarMensajesWhatsApp(){
