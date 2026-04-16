@@ -484,8 +484,9 @@ function recalcularEntrenadores(){
   if(!partidos.length) return;
   let cambios = 0;
   partidos.forEach(function(p){
-    const e1 = getEntrenadores(p.eq1);
-    const e2 = getEntrenadores(p.eq2);
+    const lg = ligaDeComp(p.comp);
+    const e1 = getEntrenadores(p.eq1, p.categoria, lg);
+    const e2 = getEntrenadores(p.eq2, p.categoria, lg);
     if(e1 !== p.ent1 || e2 !== p.ent2){ p.ent1=e1; p.ent2=e2; cambios++; }
   });
   if(cambios > 0){ savePartidos(); renderTodo(); }
@@ -573,7 +574,14 @@ function categDeComp(comp){
   return comp.replace(/LIGA F-7 /i,"").replace(/LIGA FS /i,"");
 }
 
-function getEntrenadores(nombreEquipo){
+function ligaDeComp(comp){
+  const c = (comp||"").toUpperCase();
+  if(c.includes("F-7") || c.includes("F7")) return "f7";
+  if(c.includes("SALA") || c.includes("FS ") || c.startsWith("FS")) return "sala";
+  return "";
+}
+
+function getEntrenadores(nombreEquipo, categoria, liga){
   if(!nombreEquipo) return "";
   const n = nombreEquipo.toUpperCase().replace(/["""]/g,"").trim();
 
@@ -652,9 +660,24 @@ function getEntrenadores(nombreEquipo){
     return "ENTREN_KOLBE_SALA";
   }
 
+  // Match exacto con categoría+liga cuando hay info disponible (desambigua nombres repetidos
+  // como "CD KOLBE BLANCO" o "CD KOLBE VERDE" que existen en Alevín y en Infantil con distinto entrenador)
+  if(categoria || liga){
+    const eqExact = equipos.find(function(e){
+      const en = e.nombre.toUpperCase().replace(/["""]/g,"").trim();
+      if(n !== en) return false;
+      if(categoria && e.categoria && e.categoria !== categoria) return false;
+      if(liga && e.liga && e.liga !== liga) return false;
+      return true;
+    });
+    if(eqExact) return eqExact.entrenadores;
+  }
+
   // Buscar en equipos configurados — coincidencia estricta
   const eq = equipos.find(function(e){
     const en = e.nombre.toUpperCase().replace(/["""]/g,"").trim();
+    // Si se nos ha pasado liga y el equipo configurado tiene liga distinta, descartar
+    if(liga && e.liga && e.liga !== liga) return false;
     // Coincidencia exacta
     if(n === en) return true;
     // El nombre del equipo configurado está completamente contenido en el nombre del CSV
@@ -741,8 +764,8 @@ function procesarCSV(text){
       comp,
       categoria: categDeComp(comp),
       grupo: (cols[idx.grupo]||"").replace(/GRUPO /i,"").trim(),
-      ent1: getEntrenadores(eq1),
-      ent2: getEntrenadores(cols[idx.eq2]||""),
+      ent1: getEntrenadores(eq1, categDeComp(comp), ligaDeComp(comp)),
+      ent2: getEntrenadores(cols[idx.eq2]||"", categDeComp(comp), ligaDeComp(comp)),
       conflicto: null,
     });
   }
@@ -2090,7 +2113,7 @@ function mensajeUnicoKolbe(){
     var dia     = diasLabel[p.dia] || p.dia || "";
     var campo   = p.campoOriginal || p.campo || "";
     var dir     = (CAMPOS_BASE[campo]&&CAMPOS_BASE[campo].dir) || campo || "";
-    var ent     = getEntrenadores(equipo);
+    var ent     = getEntrenadores(equipo, p.categoria, ligaDeComp(p.comp));
 
     // Section separator by disc
     var disc = getDisciplina(p);
@@ -3074,8 +3097,8 @@ function guardarNuevoPartido(){
     comp: disc === "Fútbol Sala" ? "LIGA FS " + (cat||"").toUpperCase() : "LIGA F-7 " + (cat||"").toUpperCase(),
     categoria: cat,
     grupo: grupo,
-    ent1: getEntrenadores(eq1),
-    ent2: getEntrenadores(eq2),
+    ent1: getEntrenadores(eq1, cat, disc === "Fútbol Sala" ? "sala" : "f7"),
+    ent2: getEntrenadores(eq2, cat, disc === "Fútbol Sala" ? "sala" : "f7"),
     conflicto: null,
   };
 
