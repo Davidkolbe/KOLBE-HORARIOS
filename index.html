@@ -1356,6 +1356,15 @@ function addEquipoRow(){
 // ============ CONFIGURACIÓN CAMPOS ============
 function saveCampos(){
   localStorage.setItem("kolbe_campos", JSON.stringify(CAMPOS_BASE));
+  // Tras cualquier cambio de campo/franja, recalculamos conflictos y refrescamos la vista.
+  // Esto evita que queden marcados en rojo partidos que ya estaban dentro de una franja ampliada.
+  try {
+    if(typeof partidos !== "undefined" && partidos && partidos.length){
+      calcConflictos();
+      savePartidos();
+      if(typeof renderTodo === "function") renderTodo();
+    }
+  } catch(e){ console.warn("Recalculo de conflictos tras saveCampos falló:", e); }
 }
 
 function renderCamposConfig(){
