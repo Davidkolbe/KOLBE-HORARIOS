@@ -1999,7 +1999,37 @@ function autoAsignar(){
 }
 
 // ============ COPIA DE SEGURIDAD ============
-function guardarCopia(){
+// IndexedDB helpers para recordar la carpeta de backups elegida
+function _idbOpen(){
+  return new Promise(function(resolve, reject){
+    var req = indexedDB.open("kolbe_backup_db", 1);
+    req.onupgradeneeded = function(e){ e.target.result.createObjectStore("kv"); };
+    req.onsuccess = function(e){ resolve(e.target.result); };
+    req.onerror   = function(){ reject(req.error); };
+  });
+}
+function _idbGet(key){
+  return _idbOpen().then(function(db){
+    return new Promise(function(resolve){
+      var tx = db.transaction("kv","readonly");
+      var g = tx.objectStore("kv").get(key);
+      g.onsuccess = function(){ resolve(g.result); };
+      g.onerror   = function(){ resolve(null); };
+    });
+  }).catch(function(){ return null; });
+}
+function _idbSet(key, value){
+  return _idbOpen().then(function(db){
+    return new Promise(function(resolve){
+      var tx = db.transaction("kv","readwrite");
+      tx.objectStore("kv").put(value, key);
+      tx.oncomplete = function(){ resolve(true); };
+      tx.onerror    = function(){ resolve(false); };
+    });
+  }).catch(function(){ return false; });
+}
+
+async function guardarCopia(){
   const backup = {
     version: 1,
     fecha: new Date().toISOString(),
@@ -2008,15 +2038,55 @@ function guardarCopia(){
     campos: CAMPOS_BASE,
   };
   const json = JSON.stringify(backup, null, 2);
-  const a = document.createElement("a");
-  const fecha = new Date().toLocaleDateString("es-ES").replace(/\//g,"-");
-  a.href = "data:application/json;charset=utf-8," + encodeURIComponent(json);
-  a.download = "kolbe_backup_" + fecha + ".json";
-  a.click();
-  // Show confirmation
+  const d = new Date();
+  const iso = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  const filename = "kolbe_backup_" + iso + ".json";
   const box = document.getElementById("alertas-box");
-  if(box) box.innerHTML = `<div class="alert alert-ok"><span class="alert-icon">💾</span><div>Copia de seguridad descargada correctamente. Guárdala en un lugar seguro.</div></div>` + box.innerHTML;
+
+  // Intentar escribir directamente en la carpeta elegida con File System Access API
+  if(typeof window.showDirectoryPicker === "function"){
+    try {
+      let dirHandle = await _idbGet("backupDirHandle");
+      if(dirHandle){
+        const perm = await dirHandle.queryPermission({mode:"readwrite"});
+        if(perm !== "granted"){
+          const req = await dirHandle.requestPermission({mode:"readwrite"});
+          if(req !== "granted") dirHandle = null;
+        }
+      }
+      if(!dirHandle){
+        dirHandle = await window.showDirectoryPicker({id:"kolbeBackups", mode:"readwrite"});
+        await _idbSet("backupDirHandle", dirHandle);
+      }
+      const fileHandle = await dirHandle.getFileHandle(filename, {create:true});
+      const writable = await fileHandle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      if(box) box.innerHTML = '<div class="alert alert-ok"><span class="alert-icon">💾</span><div>Copia guardada como <b>'+filename+'</b> en la carpeta elegida (se sobrescribe si ya existía).</div></div>' + box.innerHTML;
+      return;
+    } catch(err){
+      if(err && err.name === "AbortError") return; // usuario canceló el selector
+      console.warn("File System Access falló, fallback a descarga clásica:", err);
+    }
+  }
+
+  // Fallback: descarga tradicional a la carpeta Descargas
+  const a = document.createElement("a");
+  a.href = "data:application/json;charset=utf-8," + encodeURIComponent(json);
+  a.download = filename;
+  a.click();
+  if(box) box.innerHTML = '<div class="alert alert-ok"><span class="alert-icon">💾</span><div>Copia descargada a Descargas como <b>'+filename+'</b>.</div></div>' + box.innerHTML;
 }
+
+// Reenlazar por si el botón ya apuntaba al valor antiguo
+window.guardarCopia = guardarCopia;
+
+// Función para "olvidar" la carpeta si el usuario quiere cambiarla
+async function olvidarCarpetaBackups(){
+  await _idbSet("backupDirHandle", null);
+  alert("Carpeta de backups olvidada. La próxima vez que pulses 'Guardar copia' se te pedirá elegirla.");
+}
+window.olvidarCarpetaBackups = olvidarCarpetaBackups;
 
 function restaurarCopia(e){
   const file = e.target.files[0];
