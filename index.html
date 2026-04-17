@@ -649,6 +649,9 @@ function getEntrenadores(nombreEquipo, categoria, liga){
   // Unión Pardillo
   if(n.includes("PARDILLO") && n.includes("UNI")) return "ENTREN_PARDILLO";
 
+  // Navalagamella: mismo entrenador en todas las categorías (Benjamín + Alevín comparten)
+  if(n.includes("NAVALAGAMELLA")) return "ENTREN_NAVALA";
+
   // Kolbe Fútbol Sala — detectar por KOLBE en nombre
   if(n.includes("KOLBE") && (n.includes("1º") || n.includes("2º") || n.includes("3º") || n.includes("4º") || n.includes("1°") || n.includes("2°") || n.includes("3°") || n.includes("4°"))){
     // Buscar en equipos configurados primero
@@ -2612,7 +2615,7 @@ function resumenKolbe(){
         return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: ke.entrenador, disc: ke.disc, partido:"🟡 DESCANSO", horario:"—", campo:"—"};
       }
     }
-    if(!p) return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: ke.entrenador, disc: ke.disc, partido:"—", horario:"—", campo:"—"};
+    if(!p) return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: ke.entrenador, disc: ke.disc, partido:"🟡 DESCANSO", horario:"—", campo:"—"};
 
     var esLocal = (p.eq1||"").toUpperCase().includes("KOLBE");
     var rival = esLocal ? p.eq2 : p.eq1;
