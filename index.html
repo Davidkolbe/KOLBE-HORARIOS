@@ -205,6 +205,12 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
       </div>
       <div style="font-size:11px;color:var(--gris4);margin-bottom:.75rem">Nombre del equipo tal como aparece en Clupik · Entrenadores separados por coma</div>
       <div id="equipos-config" style="display:flex;flex-direction:column;gap:4px"></div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:1.5rem 0 .5rem">
+        <span style="font-size:13px;font-weight:600">Teléfonos de entrenadores</span>
+        <span style="font-size:11px;color:var(--gris4)">Un teléfono por persona · formato +34... o 9 dígitos</span>
+      </div>
+      <div id="entrenadores-tels-config" style="display:flex;flex-direction:column;gap:4px"></div>
     </div>
 
     <!-- SECCIÓN CAMPOS -->
@@ -1342,6 +1348,54 @@ function resetTodo(){
   document.getElementById("file-input").value = "";
 }
 
+// ============ TELÉFONOS DE ENTRENADORES ============
+let entrenadoresTels = {};
+try { entrenadoresTels = JSON.parse(localStorage.getItem("kolbe_entrenadores_tels") || "{}") || {}; } catch(e){ entrenadoresTels = {}; }
+
+function saveEntrenadoresTels(){
+  try { localStorage.setItem("kolbe_entrenadores_tels", JSON.stringify(entrenadoresTels)); } catch(e){}
+}
+
+function _entrenadoresUnicos(){
+  var set = new Set();
+  (equipos||[]).forEach(function(e){
+    (e.entrenadores||"").split(/[,\/]/).forEach(function(n){
+      var nn = n.trim().toUpperCase();
+      if(nn && !/^ENTREN_|ENTRENADOR \d|ENTRENADOR QUERCUS|EXTERN_/i.test(nn)) set.add(nn);
+    });
+  });
+  Object.keys(entrenadoresTels).forEach(function(n){ if(n) set.add(n); });
+  return Array.from(set).sort();
+}
+
+function renderEntrenadoresTels(){
+  var box = document.getElementById("entrenadores-tels-config");
+  if(!box) return;
+  var nombres = _entrenadoresUnicos();
+  if(!nombres.length){
+    box.innerHTML = '<div style="padding:10px;border:1px dashed var(--gris3);border-radius:var(--r);font-size:12px;color:var(--gris4)">Añade entrenadores a los equipos arriba para que aparezcan aquí.</div>';
+    return;
+  }
+  box.innerHTML = nombres.map(function(nombre){
+    var tel = entrenadoresTels[nombre] || "";
+    var telOk = !!_telPrefijo(tel);
+    return '<div style="display:grid;grid-template-columns:2fr 2fr auto;gap:6px;align-items:center;padding:6px;border:1px solid var(--gris2);border-radius:var(--r);background:#fff">'
+      + '<div style="font-size:12px;font-weight:600">'+nombre+'</div>'
+      + '<input type="tel" placeholder="+34..." value="'+tel.replace(/"/g,"&quot;")+'" '
+      +      'onchange="entrenadoresTels[\''+nombre.replace(/'/g,"\\'")+'\']=this.value;saveEntrenadoresTels();renderEntrenadoresTels()" '
+      +      'style="font-size:12px;padding:5px 8px;border:1px solid '+(telOk?"var(--verde)":"var(--gris3)")+';border-radius:6px">'
+      + (telOk ? '<span style="color:var(--verde);font-size:11px">✓</span>' : '<span style="color:var(--gris4);font-size:11px">sin tel.</span>')
+      + '</div>';
+  }).join("");
+}
+
+function abrirWhatsAppEntrenador(nombre, mensaje){
+  var tel = _telPrefijo(entrenadoresTels[nombre]||"");
+  if(!tel){ alert("El entrenador '"+nombre+"' no tiene teléfono configurado. Añádelo en ⚙ Entrenadores."); return; }
+  var url = "https://wa.me/" + tel.replace(/^\+/,"") + "?text=" + encodeURIComponent(mensaje||"");
+  window.open(url, "_blank");
+}
+
 // ============ CONFIGURACIÓN EQUIPOS ============
 function renderEquiposConfig(){
   const box = document.getElementById("equipos-config");
@@ -1356,10 +1410,11 @@ function renderEquiposConfig(){
       <input type="text" value="${e.nombre}" onchange="equipos[${i}].nombre=this.value;saveEquipos()" style="flex:2;font-size:12px;padding:5px 8px;border:1px solid var(--gris3);border-radius:6px" placeholder="Nombre del equipo">
       <select onchange="equipos[${i}].liga=this.value;saveEquipos()" style="width:110px;font-size:12px;padding:5px 6px;border:1px solid var(--gris3);border-radius:6px;background:#fff">${discOpts}</select>
       <select onchange="equipos[${i}].categoria=this.value;saveEquipos()" style="width:110px;font-size:12px;padding:5px 6px;border:1px solid var(--gris3);border-radius:6px;background:#fff">${catOpts}</select>
-      <input type="text" value="${e.entrenadores||""}" onchange="equipos[${i}].entrenadores=this.value;saveEquipos();recalcularEntrenadores();" style="width:150px;font-size:12px;padding:5px 8px;border:1px solid var(--gris3);border-radius:6px" placeholder="Entrenadores">
+      <input type="text" value="${e.entrenadores||""}" onchange="equipos[${i}].entrenadores=this.value;saveEquipos();recalcularEntrenadores();renderEntrenadoresTels();" style="width:150px;font-size:12px;padding:5px 8px;border:1px solid var(--gris3);border-radius:6px" placeholder="Entrenadores">
       <button onclick="equipos.splice(${i},1);saveEquipos();renderEquiposConfig()" style="padding:5px 8px;border:1px solid var(--gris3);border-radius:6px;background:transparent;cursor:pointer;color:var(--rojo);font-size:13px">✕</button>
     </div>`;
   }).join("");
+  renderEntrenadoresTels();
 }
 
 function addEquipoRow(){
@@ -2145,6 +2200,7 @@ async function guardarCopia(){
     equipos: equipos,
     campos: CAMPOS_BASE,
     coordinadores: coordinadores || {},
+    entrenadoresTels: entrenadoresTels || {},
   };
   const json = JSON.stringify(backup, null, 2);
   const d = new Date();
@@ -2231,6 +2287,12 @@ function restaurarCopia(e){
       if(backup.coordinadores && typeof backup.coordinadores === "object"){
         coordinadores = backup.coordinadores;
         saveCoordinadores();
+      }
+
+      // Restore teléfonos de entrenadores
+      if(backup.entrenadoresTels && typeof backup.entrenadoresTels === "object"){
+        entrenadoresTels = backup.entrenadoresTels;
+        saveEntrenadoresTels();
       }
 
       // Go back to historial to show restored jornadas
@@ -2478,7 +2540,7 @@ function generarMensajesWhatsApp(){
       var btnCopy = document.createElement("button");
       btnCopy.textContent = "📋 Copiar mensaje";
       btnCopy.setAttribute("data-uid", uid);
-      btnCopy.style.cssText = "margin-top:10px;padding:6px 14px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f)";
+      btnCopy.style.cssText = "margin-top:10px;margin-right:8px;padding:6px 14px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f)";
       btnCopy.addEventListener("click", function(){
         var u = this.getAttribute("data-uid");
         var texto = (window._whaMsgs && window._whaMsgs[u]) || "";
@@ -2495,6 +2557,35 @@ function generarMensajesWhatsApp(){
 
       body.appendChild(pre);
       body.appendChild(btnCopy);
+
+      // Un botón de WhatsApp por cada entrenador asignado a este equipo (puede haber varios)
+      var entsEq = ((item.esLocal ? p.ent1 : p.ent2) || "").split(/[,\/]/).map(function(n){ return n.trim().toUpperCase(); }).filter(Boolean);
+      entsEq.forEach(function(entName){
+        if(/^ENTREN_|ENTRENADOR \d|ENTRENADOR QUERCUS|EXTERN_/i.test(entName)) return; // placeholders, no mandar
+        var tel = _telPrefijo(entrenadoresTels[entName]||"");
+        var btnWA = document.createElement("button");
+        if(tel){
+          btnWA.textContent = "📲 Enviar a " + entName;
+          btnWA.style.cssText = "margin-top:10px;margin-right:8px;padding:6px 14px;background:#25D366;color:#fff;border:none;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f);font-weight:600";
+          btnWA.addEventListener("click", function(){
+            abrirWhatsAppEntrenador(entName, msg);
+          });
+        } else {
+          btnWA.textContent = "👤 Configurar teléfono de " + entName;
+          btnWA.style.cssText = "margin-top:10px;margin-right:8px;padding:6px 14px;background:#fff;color:var(--gris5);border:1px dashed var(--gris3);border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f)";
+          btnWA.title = "Añade el teléfono de " + entName + " en la pestaña ⚙ Entrenadores → Teléfonos de entrenadores";
+          btnWA.addEventListener("click", function(){
+            overlay.remove();
+            toggleConf("equipos");
+            setTimeout(function(){
+              var tels = document.getElementById("entrenadores-tels-config");
+              if(tels) tels.scrollIntoView({behavior:"smooth", block:"start"});
+            }, 200);
+          });
+        }
+        body.appendChild(btnWA);
+      });
+
       bloque.appendChild(header);
       bloque.appendChild(body);
       wrapper.appendChild(bloque);
