@@ -2681,6 +2681,12 @@ function resumenKolbe(){
 
   const semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
 
+  // Cargar ediciones guardadas ANTES de renderizar (bug: se cargaban después y no se veían)
+  try {
+    var savedEdits = localStorage.getItem("kolbe_resumen_edits_" + semana);
+    window._resumenEdits = savedEdits ? JSON.parse(savedEdits) : {};
+  } catch(e){ window._resumenEdits = {}; }
+
   // Find Kolbe partidos
   const kolbePs = partidos.filter(function(p){
     return (p.eq1||"").toUpperCase().includes("KOLBE") || (p.eq2||"").toUpperCase().includes("KOLBE");
@@ -2834,12 +2840,7 @@ function resumenKolbe(){
   table.appendChild(thead);
   table.appendChild(tbody);
 
-  // Load saved edits from localStorage
-  try {
-    var saved = localStorage.getItem("kolbe_resumen_edits_" + semana);
-    if(saved) window._resumenEdits = JSON.parse(saved);
-    else window._resumenEdits = {};
-  } catch(e){ window._resumenEdits = {}; }
+  // (La carga de _resumenEdits se ha movido al principio de resumenKolbe — antes la hacíamos aquí, pero era demasiado tarde: las celdas ya estaban pintadas sin los datos guardados.)
 
   // Save button
   var btnGuardar = document.createElement("button");
