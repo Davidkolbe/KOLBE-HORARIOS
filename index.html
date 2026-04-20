@@ -586,6 +586,46 @@ function lugarACampo(lugar){
   return null;
 }
 
+
+// ---- Auto-inferencia de campo por equipo local ----
+// Cuando un partido importado de Clupik no tiene campo asignado pero su equipo
+// local ha jugado en casa en jornadas anteriores, devolvemos el campo más
+// frecuente de su historial. Necesita al menos 1 aparición.
+function inferirCampoPorEquipoLocal(eq1){
+  if(!eq1) return null;
+  var normTeam = function(s){
+    return (s || "").toString()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+      .toUpperCase()
+      .replace(/["\u201C\u201D\u2018\u2019\u2033'\u00b4]/g,"")
+      .replace(/\s+/g," ")
+      .trim();
+  };
+  var keyBusca = normTeam(eq1);
+  if(!keyBusca) return null;
+
+  var jornadas;
+  try { jornadas = getAllJornadas(); } catch(e){ return null; }
+  if(!Array.isArray(jornadas) || !jornadas.length) return null;
+
+  var conteo = {};  // campo -> numero de apariciones
+  jornadas.forEach(function(j){
+    (j.partidos || []).forEach(function(p){
+      if(!p.campo) return;
+      if(p.campo === "Sin campo") return;
+      if(normTeam(p.eq1) !== keyBusca) return;
+      conteo[p.campo] = (conteo[p.campo] || 0) + 1;
+    });
+  });
+
+  var mejor = null, mejorN = 0;
+  Object.keys(conteo).forEach(function(c){
+    if(conteo[c] > mejorN){ mejor = c; mejorN = conteo[c]; }
+  });
+  return mejor;  // puede ser null si no hay histórico
+}
+
+
 function parseHora(h){
   if(!h) return "00:00";
   const s = h.toString().replace(/\s*GMT.*/i,"").trim();
@@ -3835,7 +3875,10 @@ async function importarSemanaClupik(){
     }
 
     const nuevos = data.partidos.map(function(p, i){
-      const campo = lugarACampo(p.lugar || "") || "Sin campo";
+      // 1) intentar mapear el lugar que nos da Clupik
+      // 2) si Clupik no trae lugar (o no se reconoce), inferir por el equipo local usando histórico
+      var campo = lugarACampo(p.lugar || "");
+      if(!campo) campo = inferirCampoPorEquipoLocal(p.eq1) || "Sin campo";
       return {
         id: i + 1,
         match_id: p.match_id,
@@ -3950,7 +3993,8 @@ async function importarTorneoClupik(tournamentId){
     }
 
     const nuevos = data.partidos.map(function(p, i){
-      const campo = lugarACampo(p.lugar || "") || "Sin campo";
+      var campo = lugarACampo(p.lugar || "");
+      if(!campo) campo = inferirCampoPorEquipoLocal(p.eq1) || "Sin campo";
       return {
         id: i + 1,
         match_id: p.match_id,
