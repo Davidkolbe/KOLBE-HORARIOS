@@ -289,6 +289,7 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
       </div>
       <!-- Grupo 2: Resumen, envíos y Clupik -->
       <div class="btn-group">
+        <button class="btn btn-outline btn-sm" onclick="repararCamposManual()" title="Asigna campo a partidos Sin campo (util tras actualizar FACILITY_ID_MAP)">Reparar campos</button>
         <button class="btn btn-verde btn-sm" onclick="resumenKolbe()">🟢 Resumen Kolbe partidos</button>
         <button class="btn btn-verde btn-sm" onclick="asistenteEnvios()" title="Preparar envíos de domingo, lunes y miércoles">📤 Envíos semana</button>
         <button class="btn btn-outline btn-sm" id="btn-link-clupik" onclick="vincularConClupik()" style="display:none" title="Empareja esta jornada con los partidos de Clupik para poder guardar cambios">🔗 Vincular con Clupik</button>
@@ -1055,6 +1056,7 @@ function renderPartidoRow(p){
     <td style="display:flex;gap:4px;align-items:center">
       <button class="btn btn-sm" style="padding:3px 7px;font-size:11px;border:1px solid ${p.aplazado?'#ffc107':'var(--gris3)'};background:${p.aplazado?'#fff3cd':'transparent'};cursor:pointer;border-radius:5px;color:${p.aplazado?'#856404':'var(--gris5)'}" onclick="toggleAplazado(${p.id})" title="Marcar como aplazado">📌</button>
       <button class="btn btn-sm" style="padding:3px 7px;font-size:11px;border:1px solid var(--gris3);background:transparent;cursor:pointer;border-radius:5px;color:var(--gris5)" onclick="cambiarDia(${p.id})" title="Cambiar día">📅</button>
+      <button class="btn btn-sm" style="padding:3px 7px;font-size:11px;border:1px solid var(--gris3);background:transparent;cursor:pointer;border-radius:5px;color:var(--gris5)" onclick="cambiarCampo(${p.id})" title="Cambiar campo">🏟</button>
       <button class="btn btn-sm" style="padding:3px 7px;font-size:12px;border:1px solid var(--gris3);background:transparent;cursor:pointer;border-radius:5px;color:var(--rojo)" onclick="eliminarPartido(${p.id})" title="Eliminar partido">✕</button>
     </td>
   </tr>`;
@@ -1265,6 +1267,82 @@ function cambiarDia(id){
   document.body.appendChild(overlay);
 }
 
+function cambiarCampo(id){
+  var p = partidos.find(function(pp){ return pp.id===id; });
+  if(!p) return;
+
+  var overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem";
+
+  var box = document.createElement("div");
+  box.style.cssText = "background:#fff;border-radius:var(--rl);padding:1.5rem;max-width:400px;width:100%";
+
+  var titulo = document.createElement("p");
+  titulo.style.cssText = "font-size:14px;font-weight:600;margin-bottom:.25rem;color:var(--negro)";
+  titulo.textContent = "Cambiar campo del partido";
+
+  var subtitulo = document.createElement("p");
+  subtitulo.style.cssText = "font-size:12px;color:var(--gris5);margin-bottom:1rem";
+  subtitulo.textContent = p.eq1 + " vs " + (p.eq2||"-");
+
+  var labelActual = document.createElement("div");
+  labelActual.style.cssText = "font-size:11px;color:var(--gris4);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px";
+  labelActual.textContent = "Campo actual";
+
+  var valorActual = document.createElement("div");
+  valorActual.style.cssText = "font-size:13px;color:var(--negro);margin-bottom:1rem;padding:6px 10px;background:var(--gris1);border-radius:var(--r)";
+  valorActual.textContent = p.campo || "Sin campo";
+
+  var labelNuevo = document.createElement("label");
+  labelNuevo.style.cssText = "font-size:11px;color:var(--gris4);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px";
+  labelNuevo.textContent = "Nuevo campo";
+
+  var selectCampo = document.createElement("select");
+  selectCampo.style.cssText = "width:100%;font-size:13px;padding:8px;border:1px solid var(--gris3);border-radius:var(--r);background:#fff;margin-bottom:1rem;font-family:var(--f)";
+
+  var campos = Object.keys(CAMPOS_BASE);
+  campos.forEach(function(c){
+    var opt = document.createElement("option");
+    opt.value = c;
+    opt.textContent = c;
+    if(p.campo === c) opt.selected = true;
+    selectCampo.appendChild(opt);
+  });
+  var optSinCampo = document.createElement("option");
+  optSinCampo.value = "Sin campo";
+  optSinCampo.textContent = "Sin campo";
+  if(p.campo === "Sin campo" || !p.campo) optSinCampo.selected = true;
+  selectCampo.appendChild(optSinCampo);
+
+  var btnGuardar = document.createElement("button");
+  btnGuardar.textContent = "Guardar";
+  btnGuardar.style.cssText = "padding:8px 18px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;margin-right:8px;font-family:var(--f)";
+
+  var btnCancelar = document.createElement("button");
+  btnCancelar.textContent = "Cancelar";
+  btnCancelar.style.cssText = "padding:8px 18px;background:transparent;color:var(--gris5);border:1px solid var(--gris3);border-radius:var(--r);font-size:13px;cursor:pointer;font-family:var(--f)";
+
+  btnGuardar.addEventListener("click", function(){
+    p.campo = selectCampo.value;
+    overlay.remove();
+    savePartidos();
+    calcConflictos();
+    renderTodo();
+  });
+  btnCancelar.addEventListener("click", function(){ overlay.remove(); });
+
+  box.appendChild(titulo);
+  box.appendChild(subtitulo);
+  box.appendChild(labelActual);
+  box.appendChild(valorActual);
+  box.appendChild(labelNuevo);
+  box.appendChild(selectCampo);
+  box.appendChild(btnGuardar);
+  box.appendChild(btnCancelar);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
 function eliminarPartido(id){
   const p = partidos.find(function(p){ return p.id===id; });
   if(!p) return;
@@ -1402,11 +1480,53 @@ function renderHistorial(){
   }).join("");
 }
 
+// Recorre los partidos actuales y, para los que estan "Sin campo", intenta
+// asignarles uno usando (1) lugarACampo sobre el texto original de Clupik si
+// lo tenemos, (2) FACILITY_ID_MAP si hay facility_id, y (3) inferencia por
+// equipo local. Devuelve el numero de partidos reparados.
+function repararCamposSinCampo(lista){
+  if(!Array.isArray(lista)) return 0;
+  var reparados = 0;
+  for(var i=0; i<lista.length; i++){
+    var p = lista[i];
+    if(!p || !p.campo || p.campo === "Sin campo"){
+      var nuevo = null;
+      if(p && p.lugar) nuevo = lugarACampo(p.lugar);
+      if(!nuevo && p && p.facility_id && FACILITY_ID_MAP[p.facility_id]){
+        nuevo = FACILITY_ID_MAP[p.facility_id];
+      }
+      if(!nuevo && p) nuevo = inferirCampoPorEquipoLocal(p.eq1);
+      if(nuevo && nuevo !== p.campo){
+        p.campo = nuevo;
+        if(!p.campoOriginal || p.campoOriginal === "Sin campo") p.campoOriginal = nuevo;
+        reparados++;
+      }
+    }
+  }
+  return reparados;
+}
+
+function repararCamposManual(){
+  var n = repararCamposSinCampo(partidos);
+  if(n > 0){
+    savePartidos();
+    if(typeof renderTodo === "function") renderTodo();
+    alert("OK: " + n + " partido(s) con campo asignado.");
+  } else {
+    alert("No habia partidos pendientes de reparacion en esta jornada.");
+  }
+}
+
 function abrirJornada(id){
   const j = getAllJornadas().find(function(j){ return j.id===id; });
   if(!j) return;
   jornadaActivaId = id;
   partidos = j.partidos || [];
+  var repd = repararCamposSinCampo(partidos);
+  if(repd > 0){
+    savePartidos();
+    console.log('[Reparar] ' + repd + ' partido(s) con campo asignado automaticamente.');
+  }
   mostrarPlanificador(j.semana);
 }
 
