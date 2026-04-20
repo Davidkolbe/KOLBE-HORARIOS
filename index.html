@@ -4102,11 +4102,26 @@ async function guardarCambiosEnClupik(){
     }
 
     // --- Campo ---
+    // Heurística: consideramos mismo campo si los nombres normalizados son iguales
+    // o uno es substring del otro (p.ej. 'KOLBE' ⊂ 'CAMPO DE FUTBOL 7 DEL COLEGIO KOLBE').
+    var _mismoCampo = function(a, b){
+      if(a === b) return true;
+      if(!a || !b) return false;
+      return a.indexOf(b) >= 0 || b.indexOf(a) >= 0;
+    };
     if(p.campo){
       var kLocal = _normCampo(p.campo);
       var kClupik = _normCampo(p.lugar_clupik || "");
-      if(kLocal && kLocal !== kClupik){
+      if(kLocal && !_mismoCampo(kLocal, kClupik)){
+        // Solo entramos si el campo local NO es compatible con el de Clupik.
         var mapped = campoAFacility[kLocal];
+        // También buscamos mapeo por substring en las claves conocidas.
+        if(!mapped){
+          var claves = Object.keys(campoAFacility);
+          for(var ci = 0; ci < claves.length; ci++){
+            if(_mismoCampo(kLocal, claves[ci])){ mapped = campoAFacility[claves[ci]]; break; }
+          }
+        }
         if(mapped && String(mapped.facility_id) !== String(p.facility_id_clupik || "")){
           payload.facility_id = mapped.facility_id;
           tipos.push("campo");
@@ -4116,8 +4131,11 @@ async function guardarCambiosEnClupik(){
             facility_id: mapped.facility_id
           };
         } else if(!mapped){
-          // Campo no mapeable aún — lo marcamos como 'campo-desconocido' para avisar.
-          desc.campoDesconocido = { campo: p.campo };
+          // Campo genuinamente distinto y sin mapeo: solo avisamos si también
+          // Clupik tiene un lugar asignado (si está vacío, no hay nada que comparar).
+          if(kClupik){
+            desc.campoDesconocido = { campo: p.campo };
+          }
         }
       }
     }
