@@ -589,11 +589,12 @@ function lugarACampo(lugar){
 
 // ---- Auto-inferencia de campo por equipo local ----
 // Estrategia en 2 pasos:
-//   1) Match por nombre: si el nombre del equipo local contiene el nombre de
-//      un campo configurado, usamos ese campo (ej. 'CD LA CAÑADA' contiene
-//      'La Cañada' -> asignamos La Cañada). Es el caso mas común y robusto.
-//   2) Histórico: buscamos en jornadas ya guardadas el campo más frecuente
-//      donde este equipo ha sido local. Fallback cuando el nombre no ayuda.
+//   1) Histórico: el campo más frecuente donde ese equipo ha sido local en
+//      jornadas anteriores. Es la fuente de verdad porque refleja los
+//      acuerdos reales del club (ej. CD La Cañada suele jugar en Kolbe).
+//   2) Match por nombre (fallback): si no hay histórico y el nombre del
+//      equipo contiene el nombre de un campo configurado, usamos ese campo
+//      (ej. 'CD FRESNEDILLAS' -> 'Fresnedillas'). Solo aplica a equipos nuevos.
 function inferirCampoPorEquipoLocal(eq1){
   if(!eq1) return null;
   var normalizar = function(s){
@@ -607,9 +608,26 @@ function inferirCampoPorEquipoLocal(eq1){
   var keyBusca = normalizar(eq1);
   if(!keyBusca) return null;
 
-  // --- Paso 1: match por nombre contra campos configurados ---
-  // Buscamos el nombre de campo MAS LARGO que sea substring del equipo;
-  // así 'La Cañada' gana a 'Kolbe' en 'CD LA CAÑADA' cuando ambos existen.
+  // --- Paso 1: histórico (prioridad) ---
+  var jornadas;
+  try { jornadas = getAllJornadas(); } catch(e){ jornadas = []; }
+  if(Array.isArray(jornadas) && jornadas.length){
+    var conteo = {};
+    jornadas.forEach(function(j){
+      (j.partidos || []).forEach(function(p){
+        if(!p.campo || p.campo === "Sin campo") return;
+        if(normalizar(p.eq1) !== keyBusca) return;
+        conteo[p.campo] = (conteo[p.campo] || 0) + 1;
+      });
+    });
+    var mejor = null, mejorN = 0;
+    Object.keys(conteo).forEach(function(c){
+      if(conteo[c] > mejorN){ mejor = c; mejorN = conteo[c]; }
+    });
+    if(mejor) return mejor;
+  }
+
+  // --- Paso 2: match por nombre (fallback) ---
   try {
     var camposNoms = Object.keys(CAMPOS_BASE || {});
     var mejorMatch = null;
@@ -625,25 +643,7 @@ function inferirCampoPorEquipoLocal(eq1){
     if(mejorMatch) return mejorMatch.campo;
   } catch(e){}
 
-  // --- Paso 2: histórico ---
-  var jornadas;
-  try { jornadas = getAllJornadas(); } catch(e){ return null; }
-  if(!Array.isArray(jornadas) || !jornadas.length) return null;
-
-  var conteo = {};
-  jornadas.forEach(function(j){
-    (j.partidos || []).forEach(function(p){
-      if(!p.campo || p.campo === "Sin campo") return;
-      if(normalizar(p.eq1) !== keyBusca) return;
-      conteo[p.campo] = (conteo[p.campo] || 0) + 1;
-    });
-  });
-
-  var mejor = null, mejorN = 0;
-  Object.keys(conteo).forEach(function(c){
-    if(conteo[c] > mejorN){ mejor = c; mejorN = conteo[c]; }
-  });
-  return mejor;
+  return null;
 }
 
 
