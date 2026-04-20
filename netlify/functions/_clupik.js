@@ -20,15 +20,30 @@ async function getAccessToken() {
 
   const clientId = process.env.CLUPIK_CLIENT_ID || '53';
   const clientSecret = process.env.CLUPIK_CLIENT_SECRET;
+  const username = process.env.CLUPIK_USERNAME;
+  const password = process.env.CLUPIK_PASSWORD;
+  const scope = process.env.CLUPIK_SCOPE;  // opcional
   if (!clientSecret) {
     throw new Error('Falta CLUPIK_CLIENT_SECRET en variables de entorno.');
   }
 
-  const body = new URLSearchParams({
+  // Si tenemos usuario+password, usamos 'password' grant — devuelve un token
+  // con permisos de ese usuario (escritura si es admin). Si no, caemos al
+  // 'client_credentials' que solo tiene lectura.
+  const params = {
     client_id: clientId,
     client_secret: clientSecret,
-    grant_type: 'client_credentials',
-  });
+  };
+  if (username && password) {
+    params.grant_type = 'password';
+    params.username = username;
+    params.password = password;
+  } else {
+    params.grant_type = 'client_credentials';
+  }
+  if (scope) params.scope = scope;
+
+  const body = new URLSearchParams(params);
 
   const r = await fetch(TOKEN_URL, {
     method: 'POST',
@@ -37,7 +52,7 @@ async function getAccessToken() {
   });
   if (!r.ok) {
     const text = await r.text();
-    throw new Error(`Auth Clupik falló (${r.status}): ${text.slice(0, 300)}`);
+    throw new Error(`Auth Clupik falló (${r.status}) grant=${params.grant_type}: ${text.slice(0, 300)}`);
   }
   const data = await r.json();
   cachedToken = data.access_token;
