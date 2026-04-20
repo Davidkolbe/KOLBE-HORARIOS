@@ -4091,7 +4091,7 @@ async function guardarCambiosEnClupik(){
     }
   }
   savePartidos();
-  let msg = "✓ " + ok + " partido(s) actualizado(s) en Clupik.";
+  msg = "✓ " + ok + " partido(s) actualizado(s) en Clupik.";
   if(fail) msg += "\n✗ " + fail + " fallaron:\n" + errores.slice(0, 5).join("\n");
   alert(msg);
 }
