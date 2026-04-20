@@ -1984,28 +1984,7 @@ function exportarPDF(){
   <div class="sub">${semana}</div>
   <table>${filas}</table>
   
-<!-- ===== MODAL: IMPORTAR DESDE CLUPIK ===== -->
-<div id="modal-clupik" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:var(--rl);max-width:640px;width:92%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 40px rgba(0,0,0,.2)">
-    <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--gris2);display:flex;justify-content:space-between;align-items:center">
-      <strong style="font-size:14px;color:var(--negro)">Importar torneo desde Clupik</strong>
-      <button class="btn btn-outline btn-sm" style="padding:4px 8px" onclick="cerrarImportClupik()">✕</button>
-    </div>
-    <div style="padding:.75rem 1.25rem;border-bottom:1px solid var(--gris2);display:flex;gap:8px;align-items:center">
-      <input id="clupik-search" type="text" placeholder="Filtrar por nombre..." style="flex:1;font-size:13px;padding:7px 10px;border:1px solid var(--gris3);border-radius:var(--r);font-family:var(--f)" oninput="filtrarTorneosClupik()">
-      <label style="font-size:11px;color:var(--gris5);display:flex;align-items:center;gap:4px;white-space:nowrap">
-        <input id="clupik-only-active" type="checkbox" checked onchange="filtrarTorneosClupik()">
-        Solo activos
-      </label>
-    </div>
-    <div id="clupik-torneos-lista" style="flex:1;overflow-y:auto;padding:.5rem 0">
-      <div style="text-align:center;padding:2rem;color:var(--gris4);font-size:13px">Cargando torneos…</div>
-    </div>
-    <div style="padding:.75rem 1.25rem;border-top:1px solid var(--gris2);text-align:right">
-      <button class="btn btn-outline btn-sm" onclick="cerrarImportClupik()">Cancelar</button>
-    </div>
-  </div>
-</div>
+
 
 </body></html>`;
 
@@ -3969,5 +3948,29 @@ async function guardarCambiosEnClupik(){
 // ===== fin Clupik integration =====
 
 </script>
+
+<!-- ===== MODAL: IMPORTAR DESDE CLUPIK ===== -->
+<div id="modal-clupik" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:var(--rl);max-width:640px;width:92%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 40px rgba(0,0,0,.2)">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--gris2);display:flex;justify-content:space-between;align-items:center">
+      <strong style="font-size:14px;color:var(--negro)">Importar torneo desde Clupik</strong>
+      <button class="btn btn-outline btn-sm" style="padding:4px 8px" onclick="cerrarImportClupik()">✕</button>
+    </div>
+    <div style="padding:.75rem 1.25rem;border-bottom:1px solid var(--gris2);display:flex;gap:8px;align-items:center">
+      <input id="clupik-search" type="text" placeholder="Filtrar por nombre..." style="flex:1;font-size:13px;padding:7px 10px;border:1px solid var(--gris3);border-radius:var(--r);font-family:var(--f)" oninput="filtrarTorneosClupik()">
+      <label style="font-size:11px;color:var(--gris5);display:flex;align-items:center;gap:4px;white-space:nowrap">
+        <input id="clupik-only-active" type="checkbox" checked onchange="filtrarTorneosClupik()">
+        Solo activos
+      </label>
+    </div>
+    <div id="clupik-torneos-lista" style="flex:1;overflow-y:auto;padding:.5rem 0">
+      <div style="text-align:center;padding:2rem;color:var(--gris4);font-size:13px">Cargando torneos…</div>
+    </div>
+    <div style="padding:.75rem 1.25rem;border-top:1px solid var(--gris2);text-align:right">
+      <button class="btn btn-outline btn-sm" onclick="cerrarImportClupik()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
