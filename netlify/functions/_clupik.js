@@ -66,6 +66,17 @@ async function getAccessToken() {
       resp = await _tokenRequest({}, bodyParams);
       if (!resp.ok) {
         lastErr += ` | intento2(body) status=${resp.status} body=${(resp.text || '').slice(0,200)}`;
+        // Intento 3 (FALLBACK): si password grant falla, usar client_credentials
+        // para que las lecturas sigan funcionando. Los PATCHs fallarán con 401
+        // hasta que Clupik habilite password grant para este client_id.
+        const ccParams = { grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret };
+        if (scope) ccParams.scope = scope;
+        resp = await _tokenRequest({}, ccParams);
+        if (!resp.ok) {
+          lastErr += ` | fallback(client_credentials) status=${resp.status} body=${(resp.text || '').slice(0,200)}`;
+        } else {
+          console.warn('[clupik] password grant falló; usando client_credentials (solo lectura).');
+        }
       }
     }
   } else {
