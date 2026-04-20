@@ -1586,6 +1586,37 @@ function saveCoordinadores(){
   try { localStorage.setItem("kolbe_coordinadores", JSON.stringify(coordinadores)); } catch(e){}
 }
 
+// Grupos de WhatsApp por categoría+disciplina (enlaces de invitación)
+let gruposWA = {};
+try { gruposWA = JSON.parse(localStorage.getItem("kolbe_grupos_wa") || "{}") || {}; } catch(e){ gruposWA = {}; }
+
+function saveGruposWA(){
+  try { localStorage.setItem("kolbe_grupos_wa", JSON.stringify(gruposWA)); } catch(e){}
+}
+
+function _validarEnlaceGrupoWA(url){
+  if(!url) return "";
+  var u = url.trim();
+  if(!/^https?:\/\/chat\.whatsapp\.com\//i.test(u)) return "";
+  return u;
+}
+
+function enlazarGrupoWA(key){
+  var actual = gruposWA[key] || "";
+  var pedido = prompt(
+    "Pega el enlace de invitación del grupo de WhatsApp para esta categoría.\n"
+    + "Formato: https://chat.whatsapp.com/XXXXXXXX\n\n"
+    + "Cómo obtenerlo: en el grupo, pulsa el nombre del grupo → Invitar al grupo con enlace → Copiar enlace.",
+    actual
+  );
+  if(pedido === null) return; // cancelado
+  if(pedido === ""){ delete gruposWA[key]; saveGruposWA(); return; }
+  var limpio = _validarEnlaceGrupoWA(pedido);
+  if(!limpio){ alert("Enlace no válido. Debe empezar por https://chat.whatsapp.com/"); return; }
+  gruposWA[key] = limpio;
+  saveGruposWA();
+}
+
 // Devuelve lista única de clubs base detectados en los partidos actuales + los ya guardados
 function _clubsDetectados(){
   var set = new Set();
@@ -2249,6 +2280,7 @@ async function guardarCopia(){
     campos: CAMPOS_BASE,
     coordinadores: coordinadores || {},
     entrenadoresTels: entrenadoresTels || {},
+    gruposWA: gruposWA || {},
   };
   const json = JSON.stringify(backup, null, 2);
   const d = new Date();
@@ -2341,6 +2373,12 @@ function restaurarCopia(e){
       if(backup.entrenadoresTels && typeof backup.entrenadoresTels === "object"){
         entrenadoresTels = backup.entrenadoresTels;
         saveEntrenadoresTels();
+      }
+
+      // Restore grupos WhatsApp
+      if(backup.gruposWA && typeof backup.gruposWA === "object"){
+        gruposWA = backup.gruposWA;
+        saveGruposWA();
       }
 
       // Go back to historial to show restored jornadas
@@ -3335,6 +3373,54 @@ function vistaCategorias(){
 
     body.appendChild(pre);
     body.appendChild(btnCopiar);
+
+    // Botón de grupo de WhatsApp por categoría
+    var catKey = g.categoria + "|||" + g.disciplina;
+    var grupoUrl = gruposWA[catKey] || "";
+
+    var btnGrupoWrap = document.createElement("span");
+    btnGrupoWrap.style.cssText = "display:inline-flex;gap:4px;margin-left:8px";
+
+    var btnGrupo = document.createElement("button");
+    if(grupoUrl){
+      btnGrupo.textContent = "📱 Abrir grupo";
+      btnGrupo.style.cssText = "padding:6px 14px;background:#25D366;color:#fff;border:none;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f);font-weight:600";
+      btnGrupo.title = "Copia el mensaje al portapapeles y abre el grupo de WhatsApp para que lo pegues";
+      btnGrupo.setAttribute("data-uid", uid);
+      btnGrupo.setAttribute("data-cat", catKey);
+      btnGrupo.addEventListener("click", function(){
+        var u = this.getAttribute("data-uid");
+        var k = this.getAttribute("data-cat");
+        var texto = (window._catTextos && window._catTextos[u]) || "";
+        // Copiar al portapapeles
+        function abrir(){ window.open(gruposWA[k], "_blank"); }
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          navigator.clipboard.writeText(texto).then(abrir).catch(abrir);
+        } else {
+          var ta = document.createElement("textarea");
+          ta.value = texto; ta.style.cssText = "position:fixed;opacity:0";
+          document.body.appendChild(ta); ta.focus(); ta.select();
+          document.execCommand("copy"); document.body.removeChild(ta);
+          abrir();
+        }
+      });
+
+      var btnEdit = document.createElement("button");
+      btnEdit.textContent = "✏️";
+      btnEdit.title = "Cambiar el enlace del grupo";
+      btnEdit.style.cssText = "padding:6px 10px;background:#fff;color:var(--gris5);border:1px solid var(--gris3);border-radius:var(--r);font-size:12px;cursor:pointer";
+      btnEdit.addEventListener("click", function(){ enlazarGrupoWA(catKey); overlay.remove(); vistaCategorias(); });
+      btnGrupoWrap.appendChild(btnGrupo);
+      btnGrupoWrap.appendChild(btnEdit);
+    } else {
+      btnGrupo.textContent = "➕ Enlazar grupo";
+      btnGrupo.style.cssText = "padding:6px 14px;background:#fff;color:var(--verde);border:1px dashed var(--verde);border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f);font-weight:600";
+      btnGrupo.title = "Pega el enlace de invitación del grupo de WhatsApp de esta categoría";
+      btnGrupo.addEventListener("click", function(){ enlazarGrupoWA(catKey); overlay.remove(); vistaCategorias(); });
+      btnGrupoWrap.appendChild(btnGrupo);
+    }
+    body.appendChild(btnGrupoWrap);
+
     bloque.appendChild(header);
     bloque.appendChild(body);
     container.appendChild(bloque);
