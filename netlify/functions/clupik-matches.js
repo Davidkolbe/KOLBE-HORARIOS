@@ -1,19 +1,19 @@
 const { apiGet, paginate, utcToMadrid, json } = require('./_clupik');
 
 function pick(attrs, enKey, esKey) {
-  if (\!attrs) return null;
-  if (attrs[enKey] \!== undefined && attrs[enKey] \!== null) return attrs[enKey];
-  if (attrs[esKey] \!== undefined && attrs[esKey] \!== null) return attrs[esKey];
+  if (!attrs) return null;
+  if (attrs[enKey] !== undefined && attrs[enKey] !== null) return attrs[enKey];
+  if (attrs[esKey] !== undefined && attrs[esKey] !== null) return attrs[esKey];
   return null;
 }
 
 exports.handler = async (event) => {
   const tid = event.queryStringParameters?.tournament_id;
-  if (\!tid) return json(400, { error: 'Falta query param tournament_id' });
+  if (!tid) return json(400, { error: 'Falta query param tournament_id' });
 
   try {
     const t = await apiGet(`/tournaments/${tid}`);
-    if (t.status \!== 200) return json(t.status, t.body || { error: 'Torneo no accesible' });
+    if (t.status !== 200) return json(t.status, t.body || { error: 'Torneo no accesible' });
     const tournamentName = pick(t.body?.data?.attributes, 'name', 'nombre') || '';
 
     const teamsArr = await paginate('/teams', { filter: `registrable_id:${tid}` });
@@ -35,7 +35,7 @@ exports.handler = async (event) => {
     for (const r of roundsArr) {
       const number = pick(r.attributes, 'number', 'numero');
       const name = pick(r.attributes, 'name', 'nombre');
-      const roundName = name || (number \!= null ? `Jornada ${number}` : r.id);
+      const roundName = name || (number != null ? `Jornada ${number}` : r.id);
       const groupId = r.relationships?.group?.data?.id || null;
       roundById.set(r.id, { name: roundName, groupId });
     }
@@ -60,7 +60,7 @@ exports.handler = async (event) => {
     }
 
     const partidos = matchesArr
-      .filter((m) => \!(pick(m.attributes, 'rest', 'descanso')))
+      .filter((m) => !(pick(m.attributes, 'rest', 'descanso')))
       .map((m) => {
         const datetimeUtc = pick(m.attributes, 'datetime', 'fecha_hora')
           || pick(m.attributes, 'datetime', 'fechahora')
@@ -85,9 +85,9 @@ exports.handler = async (event) => {
           jornada: round?.name || '',
           comp: tournamentName,
           grupo: groupId ? groupById.get(groupId) || '' : '',
-          finished: \!\!(pick(m.attributes, 'finished', 'terminado') || pick(m.attributes, 'finished', 'finalizado')),
-          canceled: \!\!(pick(m.attributes, 'canceled', 'cancelado')),
-          postponed: \!\!(pick(m.attributes, 'postponed', 'aplazado')),
+          finished: !!(pick(m.attributes, 'finished', 'terminado') || pick(m.attributes, 'finished', 'finalizado')),
+          canceled: !!(pick(m.attributes, 'canceled', 'cancelado')),
+          postponed: !!(pick(m.attributes, 'postponed', 'aplazado')),
         };
       })
       .filter((p) => p.eq1 && p.eq2);

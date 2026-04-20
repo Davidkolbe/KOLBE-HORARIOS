@@ -3,9 +3,9 @@ const { apiGet, paginate, json } = require('./_clupik');
 // Algunos torneos de Leverade vienen con atributos en inglés y otros
 // en español. Función helper que lee cualquiera de los dos.
 function pick(attrs, enKey, esKey) {
-  if (\!attrs) return null;
-  if (attrs[enKey] \!== undefined && attrs[enKey] \!== null) return attrs[enKey];
-  if (attrs[esKey] \!== undefined && attrs[esKey] \!== null) return attrs[esKey];
+  if (!attrs) return null;
+  if (attrs[enKey] !== undefined && attrs[enKey] !== null) return attrs[enKey];
+  if (attrs[esKey] !== undefined && attrs[esKey] !== null) return attrs[esKey];
   return null;
 }
 

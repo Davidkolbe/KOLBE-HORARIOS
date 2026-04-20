@@ -3782,9 +3782,10 @@ async function cargarTorneosClupik(){
 function filtrarTorneosClupik(){
   const search = (document.getElementById("clupik-search").value || "").toLowerCase();
   const onlyActive = document.getElementById("clupik-only-active").checked;
+  const FIN = ["finished","canceled","finalizado","terminado","cancelado"];
   const filtered = torneosClupikCache.filter(function(t){
-    if(onlyActive && (t.status === "finished" || t.status === "canceled")) return false;
-    if(search && !t.name.toLowerCase().includes(search)) return false;
+    if(onlyActive && FIN.indexOf((t.status||"").toLowerCase()) !== -1) return false;
+    if(search && !(t.name||"").toLowerCase().includes(search)) return false;
     return true;
   });
   renderTorneosClupikLista(filtered);
