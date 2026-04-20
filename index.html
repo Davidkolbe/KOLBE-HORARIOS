@@ -4031,70 +4031,169 @@ function utcStringToMadridFechaHora(utcStr){
 }
 
 async function guardarCambiosEnClupik(){
-  const cambios = [];
-  const detalle = [];
+  // Normaliza nombre de campo local para compararlo con el nombre que Clupik conoce.
+  var _normCampo = function(s){
+    return (s || "").toString()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase()
+      .replace(/["\u201C\u201D\u2018\u2019\u2033'\u00b4]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  // 1) Aprender el mapeo campo-local → facility_id a partir de los partidos ya vinculados.
+  //    Para cada campo local único, contamos frecuencias de facility_id; gana el más frecuente.
+  var mapaCampos = {};  // _normCampo(p.campo) -> { id, count, nombreClupik }
+  partidos.forEach(function(p){
+    if(!p.match_id || !p.facility_id_clupik || !p.campo) return;
+    var k = _normCampo(p.campo);
+    if(!k) return;
+    if(!mapaCampos[k]) mapaCampos[k] = {};
+    var ent = mapaCampos[k];
+    var id = String(p.facility_id_clupik);
+    ent[id] = (ent[id] || 0) + 1;
+    ent._nombre = p.lugar_clupik || ent._nombre;
+  });
+  var campoAFacility = {};  // _normCampo(campo) -> { facility_id, nombreClupik }
+  Object.keys(mapaCampos).forEach(function(k){
+    var cuentas = mapaCampos[k];
+    var mejor = null, mejorN = 0;
+    Object.keys(cuentas).forEach(function(id){
+      if(id === "_nombre") return;
+      if(cuentas[id] > mejorN){ mejorN = cuentas[id]; mejor = id; }
+    });
+    if(mejor) campoAFacility[k] = { facility_id: mejor, nombreClupik: cuentas._nombre || "" };
+  });
+
+  // 2) Recorrer partidos y construir lista de cambios, con tipos bien diferenciados.
+  var cambios = [];  // { p, tipos: Set, payload: {...}, desc: {...} }
   partidos.forEach(function(p){
     if(!p.match_id) return;
-    if(p.sinHora) return;
-    let origFecha = "(sin referencia)";
-    let origHora = "(sin referencia)";
-    if(p.datetime_utc_original){
-      const orig = utcStringToMadridFechaHora(p.datetime_utc_original);
-      if(orig.fecha === p.fecha && orig.hora === p.hora) return;
-      origFecha = orig.fecha;
-      origHora = orig.hora;
+    var payload = { match_id: p.match_id };
+    var tipos = [];
+    var desc = {};
+
+    // --- Aplazado ---
+    var quiereAplazado = !!(p.aplazado || p.sinHora || p.hora === "00:00");
+    var clupikAplazado = !!p._postponed_clupik;
+    if(quiereAplazado !== clupikAplazado){
+      payload.postponed = quiereAplazado;
+      tipos.push(quiereAplazado ? "aplazar" : "desaplazar");
+      desc.postponed = { from: clupikAplazado, to: quiereAplazado };
     }
-    cambios.push(p);
-    detalle.push({ p: p, origFecha: origFecha, origHora: origHora });
+
+    // --- Fecha/hora (solo si NO se está aplazando ahora mismo; y solo si hay hora real) ---
+    if(!quiereAplazado && p.fecha && p.hora && p.hora !== "00:00"){
+      var origFecha = null, origHora = null;
+      if(p.datetime_utc_original){
+        var orig = utcStringToMadridFechaHora(p.datetime_utc_original);
+        origFecha = orig.fecha;
+        origHora = orig.hora;
+      }
+      if(origFecha !== p.fecha || origHora !== p.hora){
+        payload.fecha = p.fecha;
+        payload.hora = p.hora;
+        tipos.push("horario");
+        desc.horario = {
+          fromFecha: origFecha || "(?)", fromHora: origHora || "(?)",
+          toFecha: p.fecha, toHora: p.hora
+        };
+      }
+    }
+
+    // --- Campo ---
+    if(p.campo){
+      var kLocal = _normCampo(p.campo);
+      var kClupik = _normCampo(p.lugar_clupik || "");
+      if(kLocal && kLocal !== kClupik){
+        var mapped = campoAFacility[kLocal];
+        if(mapped && String(mapped.facility_id) !== String(p.facility_id_clupik || "")){
+          payload.facility_id = mapped.facility_id;
+          tipos.push("campo");
+          desc.campo = {
+            from: p.lugar_clupik || "(ninguno)",
+            to: p.campo,
+            facility_id: mapped.facility_id
+          };
+        } else if(!mapped){
+          // Campo no mapeable aún — lo marcamos como 'campo-desconocido' para avisar.
+          desc.campoDesconocido = { campo: p.campo };
+        }
+      }
+    }
+
+    if(tipos.length){
+      cambios.push({ p: p, tipos: tipos, payload: payload, desc: desc });
+    }
   });
 
   if(!cambios.length){
-    alert("No hay cambios de fecha/hora pendientes de enviar a Clupik.");
+    alert("No hay cambios pendientes de enviar a Clupik.");
     return;
   }
-  let msg = "Se van a enviar " + cambios.length + " cambio(s) a Clupik:\n\n";
-  detalle.slice(0, 25).forEach(function(c){
-    const p = c.p;
-    msg += "• " + p.eq1 + " vs " + p.eq2 + "\n";
-    if(c.origFecha === p.fecha){
-      msg += "    " + p.fecha + "   " + c.origHora + "  →  " + p.hora + "\n";
-    } else {
-      msg += "    " + c.origFecha + " " + c.origHora + "  →  " + p.fecha + " " + p.hora + "\n";
+
+  // 3) Preview con los 3 tipos bien diferenciados.
+  var msg = "Se van a enviar " + cambios.length + " cambio(s) a Clupik:\n\n";
+  cambios.slice(0, 30).forEach(function(c){
+    var p = c.p;
+    msg += "• " + p.eq1 + " vs " + p.eq2 + "   [" + c.tipos.join(", ") + "]\n";
+    if(c.desc.postponed){
+      msg += "    " + (c.desc.postponed.to ? "→ APLAZADO" : "→ Reactivado") + "\n";
+    }
+    if(c.desc.horario){
+      var d = c.desc.horario;
+      if(d.fromFecha === d.toFecha){
+        msg += "    hora: " + d.fromHora + " → " + d.toHora + "\n";
+      } else {
+        msg += "    " + d.fromFecha + " " + d.fromHora + "  →  " + d.toFecha + " " + d.toHora + "\n";
+      }
+    }
+    if(c.desc.campo){
+      msg += "    campo: " + c.desc.campo.from + " → " + c.desc.campo.to + "\n";
+    }
+    if(c.desc.campoDesconocido){
+      msg += "    ⚠ campo '" + c.desc.campoDesconocido.campo + "' no se enviará (no hay mapeo en Clupik)\n";
     }
   });
-  if(detalle.length > 25){
-    msg += "... (y " + (detalle.length - 25) + " más)\n";
-  }
+  if(cambios.length > 30) msg += "... (y " + (cambios.length - 30) + " más)\n";
   msg += "\n¿Continuar?";
   if(!confirm(msg)) return;
 
-  let ok = 0, fail = 0;
-  const errores = [];
-  for(const p of cambios){
+  // 4) Enviar cada cambio.
+  var ok = 0, fail = 0;
+  var errores = [];
+  for(var i = 0; i < cambios.length; i++){
+    var c = cambios[i];
     try {
-      const r = await fetch("/api/clupik-update-match", {
+      var r = await fetch("/api/clupik-update-match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ match_id: p.match_id, fecha: p.fecha, hora: p.hora }),
+        body: JSON.stringify(c.payload),
       });
-      const data = await r.json();
+      var data = await r.json();
       if(r.ok && data.ok){
         ok++;
-        p.datetime_utc_original = data.datetime_utc;
+        if(data.datetime_utc) c.p.datetime_utc_original = data.datetime_utc;
+        if(typeof c.payload.postponed === "boolean") c.p._postponed_clupik = c.payload.postponed;
+        if(c.payload.facility_id){
+          c.p.facility_id_clupik = c.payload.facility_id;
+          c.p.lugar_clupik = c.p.campo;
+        }
       } else {
         fail++;
-        const detail = (data.error && data.error.errors && data.error.errors[0] && data.error.errors[0].detail) || (data.error && typeof data.error === "string" ? data.error : JSON.stringify(data.error || {}).slice(0,120));
-        errores.push(p.eq1 + " vs " + p.eq2 + ": " + detail);
+        var detail = (data.error && data.error.errors && data.error.errors[0] && data.error.errors[0].detail) ||
+                     (data.error && typeof data.error === "string" ? data.error : JSON.stringify(data.error || {}).slice(0,120));
+        errores.push(c.p.eq1 + " vs " + c.p.eq2 + ": " + detail);
       }
     } catch(e){
       fail++;
-      errores.push(p.eq1 + " vs " + p.eq2 + ": " + e.message);
+      errores.push(c.p.eq1 + " vs " + c.p.eq2 + ": " + e.message);
     }
   }
   savePartidos();
-  msg = "✓ " + ok + " partido(s) actualizado(s) en Clupik.";
-  if(fail) msg += "\n✗ " + fail + " fallaron:\n" + errores.slice(0, 5).join("\n");
-  alert(msg);
+  var resumen = "✓ " + ok + " partido(s) actualizado(s) en Clupik.";
+  if(fail) resumen += "\n✗ " + fail + " fallaron:\n" + errores.slice(0, 8).join("\n");
+  alert(resumen);
 }
 
 // Hook: cuando se muestra el planificador, revisar si hay que enseñar el botón
@@ -4211,6 +4310,9 @@ async function vincularConClupik(){
       if(hit){
         p.match_id = hit.match_id;
         p.datetime_utc_original = hit.datetime_utc_original;
+        p.facility_id_clupik = hit.facility_id || null;
+        p.lugar_clupik = hit.lugar || '';
+        p._postponed_clupik = !!hit.postponed;
         if(fechaFuzzy) p._fechaClupikDiscrepancia = fechaFuzzy;
         else delete p._fechaClupikDiscrepancia;
         matched++;

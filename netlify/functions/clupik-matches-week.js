@@ -123,6 +123,7 @@ async function processTournament(t, from, to) {
       eq1, eq2, fecha, hora,
       datetime_utc_original: dt || null,
       lugar: facilityId ? facById.get(facilityId) || '' : '',
+      facility_id: facilityId || null,
       jornada: round?.name || '',
       comp: tname,
       grupo: groupId ? groupById.get(groupId) || '' : '',
