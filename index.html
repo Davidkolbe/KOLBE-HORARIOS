@@ -248,6 +248,14 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
         <div id="historial-lista"></div>
       </div>
 
+      <!-- Importar desde Clupik (API) -->
+      <div style="background:var(--verde-s);border:1.5px solid var(--verde-b);border-radius:var(--rl);padding:1.25rem 1.5rem;margin-bottom:1rem;text-align:center">
+        <div style="font-size:13px;font-weight:600;color:var(--verde);margin-bottom:.25rem">🔄 Importar directamente desde Clupik</div>
+        <div style="font-size:11px;color:var(--gris5);margin-bottom:.75rem">Sin CSV, en un solo clic</div>
+        <button class="btn btn-verde" onclick="abrirImportClupik()">Elegir torneo a importar</button>
+      </div>
+      <div style="text-align:center;color:var(--gris4);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.75rem">— o sube el CSV manualmente —</div>
+
       <!-- Upload -->
       <div class="upload-zone" id="upload-zone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('file-input').click()">
         <input type="file" id="file-input" accept=".csv,.xls,.xlsx" onchange="handleFile(event)">
@@ -275,6 +283,7 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
       <button class="btn btn-outline btn-sm" onclick="vistaCategorias()">📊 Vista por categorías</button>
       <button class="btn btn-verde btn-sm" onclick="resumenKolbe()">🟢 Resumen Kolbe partidos</button>
       <button class="btn btn-verde btn-sm" onclick="asistenteEnvios()" title="Preparar envíos de domingo, lunes y miércoles">📤 Envíos semana</button>
+      <button class="btn btn-verde btn-sm" id="btn-save-clupik" onclick="guardarCambiosEnClupik()" style="display:none" title="Envía los cambios de horario a Clupik">☁️ Guardar en Clupik</button>
       <button class="btn btn-verde btn-sm" onclick="modalNuevoPartido()">+ Partido</button>
     </div>
 
@@ -1974,7 +1983,31 @@ function exportarPDF(){
   <h1>Club Kolbe — Planificador de jornada</h1>
   <div class="sub">${semana}</div>
   <table>${filas}</table>
-  </body></html>`;
+  
+<!-- ===== MODAL: IMPORTAR DESDE CLUPIK ===== -->
+<div id="modal-clupik" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:var(--rl);max-width:640px;width:92%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 40px rgba(0,0,0,.2)">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--gris2);display:flex;justify-content:space-between;align-items:center">
+      <strong style="font-size:14px;color:var(--negro)">Importar torneo desde Clupik</strong>
+      <button class="btn btn-outline btn-sm" style="padding:4px 8px" onclick="cerrarImportClupik()">✕</button>
+    </div>
+    <div style="padding:.75rem 1.25rem;border-bottom:1px solid var(--gris2);display:flex;gap:8px;align-items:center">
+      <input id="clupik-search" type="text" placeholder="Filtrar por nombre..." style="flex:1;font-size:13px;padding:7px 10px;border:1px solid var(--gris3);border-radius:var(--r);font-family:var(--f)" oninput="filtrarTorneosClupik()">
+      <label style="font-size:11px;color:var(--gris5);display:flex;align-items:center;gap:4px;white-space:nowrap">
+        <input id="clupik-only-active" type="checkbox" checked onchange="filtrarTorneosClupik()">
+        Solo activos
+      </label>
+    </div>
+    <div id="clupik-torneos-lista" style="flex:1;overflow-y:auto;padding:.5rem 0">
+      <div style="text-align:center;padding:2rem;color:var(--gris4);font-size:13px">Cargando torneos…</div>
+    </div>
+    <div style="padding:.75rem 1.25rem;border-top:1px solid var(--gris2);text-align:right">
+      <button class="btn btn-outline btn-sm" onclick="cerrarImportClupik()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+</body></html>`;
 
   const w = window.open("","_blank");
   w.document.write(html);
@@ -3718,6 +3751,222 @@ try {
 } catch(e){}
 renderEquiposConfig();
 loadPartidos();
+
+// ============ CLUPIK API INTEGRATION ============
+
+let torneosClupikCache = [];
+
+function abrirImportClupik(){
+  document.getElementById("modal-clupik").style.display = "flex";
+  cargarTorneosClupik();
+}
+
+function cerrarImportClupik(){
+  document.getElementById("modal-clupik").style.display = "none";
+}
+
+async function cargarTorneosClupik(){
+  const lista = document.getElementById("clupik-torneos-lista");
+  lista.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--gris4);font-size:13px">Cargando torneos…</div>';
+  try {
+    const r = await fetch("/api/clupik-tournaments");
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    torneosClupikCache = data.tournaments || [];
+    filtrarTorneosClupik();
+  } catch(e){
+    lista.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--rojo);font-size:13px">Error: ' + e.message + '</div>';
+  }
+}
+
+function filtrarTorneosClupik(){
+  const search = (document.getElementById("clupik-search").value || "").toLowerCase();
+  const onlyActive = document.getElementById("clupik-only-active").checked;
+  const filtered = torneosClupikCache.filter(function(t){
+    if(onlyActive && (t.status === "finished" || t.status === "canceled")) return false;
+    if(search && !t.name.toLowerCase().includes(search)) return false;
+    return true;
+  });
+  renderTorneosClupikLista(filtered);
+}
+
+function renderTorneosClupikLista(torneos){
+  const lista = document.getElementById("clupik-torneos-lista");
+  if(!torneos.length){
+    lista.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--gris4);font-size:13px">No hay torneos que coincidan. Desmarca "Solo activos" para ver el histórico.</div>';
+    return;
+  }
+  const html = torneos.map(function(t){
+    const color = t.status === "finished" ? "var(--gris4)" : (t.status === "canceled" ? "var(--rojo)" : "var(--verde)");
+    const safeName = String(t.name).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    return '<div class="clupik-torneo-item" style="padding:.6rem 1.25rem;border-bottom:1px solid var(--gris2);cursor:pointer" onclick="importarTorneoClupik(\''+t.id+'\')">' +
+      '<div style="font-size:13px;font-weight:500;color:var(--negro)">'+safeName+'</div>' +
+      '<div style="font-size:11px;color:'+color+';margin-top:2px">['+t.id+'] · '+t.status+'</div>' +
+      '</div>';
+  }).join("");
+  lista.innerHTML = html;
+}
+
+async function importarTorneoClupik(tournamentId){
+  cerrarImportClupik();
+  const loader = document.createElement("div");
+  loader.id = "clupik-loader";
+  loader.style = "position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;display:flex;align-items:center;justify-content:center";
+  loader.innerHTML = '<div style="background:#fff;padding:1.5rem 2rem;border-radius:var(--rl);font-size:13px;font-weight:500">Importando torneo desde Clupik…</div>';
+  document.body.appendChild(loader);
+
+  try {
+    const r = await fetch("/api/clupik-matches?tournament_id=" + encodeURIComponent(tournamentId));
+    if(!r.ok){
+      const txt = await r.text();
+      throw new Error("HTTP " + r.status + ": " + txt.slice(0,200));
+    }
+    const data = await r.json();
+    if(!data.partidos || !data.partidos.length){
+      alert("El torneo no tiene partidos para importar.");
+      return;
+    }
+
+    const nuevos = data.partidos.map(function(p, i){
+      const campo = lugarACampo(p.lugar || "") || "Sin campo";
+      return {
+        id: i + 1,
+        match_id: p.match_id,
+        datetime_utc_original: p.datetime_utc_original || null,
+        eq1: p.eq1 || "",
+        eq2: p.eq2 || "",
+        fecha: p.fecha || "",
+        hora: p.hora || "00:00",
+        sinHora: (p.hora || "00:00") === "00:00",
+        aplazado: !!p.postponed,
+        dia: parseDia(p.fecha || ""),
+        campo: campo,
+        campoOriginal: campo,
+        jornada: p.jornada || "",
+        comp: p.comp || "",
+        categoria: categDeComp(p.comp || ""),
+        grupo: (p.grupo || "").replace(/GRUPO /i, "").trim(),
+        ent1: getEntrenadores(p.eq1 || "", categDeComp(p.comp || ""), ligaDeComp(p.comp || "")),
+        ent2: getEntrenadores(p.eq2 || "", categDeComp(p.comp || ""), ligaDeComp(p.comp || "")),
+        conflicto: null,
+      };
+    });
+
+    const fechas = nuevos.map(function(p){ return p.fecha; }).filter(Boolean);
+    const semana = fechas[0] || (data.tournament_name || "Jornada Clupik");
+    const arr = getAllJornadas();
+    const id = "j_clupik_" + tournamentId + "_" + Date.now();
+    arr.unshift({
+      id: id,
+      semana: "Clupik: " + (data.tournament_name || ""),
+      partidos: nuevos,
+      createdAt: new Date().toISOString(),
+      sourceClupik: { tournament_id: tournamentId, tournament_name: data.tournament_name },
+    });
+    saveAllJornadas(arr);
+    jornadaActivaId = id;
+    partidos = nuevos;
+    mostrarPlanificador(semana);
+    actualizarBotonGuardarClupik();
+  } catch(e){
+    alert("Error al importar desde Clupik:\n" + e.message);
+  } finally {
+    const el = document.getElementById("clupik-loader");
+    if(el) el.remove();
+  }
+}
+
+function actualizarBotonGuardarClupik(){
+  const btn = document.getElementById("btn-save-clupik");
+  if(!btn) return;
+  const tiene = Array.isArray(partidos) && partidos.some(function(p){ return p.match_id; });
+  btn.style.display = tiene ? "inline-flex" : "none";
+}
+
+function utcStringToMadridFechaHora(utcStr){
+  if(!utcStr) return { fecha: "", hora: "" };
+  const d = new Date(utcStr.replace(" ", "T") + "Z");
+  if(isNaN(d.getTime())) return { fecha: "", hora: "" };
+  const parts = new Intl.DateTimeFormat("es-ES", {
+    timeZone: "Europe/Madrid",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(d);
+  const o = {};
+  for(const p of parts) o[p.type] = p.value;
+  return {
+    fecha: o.day + "/" + o.month + "/" + o.year,
+    hora: o.hour + ":" + o.minute,
+  };
+}
+
+async function guardarCambiosEnClupik(){
+  const cambios = [];
+  partidos.forEach(function(p){
+    if(!p.match_id) return;
+    if(p.sinHora) return;
+    if(!p.datetime_utc_original){ cambios.push(p); return; }
+    const orig = utcStringToMadridFechaHora(p.datetime_utc_original);
+    if(orig.fecha !== p.fecha || orig.hora !== p.hora){
+      cambios.push(p);
+    }
+  });
+
+  if(!cambios.length){
+    alert("No hay cambios de fecha/hora pendientes de enviar a Clupik.");
+    return;
+  }
+  if(!confirm("Se van a enviar " + cambios.length + " cambio(s) a Clupik.\n\n¿Continuar?")) return;
+
+  let ok = 0, fail = 0;
+  const errores = [];
+  for(const p of cambios){
+    try {
+      const r = await fetch("/api/clupik-update-match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ match_id: p.match_id, fecha: p.fecha, hora: p.hora }),
+      });
+      const data = await r.json();
+      if(r.ok && data.ok){
+        ok++;
+        p.datetime_utc_original = data.datetime_utc;
+      } else {
+        fail++;
+        const detail = (data.error && data.error.errors && data.error.errors[0] && data.error.errors[0].detail) || (data.error && typeof data.error === "string" ? data.error : JSON.stringify(data.error || {}).slice(0,120));
+        errores.push(p.eq1 + " vs " + p.eq2 + ": " + detail);
+      }
+    } catch(e){
+      fail++;
+      errores.push(p.eq1 + " vs " + p.eq2 + ": " + e.message);
+    }
+  }
+  savePartidos();
+  let msg = "✓ " + ok + " partido(s) actualizado(s) en Clupik.";
+  if(fail) msg += "\n✗ " + fail + " fallaron:\n" + errores.slice(0, 5).join("\n");
+  alert(msg);
+}
+
+// Hook: cuando se muestra el planificador, revisar si hay que enseñar el botón
+(function(){
+  const _orig = window.mostrarPlanificador;
+  if(typeof _orig === "function"){
+    window.mostrarPlanificador = function(){
+      const ret = _orig.apply(this, arguments);
+      try { actualizarBotonGuardarClupik(); } catch(e){}
+      return ret;
+    };
+  }
+  // También al cargar una jornada existente
+  window.addEventListener("load", function(){
+    setTimeout(function(){
+      try { actualizarBotonGuardarClupik(); } catch(e){}
+    }, 500);
+  });
+})();
+
+// ===== fin Clupik integration =====
+
 </script>
 </body>
 </html>
