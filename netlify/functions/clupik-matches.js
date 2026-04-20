@@ -1,52 +1,49 @@
-// GET /api/clupik-matches?tournament_id=XXXXX
-// Devuelve los partidos de un torneo en formato compatible con el
-// planificador. fecha/hora vienen en hora local Madrid; guardamos también
-// el UTC original para detectar cambios luego.
-
 const { apiGet, paginate, utcToMadrid, json } = require('./_clupik');
+
+function pick(attrs, enKey, esKey) {
+  if (\!attrs) return null;
+  if (attrs[enKey] \!== undefined && attrs[enKey] \!== null) return attrs[enKey];
+  if (attrs[esKey] \!== undefined && attrs[esKey] \!== null) return attrs[esKey];
+  return null;
+}
 
 exports.handler = async (event) => {
   const tid = event.queryStringParameters?.tournament_id;
-  if (!tid) return json(400, { error: 'Falta query param tournament_id' });
+  if (\!tid) return json(400, { error: 'Falta query param tournament_id' });
 
   try {
-    // Info del torneo
     const t = await apiGet(`/tournaments/${tid}`);
-    if (t.status !== 200) return json(t.status, t.body || { error: 'Torneo no accesible' });
-    const tournamentName = t.body?.data?.attributes?.name || '';
+    if (t.status \!== 200) return json(t.status, t.body || { error: 'Torneo no accesible' });
+    const tournamentName = pick(t.body?.data?.attributes, 'name', 'nombre') || '';
 
-    // Equipos (polymorfica -> filter=registrable_id)
     const teamsArr = await paginate('/teams', { filter: `registrable_id:${tid}` });
     const teamById = new Map();
     for (const team of teamsArr) {
-      teamById.set(team.id, team.attributes?.name || `#${team.id}`);
+      teamById.set(team.id, pick(team.attributes, 'name', 'nombre') || `#${team.id}`);
     }
 
-    // Grupos
     const groupsArr = await paginate('/groups', { filter: `tournament.id:${tid}` });
     const groupById = new Map();
     for (const g of groupsArr) {
-      groupById.set(g.id, g.attributes?.name || g.id);
+      groupById.set(g.id, pick(g.attributes, 'name', 'nombre') || g.id);
     }
 
-    // Rounds (jornadas)
     const roundsArr = await paginate('/rounds', {
       filter: `group.tournament.id:${tid}`,
     });
     const roundById = new Map();
     for (const r of roundsArr) {
-      const name = r.attributes?.name
-        || (r.attributes?.number != null ? `Jornada ${r.attributes.number}` : r.id);
+      const number = pick(r.attributes, 'number', 'numero');
+      const name = pick(r.attributes, 'name', 'nombre');
+      const roundName = name || (number \!= null ? `Jornada ${number}` : r.id);
       const groupId = r.relationships?.group?.data?.id || null;
-      roundById.set(r.id, { name, groupId });
+      roundById.set(r.id, { name: roundName, groupId });
     }
 
-    // Partidos
     const matchesArr = await paginate('/matches', {
       filter: `round.group.tournament.id:${tid}`,
     });
 
-    // Resolver instalaciones (facilities) que aparezcan
     const facIds = new Set();
     for (const m of matchesArr) {
       const fid = m.relationships?.facility?.data?.id;
@@ -56,19 +53,22 @@ exports.handler = async (event) => {
     for (const fid of facIds) {
       try {
         const r = await apiGet(`/facilities/${fid}`);
-        if (r.status === 200) facById.set(fid, r.body?.data?.attributes?.name || '');
+        if (r.status === 200) {
+          facById.set(fid, pick(r.body?.data?.attributes, 'name', 'nombre') || '');
+        }
       } catch (_) {}
     }
 
-    // Mapear al formato que el planificador entiende
     const partidos = matchesArr
-      .filter((m) => !m.attributes?.rest)
+      .filter((m) => \!(pick(m.attributes, 'rest', 'descanso')))
       .map((m) => {
-        const datetimeUtc = m.attributes?.datetime || '';
+        const datetimeUtc = pick(m.attributes, 'datetime', 'fecha_hora')
+          || pick(m.attributes, 'datetime', 'fechahora')
+          || '';
         const { fecha, hora } = utcToMadrid(datetimeUtc);
 
-        const homeId = m.meta?.home_team;
-        const awayId = m.meta?.away_team;
+        const homeId = m.meta?.home_team || m.meta?.equipo_local;
+        const awayId = m.meta?.away_team || m.meta?.equipo_visitante;
         const roundId = m.relationships?.round?.data?.id;
         const round = roundId ? roundById.get(roundId) : null;
         const groupId = round?.groupId || null;
@@ -85,9 +85,9 @@ exports.handler = async (event) => {
           jornada: round?.name || '',
           comp: tournamentName,
           grupo: groupId ? groupById.get(groupId) || '' : '',
-          finished: !!m.attributes?.finished,
-          canceled: !!m.attributes?.canceled,
-          postponed: !!m.attributes?.postponed,
+          finished: \!\!(pick(m.attributes, 'finished', 'terminado') || pick(m.attributes, 'finished', 'finalizado')),
+          canceled: \!\!(pick(m.attributes, 'canceled', 'cancelado')),
+          postponed: \!\!(pick(m.attributes, 'postponed', 'aplazado')),
         };
       })
       .filter((p) => p.eq1 && p.eq2);

@@ -1,8 +1,13 @@
-// GET /api/clupik-tournaments
-// Devuelve la lista de torneos gestionados por el manager del CD Kolbe,
-// ordenados por ID descendente (los más recientes primero).
-
 const { apiGet, paginate, json } = require('./_clupik');
+
+// Algunos torneos de Leverade vienen con atributos en inglés y otros
+// en español. Función helper que lee cualquiera de los dos.
+function pick(attrs, enKey, esKey) {
+  if (\!attrs) return null;
+  if (attrs[enKey] \!== undefined && attrs[enKey] \!== null) return attrs[enKey];
+  if (attrs[esKey] \!== undefined && attrs[esKey] \!== null) return attrs[esKey];
+  return null;
+}
 
 exports.handler = async () => {
   const managerId = process.env.CLUPIK_MANAGER_ID || '229546';
@@ -13,11 +18,11 @@ exports.handler = async () => {
     items.sort((a, b) => Number(b.id) - Number(a.id));
     const tournaments = items.map((t) => ({
       id: t.id,
-      name: t.attributes?.name || '',
-      status: t.attributes?.status || '',
-      modality: t.attributes?.modality || '',
-      created_at: t.attributes?.created_at || null,
-      updated_at: t.attributes?.updated_at || null,
+      name: pick(t.attributes, 'name', 'nombre') || '',
+      status: pick(t.attributes, 'status', 'estado') || '',
+      modality: pick(t.attributes, 'modality', 'modalidad') || '',
+      created_at: pick(t.attributes, 'created_at', 'creado_en'),
+      updated_at: pick(t.attributes, 'updated_at', 'actualizado_en'),
     }));
     return json(200, { manager_id: managerId, tournaments });
   } catch (e) {
