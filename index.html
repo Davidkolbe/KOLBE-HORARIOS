@@ -4101,7 +4101,7 @@ async function guardarCambiosEnClupik(){
       <button id="tab-clupik-torneo" class="btn-tab-clupik" onclick="switchClupikTab('torneo')" style="flex:1;padding:.75rem;font-size:13px;font-weight:500;background:var(--gris1);border:none;border-bottom:2px solid transparent;color:var(--gris5);cursor:pointer">🏆 Por torneo completo</button>
     </div>
 
-    <" + bang + "-- Modo: SEMANA -->
+    <!-- Modo: SEMANA -->
     <div id="panel-clupik-semana" style="padding:1rem 1.25rem;display:flex;flex-direction:column;gap:.75rem;flex:1;overflow-y:auto">
       <div style="font-size:12px;color:var(--gris5);line-height:1.5">
         Elige el rango de fechas y traeremos todos los partidos de tus <strong>torneos activos</strong> que caen en esos días. Lo típico para planificar una semana: viernes a domingo.
@@ -4127,7 +4127,7 @@ async function guardarCambiosEnClupik(){
       <div id="clupik-semana-status" style="font-size:12px;color:var(--gris5);margin-top:.25rem"></div>
     </div>
 
-    <" + bang + "-- Modo: TORNEO -->
+    <!-- Modo: TORNEO -->
     <div id="panel-clupik-torneo" style="display:none;flex-direction:column;flex:1;overflow:hidden">
       <div style="padding:.75rem 1.25rem;border-bottom:1px solid var(--gris2);display:flex;gap:8px;align-items:center">
         <input id="clupik-search" type="text" placeholder="Filtrar por nombre..." style="flex:1;font-size:13px;padding:7px 10px;border:1px solid var(--gris3);border-radius:var(--r);font-family:var(--f)" oninput="filtrarTorneosClupik()">
