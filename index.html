@@ -3392,17 +3392,35 @@ function vistaCategorias(){
         var u = this.getAttribute("data-uid");
         var k = this.getAttribute("data-cat");
         var texto = (window._catTextos && window._catTextos[u]) || "";
-        // Copiar al portapapeles
-        function abrir(){ window.open(gruposWA[k], "_blank"); }
-        if(navigator.clipboard && navigator.clipboard.writeText){
-          navigator.clipboard.writeText(texto).then(abrir).catch(abrir);
-        } else {
+        var b = this;
+
+        // 1) Copia SÍNCRONA con textarea+execCommand — funciona siempre dentro del gesto de usuario
+        var copiado = false;
+        try {
           var ta = document.createElement("textarea");
-          ta.value = texto; ta.style.cssText = "position:fixed;opacity:0";
-          document.body.appendChild(ta); ta.focus(); ta.select();
-          document.execCommand("copy"); document.body.removeChild(ta);
-          abrir();
-        }
+          ta.value = texto;
+          ta.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0";
+          document.body.appendChild(ta);
+          ta.focus(); ta.select();
+          copiado = document.execCommand("copy");
+          document.body.removeChild(ta);
+        } catch(e) { copiado = false; }
+
+        // 2) También con la API moderna (mejor soporte de Unicode, ejecuta en paralelo)
+        try {
+          if(navigator.clipboard && navigator.clipboard.writeText){
+            navigator.clipboard.writeText(texto).catch(function(){});
+          }
+        } catch(e) {}
+
+        // 3) Abrir la URL del grupo — en el mismo gesto de usuario para que Chrome no bloquee el popup
+        window.open(gruposWA[k], "_blank");
+
+        // Feedback visual
+        var prev = b.textContent;
+        b.textContent = copiado ? "✓ Copiado · Abriendo…" : "Abriendo (pega a mano)…";
+        b.style.background = "var(--verde2,#2d6a4f)";
+        setTimeout(function(){ b.textContent = prev; b.style.background = "#25D366"; }, 2500);
       });
 
       var btnEdit = document.createElement("button");
