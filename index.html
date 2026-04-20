@@ -4166,6 +4166,7 @@ async function vincularConClupik(){
 
     let matched = 0, alreadyLinked = 0, unmatched = 0;
     const unmatchedList = [];
+    const unmatchedLocal = [];
     for(const p of partidos){
       if(p.match_id){ alreadyLinked++; continue; }
       const k1 = p.fecha + "|" + norm(p.eq1) + "|" + norm(p.eq2);
@@ -4178,6 +4179,7 @@ async function vincularConClupik(){
       } else {
         unmatched++;
         unmatchedList.push(p.eq1 + " vs " + p.eq2 + " (" + p.fecha + ")");
+        unmatchedLocal.push(p);
       }
     }
 
@@ -4185,20 +4187,144 @@ async function vincularConClupik(){
     renderTodo();
     actualizarBotonGuardarClupik();
 
-    let msg = "Vinculacion con Clupik:\n";
-    msg += "  OK " + matched + " partido(s) emparejado(s)\n";
-    if(alreadyLinked) msg += "  - " + alreadyLinked + " ya estaban vinculados\n";
-    if(unmatched){
-      msg += "  X " + unmatched + " sin coincidencia:\n    " + unmatchedList.slice(0,6).join("\n    ");
-      if(unmatchedList.length > 6) msg += "\n    ...(y " + (unmatchedList.length - 6) + " mas)";
-    }
-    alert(msg);
+    mostrarResumenVinculacion({
+      matched: matched,
+      alreadyLinked: alreadyLinked,
+      unmatched: unmatched,
+      unmatchedLocal: unmatchedLocal,
+      todosClupik: data.partidos,
+      norm: norm
+    });
   } catch(e){
     alert("Error al vincular con Clupik:\n" + e.message);
   } finally {
     const el = document.getElementById("clupik-loader");
     if(el) el.remove();
   }
+}
+
+
+// ---- Fuzzy matching (Levenshtein) para diagnostico de no-emparejados ----
+function _levClupik(a, b){
+  if(a === b) return 0;
+  var la = a.length, lb = b.length;
+  if(!la) return lb;
+  if(!lb) return la;
+  var row = new Array(lb + 1);
+  for(var j = 0; j <= lb; j++) row[j] = j;
+  for(var i = 1; i <= la; i++){
+    var prev = row[0];
+    row[0] = i;
+    for(var j2 = 1; j2 <= lb; j2++){
+      var tmp = row[j2];
+      var cost = (a.charCodeAt(i-1) === b.charCodeAt(j2-1)) ? 0 : 1;
+      row[j2] = Math.min(row[j2] + 1, row[j2-1] + 1, prev + cost);
+      prev = tmp;
+    }
+  }
+  return row[lb];
+}
+function _simClupik(a, b, normFn){
+  var na = normFn(a), nb = normFn(b);
+  if(!na || !nb) return 0;
+  var d = _levClupik(na, nb);
+  var L = Math.max(na.length, nb.length);
+  return Math.round((1 - d / L) * 100);
+}
+function _pairSimClupik(eq1L, eq2L, eq1C, eq2C, normFn){
+  var s1 = (_simClupik(eq1L, eq1C, normFn) + _simClupik(eq2L, eq2C, normFn)) / 2;
+  var s2 = (_simClupik(eq1L, eq2C, normFn) + _simClupik(eq2L, eq1C, normFn)) / 2;
+  return Math.round(Math.max(s1, s2));
+}
+
+function mostrarResumenVinculacion(opts){
+  var matched = opts.matched || 0;
+  var alreadyLinked = opts.alreadyLinked || 0;
+  var unmatched = opts.unmatched || 0;
+  var unmatchedLocal = opts.unmatchedLocal || [];
+  var todosClupik = opts.todosClupik || [];
+  var normFn = opts.norm;
+
+  var modal = document.getElementById("modal-unmatched");
+  var body  = document.getElementById("modal-unmatched-body");
+  var stats = document.getElementById("modal-unmatched-stats");
+  var listEl= document.getElementById("modal-unmatched-list");
+  if(!modal || !body || !stats || !listEl) return;
+
+  var partesStats = [];
+  partesStats.push('<span style="color:var(--verde);font-weight:500">' + matched + ' emparejado' + (matched!==1?'s':'') + '</span>');
+  if(alreadyLinked) partesStats.push('<span style="color:var(--gris5)">' + alreadyLinked + ' ya vinculado' + (alreadyLinked!==1?'s':'') + '</span>');
+  if(unmatched)     partesStats.push('<span style="color:var(--rojo);font-weight:500">' + unmatched + ' sin coincidencia</span>');
+  else              partesStats.push('<span style="color:var(--gris5)">0 sin coincidencia</span>');
+  stats.innerHTML = partesStats.join('  ·  ');
+
+  if(!unmatched){
+    listEl.innerHTML = '<div style="padding:1.25rem;text-align:center;color:var(--verde);font-size:14px;font-weight:500">✓ Todos los partidos han quedado emparejados.</div>';
+  } else {
+    var bloques = unmatchedLocal.map(function(p){
+      // Buscar candidatos: filtrar Clupik por fecha primero, luego ranking por similitud
+      var candsMismaFecha = todosClupik.filter(function(c){ return c.fecha === p.fecha; });
+      var pool = candsMismaFecha.length ? candsMismaFecha : todosClupik;
+      var scored = pool.map(function(c){
+        return { c: c, score: _pairSimClupik(p.eq1, p.eq2, c.eq1, c.eq2, normFn) };
+      }).sort(function(a,b){ return b.score - a.score; }).slice(0, 3);
+
+      var candsHtml = scored.map(function(sc){
+        var color = sc.score >= 70 ? 'var(--verde)' : sc.score >= 40 ? 'var(--naranja)' : 'var(--rojo)';
+        var bg    = sc.score >= 70 ? 'var(--verde-s)' : sc.score >= 40 ? 'var(--naranja-s)' : 'var(--rojo-s)';
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;margin-top:4px;background:'+bg+';border-radius:6px;font-size:12px">' +
+                 '<div>' + sc.c.eq1 + '  <span style="color:var(--gris4)">vs</span>  ' + sc.c.eq2 + '  <span style="color:var(--gris5);font-size:11px">· ' + sc.c.hora + '</span></div>' +
+                 '<span style="color:'+color+';font-weight:600;font-size:11px;white-space:nowrap;margin-left:8px">' + sc.score + '%</span>' +
+               '</div>';
+      }).join('');
+      if(!scored.length){
+        candsHtml = '<div style="padding:6px 10px;color:var(--gris5);font-size:12px">(Clupik no devolvió ningún partido para ' + p.fecha + ')</div>';
+      } else if(!candsMismaFecha.length){
+        candsHtml = '<div style="padding:4px 10px;color:var(--naranja);font-size:11px">⚠ Clupik no tiene partidos ese día. Sugerencias de otras fechas:</div>' + candsHtml;
+      }
+
+      return '<div style="padding:12px 14px;border:1px solid var(--gris2);border-radius:8px;margin-bottom:10px;background:#fff">' +
+               '<div style="font-size:13px;font-weight:500;color:var(--negro)">' + p.eq1 + ' <span style="color:var(--gris4);font-weight:400">vs</span> ' + p.eq2 + '</div>' +
+               '<div style="font-size:11px;color:var(--gris5);margin-top:2px">' + p.fecha + (p.hora ? ' · ' + p.hora : '') + (p.comp ? ' · ' + p.comp : '') + '</div>' +
+               '<div style="margin-top:8px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--gris5);font-weight:600;margin-bottom:2px">Candidatos en Clupik</div>' + candsHtml + '</div>' +
+             '</div>';
+    });
+    listEl.innerHTML = bloques.join('');
+  }
+
+  // Guardar lista en textarea oculto para copiar
+  var textarea = document.getElementById("modal-unmatched-copy");
+  if(textarea){
+    textarea.value = unmatchedLocal.map(function(p){
+      return p.fecha + "  " + p.eq1 + " vs " + p.eq2 + (p.comp ? "  [" + p.comp + "]" : "");
+    }).join("\n");
+  }
+
+  modal.style.display = "flex";
+}
+
+function cerrarModalUnmatched(){
+  var m = document.getElementById("modal-unmatched");
+  if(m) m.style.display = "none";
+}
+
+function copiarListaUnmatched(){
+  var ta = document.getElementById("modal-unmatched-copy");
+  if(!ta) return;
+  ta.style.position = "absolute"; ta.style.left = "-9999px"; ta.style.display = "block";
+  ta.select();
+  try {
+    document.execCommand("copy");
+    var btn = document.getElementById("btn-copy-unmatched");
+    if(btn){
+      var t = btn.textContent;
+      btn.textContent = "✓ Copiado";
+      setTimeout(function(){ btn.textContent = t; }, 1500);
+    }
+  } catch(e){
+    alert("No se pudo copiar: " + e.message);
+  }
+  ta.style.display = "none";
 }
 
 // ===== fin Clupik integration =====
@@ -4271,5 +4397,26 @@ async function vincularConClupik(){
   </div>
 </div>
 
+
+<!-- ===== MODAL: RESUMEN VINCULACION CLUPIK (no emparejados + candidatos) ===== -->
+<div id="modal-unmatched" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:var(--rl);max-width:720px;width:92%;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 40px rgba(0,0,0,.2)">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--gris2);display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <strong style="font-size:14px;color:var(--negro)">Resultado del emparejamiento con Clupik</strong>
+        <div id="modal-unmatched-stats" style="font-size:12px;color:var(--gris5);margin-top:2px"></div>
+      </div>
+      <button class="btn btn-outline btn-sm" style="padding:4px 8px" onclick="cerrarModalUnmatched()">✕</button>
+    </div>
+    <div id="modal-unmatched-body" style="flex:1;overflow-y:auto;background:var(--gris1);padding:1rem 1.25rem">
+      <div id="modal-unmatched-list"></div>
+    </div>
+    <div style="padding:.75rem 1.25rem;border-top:1px solid var(--gris2);display:flex;justify-content:flex-end;gap:8px;background:#fff">
+      <button id="btn-copy-unmatched" class="btn btn-outline btn-sm" onclick="copiarListaUnmatched()">📋 Copiar lista</button>
+      <button class="btn btn-verde btn-sm" onclick="cerrarModalUnmatched()">Cerrar</button>
+    </div>
+    <textarea id="modal-unmatched-copy" style="display:none"></textarea>
+  </div>
+</div>
 </body>
 </html>
