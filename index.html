@@ -185,6 +185,7 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
     <button class="btn btn-ghost btn-sm" onclick="guardarCopia()" title="Descarga una copia de seguridad con todas tus jornadas">💾 Guardar copia</button>
     <button class="btn btn-ghost btn-sm" onclick="document.getElementById('restore-input').click()" title="Restaura una copia de seguridad guardada anteriormente">📂 Restaurar</button>
     <input type="file" id="restore-input" accept=".json" style="display:none" onchange="restaurarCopia(event)">
+    <button class="btn btn-ghost btn-sm" onclick="abrirArreglarFechas()" title="Recalcula la fecha de cada partido usando la semana + el día. Útil cuando un CSV importado ha dejado fechas incorrectas o vacías.">🛠 Arreglar fechas</button>
     <button class="btn btn-ghost btn-sm" onclick="resetTodo()" id="btn-reset" style="display:none">↺ Nueva semana</button>
   </div>
 </div>
@@ -4381,6 +4382,128 @@ function copiarListaUnmatched(){
   ta.style.display = "none";
 }
 
+
+// ---- ARREGLAR FECHAS SEGUN DIA (toolbar) ----
+function _fechaDeDDMMYYYY(f){
+  var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(f || "");
+  if(!m) return null;
+  return new Date(Date.UTC(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1])));
+}
+function _formatDDMMYYYY(d){
+  var p = function(n){ return n<10?'0'+n:''+n; };
+  return p(d.getUTCDate()) + '/' + p(d.getUTCMonth()+1) + '/' + d.getUTCFullYear();
+}
+var _DIA_A_OFFSET_ARREGLAR = {
+  'Viernes': 0,
+  'Sabado': 1, 'Sábado': 1,
+  'Domingo': 2,
+  'Lunes': 3, 'Martes': 4,
+  'Miercoles': 5, 'Miércoles': 5,
+  'Jueves': 6
+};
+
+function _calcularPropuestasFechas(){
+  var propuestas = [];  // { jornadaId, jornadaIdx, semana, partidoIdx, id, partido, dia, antes, despues }
+  var todas = getAllJornadas();
+  for(var ji = 0; ji < todas.length; ji++){
+    var j = todas[ji];
+    var semanaF = _fechaDeDDMMYYYY(j.semana);
+    if(!semanaF) continue;  // jornadas con nombre raro se ignoran
+    for(var pi = 0; pi < (j.partidos || []).length; pi++){
+      var p = j.partidos[pi];
+      if(!p.dia) continue;
+      var off = _DIA_A_OFFSET_ARREGLAR[p.dia];
+      if(off === undefined) continue;
+      var esperada = _formatDDMMYYYY(new Date(semanaF.getTime() + off * 86400000));
+      if(p.fecha !== esperada){
+        propuestas.push({
+          jornadaId: j.id,
+          jornadaIdx: ji,
+          semana: j.semana,
+          partidoIdx: pi,
+          id: p.id,
+          partido: p.eq1 + ' vs ' + (p.eq2 || '(sin rival)'),
+          dia: p.dia,
+          antes: p.fecha || '(vacía)',
+          despues: esperada
+        });
+      }
+    }
+  }
+  return { propuestas: propuestas, todas: todas };
+}
+
+function abrirArreglarFechas(){
+  var res = _calcularPropuestasFechas();
+  var modal = document.getElementById("modal-arreglar-fechas");
+  var body  = document.getElementById("modal-arreglar-fechas-body");
+  var stats = document.getElementById("modal-arreglar-fechas-stats");
+  if(!modal || !body || !stats) return;
+
+  if(!res.propuestas.length){
+    stats.innerHTML = '<span style="color:var(--verde);font-weight:500">✓ Todas las fechas ya son coherentes con el día de la semana.</span>';
+    body.innerHTML = '<div style="padding:1.25rem;text-align:center;color:var(--gris5);font-size:13px">No hay nada que corregir.</div>';
+    document.getElementById("btn-aplicar-arreglar-fechas").style.display = "none";
+  } else {
+    // Agrupar por jornada
+    var grupos = {};
+    res.propuestas.forEach(function(c){
+      if(!grupos[c.semana]) grupos[c.semana] = [];
+      grupos[c.semana].push(c);
+    });
+    stats.innerHTML = '<strong>' + res.propuestas.length + ' partido' + (res.propuestas.length!==1?'s':'') +
+                     '</strong> con fecha inconsistente con el día. Revisa y confirma.';
+    body.innerHTML = Object.keys(grupos).map(function(semana){
+      var cs = grupos[semana];
+      return '<div style="margin-bottom:14px">' +
+        '<div style="font-size:11px;font-weight:600;color:var(--gris5);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Semana del ' + semana + ' · ' + cs.length + ' cambio' + (cs.length!==1?'s':'') + '</div>' +
+        cs.map(function(c){
+          return '<div style="padding:8px 12px;border:1px solid var(--gris2);border-radius:6px;margin-bottom:4px;background:#fff;font-size:12px">' +
+            '<div style="font-weight:500">' + c.partido + '</div>' +
+            '<div style="color:var(--gris5);margin-top:2px">' + c.dia + '  ·  ' +
+              '<span style="color:var(--rojo)">' + c.antes + '</span>' +
+              '  →  ' +
+              '<span style="color:var(--verde);font-weight:500">' + c.despues + '</span>' +
+            '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+    }).join('');
+    document.getElementById("btn-aplicar-arreglar-fechas").style.display = "inline-flex";
+  }
+  modal.style.display = "flex";
+}
+
+function cerrarArreglarFechas(){
+  var m = document.getElementById("modal-arreglar-fechas");
+  if(m) m.style.display = "none";
+}
+
+function aplicarArreglarFechas(){
+  var res = _calcularPropuestasFechas();
+  if(!res.propuestas.length){
+    cerrarArreglarFechas();
+    return;
+  }
+  // Aplicar en la estructura todas y salvar
+  res.propuestas.forEach(function(c){
+    var p = res.todas[c.jornadaIdx].partidos[c.partidoIdx];
+    if(p) p.fecha = c.despues;
+  });
+  saveAllJornadas(res.todas);
+  // Si la jornada activa se ha modificado, recargar la vista con las nuevas fechas
+  if(typeof jornadaActivaId !== 'undefined' && jornadaActivaId){
+    var j = res.todas.find(function(jj){ return jj.id === jornadaActivaId; });
+    if(j){
+      partidos = j.partidos || [];
+      if(typeof renderTodo === 'function') renderTodo();
+    }
+  }
+  if(typeof renderHistorial === 'function') renderHistorial();
+  cerrarArreglarFechas();
+  alert('✓ ' + res.propuestas.length + ' fecha(s) corregidas.');
+}
+
 // ===== fin Clupik integration =====
 
 </script>
@@ -4470,6 +4593,24 @@ function copiarListaUnmatched(){
       <button class="btn btn-verde btn-sm" onclick="cerrarModalUnmatched()">Cerrar</button>
     </div>
     <textarea id="modal-unmatched-copy" style="display:none"></textarea>
+  </div>
+</div>
+
+<!-- ===== MODAL: ARREGLAR FECHAS SEGUN DIA ===== -->
+<div id="modal-arreglar-fechas" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:var(--rl);max-width:680px;width:92%;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 40px rgba(0,0,0,.2)">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--gris2);display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <strong style="font-size:14px;color:var(--negro)">Arreglar fechas según el día</strong>
+        <div id="modal-arreglar-fechas-stats" style="font-size:12px;color:var(--gris5);margin-top:2px"></div>
+      </div>
+      <button class="btn btn-outline btn-sm" style="padding:4px 8px" onclick="cerrarArreglarFechas()">✕</button>
+    </div>
+    <div id="modal-arreglar-fechas-body" style="flex:1;overflow-y:auto;background:var(--gris1);padding:1rem 1.25rem"></div>
+    <div style="padding:.75rem 1.25rem;border-top:1px solid var(--gris2);display:flex;justify-content:flex-end;gap:8px;background:#fff">
+      <button class="btn btn-outline btn-sm" onclick="cerrarArreglarFechas()">Cancelar</button>
+      <button id="btn-aplicar-arreglar-fechas" class="btn btn-verde btn-sm" onclick="aplicarArreglarFechas()">✓ Aplicar correcciones</button>
+    </div>
   </div>
 </div>
 </body>
