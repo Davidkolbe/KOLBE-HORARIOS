@@ -1427,8 +1427,7 @@ function renderEntrenadoresTels(){
 function abrirWhatsAppEntrenador(nombre, mensaje){
   var tel = _telPrefijo(entrenadoresTels[nombre]||"");
   if(!tel){ alert("El entrenador '"+nombre+"' no tiene teléfono configurado. Añádelo en ⚙ Entrenadores."); return; }
-  var url = "https://wa.me/" + tel.replace(/^\+/,"") + "?text=" + encodeURIComponent(mensaje||"");
-  window.open(url, "_blank");
+  window.open(_urlWhatsApp(tel, mensaje), "_blank");
 }
 
 // ============ CONFIGURACIÓN EQUIPOS ============
@@ -1650,13 +1649,27 @@ function addCoordinadorRow(){
   renderCoordinadoresConfig();
 }
 
+// Limpia selectores de variación y otros caracteres de cero ancho que rompen
+// el encoding de WhatsApp y hacen que los emojis lleguen como "�"
+function _limpiarMensajeWA(msg){
+  if(!msg) return "";
+  // U+FE0F (variation selector-16), U+FE0E (VS-15), U+200D (ZWJ), U+200E/F (marks LTR/RTL)
+  return msg.replace(/[\uFE0E\uFE0F\u200D\u200B\u200C\u200E\u200F]/g, "");
+}
+
+function _urlWhatsApp(tel, mensaje){
+  var t = tel.replace(/^\+/,"");
+  var texto = _limpiarMensajeWA(mensaje);
+  // api.whatsapp.com maneja mejor el UTF-8 multibyte que wa.me
+  return "https://api.whatsapp.com/send?phone=" + t + "&text=" + encodeURIComponent(texto);
+}
+
 function abrirWhatsAppCoordinador(club, mensaje){
   var c = coordinadores[club];
   if(!c || !c.telefono){ alert("Este club no tiene coordinador con teléfono. Configúralo en 👤 Coordinadores."); return; }
-  var tel = _telPrefijo(c.telefono).replace(/^\+/,"");
+  var tel = _telPrefijo(c.telefono);
   if(!tel){ alert("Teléfono del coordinador no válido."); return; }
-  var url = "https://wa.me/" + tel + "?text=" + encodeURIComponent(mensaje||"");
-  window.open(url, "_blank");
+  window.open(_urlWhatsApp(tel, mensaje), "_blank");
 }
 
 // ============ EXPORT CSV ============
