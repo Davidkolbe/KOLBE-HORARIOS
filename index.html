@@ -4164,17 +4164,54 @@ async function vincularConClupik(){
       indexClupik.set(k, c);
     }
 
-    let matched = 0, alreadyLinked = 0, unmatched = 0;
+    // Helper para convertir fecha DD/MM/YYYY a un índice de día (para calcular diferencias).
+    const fechaADias = function(f){
+      const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(f || "");
+      if(!m) return null;
+      const d = new Date(Date.UTC(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1])));
+      return Math.floor(d.getTime() / 86400000);
+    };
+
+    let matched = 0, alreadyLinked = 0, unmatched = 0, fuzzyMatched = 0;
     const unmatchedList = [];
     const unmatchedLocal = [];
+    const fuzzyAvisos = [];  // para avisar de fechas desfasadas
     for(const p of partidos){
       if(p.match_id){ alreadyLinked++; continue; }
       const k1 = p.fecha + "|" + norm(p.eq1) + "|" + norm(p.eq2);
       const k2 = p.fecha + "|" + norm(p.eq2) + "|" + norm(p.eq1);
-      const hit = indexClupik.get(k1) || indexClupik.get(k2);
+      let hit = indexClupik.get(k1) || indexClupik.get(k2);
+      let fechaFuzzy = null;  // fecha de Clupik si se casó con tolerancia
+
+      // Fallback: si no hay match por fecha exacta, buscar con tolerancia ±3 dias + similitud >=85%
+      if(!hit){
+        const diasLocal = fechaADias(p.fecha);
+        let mejor = null;
+        let mejorScore = 0;
+        for(const c of data.partidos){
+          const diasC = fechaADias(c.fecha);
+          if(diasLocal !== null && diasC !== null && Math.abs(diasLocal - diasC) > 3) continue;
+          const sc = _pairSimClupik(p.eq1, p.eq2, c.eq1, c.eq2, norm);
+          if(sc > mejorScore){
+            mejorScore = sc;
+            mejor = c;
+          }
+        }
+        if(mejor && mejorScore >= 85){
+          hit = mejor;
+          fuzzyMatched++;
+          if(mejor.fecha !== p.fecha){
+            fechaFuzzy = mejor.fecha;
+            fuzzyAvisos.push({ p: p, clupikFecha: mejor.fecha, score: mejorScore });
+          }
+        }
+      }
+
       if(hit){
         p.match_id = hit.match_id;
         p.datetime_utc_original = hit.datetime_utc_original;
+        if(fechaFuzzy) p._fechaClupikDiscrepancia = fechaFuzzy;
+        else delete p._fechaClupikDiscrepancia;
         matched++;
       } else {
         unmatched++;
@@ -4189,9 +4226,11 @@ async function vincularConClupik(){
 
     mostrarResumenVinculacion({
       matched: matched,
+      fuzzyMatched: fuzzyMatched,
       alreadyLinked: alreadyLinked,
       unmatched: unmatched,
       unmatchedLocal: unmatchedLocal,
+      fuzzyAvisos: fuzzyAvisos,
       todosClupik: data.partidos,
       norm: norm
     });
@@ -4253,13 +4292,28 @@ function mostrarResumenVinculacion(opts){
 
   var partesStats = [];
   partesStats.push('<span style="color:var(--verde);font-weight:500">' + matched + ' emparejado' + (matched!==1?'s':'') + '</span>');
+  if(opts.fuzzyMatched) partesStats.push('<span style="color:var(--naranja);font-weight:500">' + opts.fuzzyMatched + ' por similitud</span>');
   if(alreadyLinked) partesStats.push('<span style="color:var(--gris5)">' + alreadyLinked + ' ya vinculado' + (alreadyLinked!==1?'s':'') + '</span>');
   if(unmatched)     partesStats.push('<span style="color:var(--rojo);font-weight:500">' + unmatched + ' sin coincidencia</span>');
   else              partesStats.push('<span style="color:var(--gris5)">0 sin coincidencia</span>');
   stats.innerHTML = partesStats.join('  ·  ');
 
+  // Aviso en banner si hay partidos casados en una fecha distinta de la local.
+  var listPrefix = '';
+  var fuzzyAvisos = opts.fuzzyAvisos || [];
+  if(fuzzyAvisos.length){
+    var filas = fuzzyAvisos.map(function(a){
+      return '<div style="font-size:12px;padding:2px 0">• <strong>' + a.p.eq1 + ' vs ' + a.p.eq2 + '</strong> — tu app: ' + a.p.fecha + ' · Clupik: <strong>' + a.clupikFecha + '</strong> <span style="color:var(--gris5)">(similitud ' + a.score + '%)</span></div>';
+    }).join('');
+    listPrefix = '<div style="background:#fff7e6;border:1px solid #ffd591;border-radius:8px;padding:10px 14px;margin-bottom:12px">' +
+      '<div style="font-weight:600;color:#d46b08;font-size:13px;margin-bottom:4px">⚠ ' + fuzzyAvisos.length + ' partido' + (fuzzyAvisos.length!==1?'s':'') + ' casado' + (fuzzyAvisos.length!==1?'s':'') + ' en fecha distinta</div>' +
+      '<div style="font-size:11px;color:var(--gris5);margin-bottom:6px">Se han vinculado porque el nombre coincide casi al 100%. Revisa si la fecha de tu app es la correcta.</div>' +
+      filas +
+    '</div>';
+  }
+
   if(!unmatched){
-    listEl.innerHTML = '<div style="padding:1.25rem;text-align:center;color:var(--verde);font-size:14px;font-weight:500">✓ Todos los partidos han quedado emparejados.</div>';
+    listEl.innerHTML = listPrefix + '<div style="padding:1.25rem;text-align:center;color:var(--verde);font-size:14px;font-weight:500">✓ Todos los partidos han quedado emparejados.</div>';
   } else {
     var bloques = unmatchedLocal.map(function(p){
       // Buscar candidatos: filtrar Clupik por fecha primero, luego ranking por similitud
@@ -4289,7 +4343,7 @@ function mostrarResumenVinculacion(opts){
                '<div style="margin-top:8px"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--gris5);font-weight:600;margin-bottom:2px">Candidatos en Clupik</div>' + candsHtml + '</div>' +
              '</div>';
     });
-    listEl.innerHTML = bloques.join('');
+    listEl.innerHTML = listPrefix + bloques.join('');
   }
 
   // Guardar lista en textarea oculto para copiar
