@@ -3737,7 +3737,139 @@ let torneosClupikCache = [];
 
 function abrirImportClupik(){
   document.getElementById("modal-clupik").style.display = "flex";
-  cargarTorneosClupik();
+  setRangoClupik("finde");              // por defecto abre en modo semana con este finde
+  switchClupikTab("semana");
+  cargarTorneosClupik();                // prefetch por si cambia a tab torneo
+  const s = document.getElementById("clupik-semana-status");
+  if(s) s.textContent = "";
+}
+
+function switchClupikTab(which){
+  const pS = document.getElementById("panel-clupik-semana");
+  const pT = document.getElementById("panel-clupik-torneo");
+  const tS = document.getElementById("tab-clupik-semana");
+  const tT = document.getElementById("tab-clupik-torneo");
+  if(which === "semana"){
+    pS.style.display = "flex";
+    pT.style.display = "none";
+    tS.style.background = "#fff"; tS.style.borderBottom = "2px solid var(--verde)"; tS.style.color = "var(--verde)";
+    tT.style.background = "var(--gris1)"; tT.style.borderBottom = "2px solid transparent"; tT.style.color = "var(--gris5)";
+  } else {
+    pS.style.display = "none";
+    pT.style.display = "flex";
+    tT.style.background = "#fff"; tT.style.borderBottom = "2px solid var(--verde)"; tT.style.color = "var(--verde)";
+    tS.style.background = "var(--gris1)"; tS.style.borderBottom = "2px solid transparent"; tS.style.color = "var(--gris5)";
+  }
+}
+
+function _fmtISO(d){
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"), day = String(d.getDate()).padStart(2,"0");
+  return y + "-" + m + "-" + day;
+}
+function _toDDMMYYYY(iso){
+  // iso = YYYY-MM-DD
+  const p = iso.split("-");
+  return p[2] + "/" + p[1] + "/" + p[0];
+}
+
+function setRangoClupik(preset){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dow = today.getDay(); // 0=dom .. 5=vie 6=sab
+  let from, to;
+  if(preset === "finde"){
+    // Próximo viernes-domingo (incluye hoy si es vie/sab/dom)
+    if(dow === 5){ from = new Date(today); to = new Date(today); to.setDate(to.getDate()+2); }
+    else if(dow === 6){ from = new Date(today); from.setDate(from.getDate()-1); to = new Date(from); to.setDate(to.getDate()+2); }
+    else if(dow === 0){ from = new Date(today); from.setDate(from.getDate()-2); to = new Date(today); }
+    else { const off = 5 - dow; from = new Date(today); from.setDate(from.getDate()+off); to = new Date(from); to.setDate(to.getDate()+2); }
+  } else if(preset === "semana"){
+    // Lunes a domingo de esta semana (si ya es lun+, esta misma; si es domingo, próxima)
+    let offLunes;
+    if(dow === 0) offLunes = 1; else offLunes = 1 - dow;
+    from = new Date(today); from.setDate(today.getDate() + offLunes);
+    to = new Date(from); to.setDate(from.getDate() + 6);
+  } else {
+    from = new Date(today); to = new Date(today);
+  }
+  document.getElementById("clupik-semana-from").value = _fmtISO(from);
+  document.getElementById("clupik-semana-to").value = _fmtISO(to);
+}
+
+async function importarSemanaClupik(){
+  const fromIso = document.getElementById("clupik-semana-from").value;
+  const toIso = document.getElementById("clupik-semana-to").value;
+  if(!fromIso || !toIso){ alert("Elige ambas fechas."); return; }
+  if(fromIso > toIso){ alert("La fecha 'Desde' es posterior a 'Hasta'."); return; }
+  const from = _toDDMMYYYY(fromIso);
+  const to = _toDDMMYYYY(toIso);
+  const status = document.getElementById("clupik-semana-status");
+  if(status) status.textContent = "Consultando torneos activos y partidos...";
+  cerrarImportClupik();
+  const loader = document.createElement("div");
+  loader.id = "clupik-loader";
+  loader.style = "position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;display:flex;align-items:center;justify-content:center";
+  loader.innerHTML = '<div style="background:#fff;padding:1.5rem 2rem;border-radius:var(--rl);font-size:13px;font-weight:500">Importando partidos de ' + from + ' a ' + to + '…<br><span style="font-size:11px;font-weight:400;color:var(--gris4)">Puede tardar 10-30 seg (atraviesa todos los torneos activos).</span></div>';
+  document.body.appendChild(loader);
+
+  try {
+    const qs = "?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to);
+    const r = await fetch("/api/clupik-matches-week" + qs);
+    if(!r.ok){
+      const txt = await r.text();
+      throw new Error("HTTP " + r.status + ": " + txt.slice(0,200));
+    }
+    const data = await r.json();
+    if(!data.partidos || !data.partidos.length){
+      alert("No hay partidos en ese rango de fechas en los torneos activos.");
+      return;
+    }
+
+    const nuevos = data.partidos.map(function(p, i){
+      const campo = lugarACampo(p.lugar || "") || "Sin campo";
+      return {
+        id: i + 1,
+        match_id: p.match_id,
+        datetime_utc_original: p.datetime_utc_original || null,
+        eq1: p.eq1 || "",
+        eq2: p.eq2 || "",
+        fecha: p.fecha || "",
+        hora: p.hora || "00:00",
+        sinHora: (p.hora || "00:00") === "00:00",
+        aplazado: !!p.postponed,
+        dia: parseDia(p.fecha || ""),
+        campo: campo,
+        campoOriginal: campo,
+        jornada: p.jornada || "",
+        comp: p.comp || "",
+        categoria: categDeComp(p.comp || ""),
+        grupo: (p.grupo || "").replace(/GRUPO /i, "").trim(),
+        ent1: getEntrenadores(p.eq1 || "", categDeComp(p.comp || ""), ligaDeComp(p.comp || "")),
+        ent2: getEntrenadores(p.eq2 || "", categDeComp(p.comp || ""), ligaDeComp(p.comp || "")),
+        conflicto: null,
+      };
+    });
+
+    const semana = "Semana " + from + " – " + to;
+    const arr = getAllJornadas();
+    const id = "j_clupik_semana_" + Date.now();
+    arr.unshift({
+      id: id,
+      semana: semana,
+      partidos: nuevos,
+      createdAt: new Date().toISOString(),
+      sourceClupik: { mode: "week", from: from, to: to, tournaments: data.tournaments_with_matches },
+    });
+    saveAllJornadas(arr);
+    jornadaActivaId = id;
+    partidos = nuevos;
+    mostrarPlanificador(semana);
+    actualizarBotonGuardarClupik();
+  } catch(e){
+    alert("Error al importar semana desde Clupik:\n" + e.message);
+  } finally {
+    const el = document.getElementById("clupik-loader");
+    if(el) el.remove();
+  }
 }
 
 function cerrarImportClupik(){
@@ -3951,21 +4083,56 @@ async function guardarCambiosEnClupik(){
 
 <!-- ===== MODAL: IMPORTAR DESDE CLUPIK ===== -->
 <div id="modal-clupik" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:var(--rl);max-width:640px;width:92%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 40px rgba(0,0,0,.2)">
+  <div style="background:#fff;border-radius:var(--rl);max-width:680px;width:92%;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 40px rgba(0,0,0,.2)">
     <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--gris2);display:flex;justify-content:space-between;align-items:center">
-      <strong style="font-size:14px;color:var(--negro)">Importar torneo desde Clupik</strong>
+      <strong style="font-size:14px;color:var(--negro)">Importar desde Clupik</strong>
       <button class="btn btn-outline btn-sm" style="padding:4px 8px" onclick="cerrarImportClupik()">✕</button>
     </div>
-    <div style="padding:.75rem 1.25rem;border-bottom:1px solid var(--gris2);display:flex;gap:8px;align-items:center">
-      <input id="clupik-search" type="text" placeholder="Filtrar por nombre..." style="flex:1;font-size:13px;padding:7px 10px;border:1px solid var(--gris3);border-radius:var(--r);font-family:var(--f)" oninput="filtrarTorneosClupik()">
-      <label style="font-size:11px;color:var(--gris5);display:flex;align-items:center;gap:4px;white-space:nowrap">
-        <input id="clupik-only-active" type="checkbox" checked onchange="filtrarTorneosClupik()">
-        Solo activos
-      </label>
+    <div style="display:flex;border-bottom:1px solid var(--gris2);background:var(--gris1)">
+      <button id="tab-clupik-semana" class="btn-tab-clupik" onclick="switchClupikTab('semana')" style="flex:1;padding:.75rem;font-size:13px;font-weight:500;background:#fff;border:none;border-bottom:2px solid var(--verde);color:var(--verde);cursor:pointer">📅 Por semana</button>
+      <button id="tab-clupik-torneo" class="btn-tab-clupik" onclick="switchClupikTab('torneo')" style="flex:1;padding:.75rem;font-size:13px;font-weight:500;background:var(--gris1);border:none;border-bottom:2px solid transparent;color:var(--gris5);cursor:pointer">🏆 Por torneo completo</button>
     </div>
-    <div id="clupik-torneos-lista" style="flex:1;overflow-y:auto;padding:.5rem 0">
-      <div style="text-align:center;padding:2rem;color:var(--gris4);font-size:13px">Cargando torneos…</div>
+
+    <" + bang + "-- Modo: SEMANA -->
+    <div id="panel-clupik-semana" style="padding:1rem 1.25rem;display:flex;flex-direction:column;gap:.75rem;flex:1;overflow-y:auto">
+      <div style="font-size:12px;color:var(--gris5);line-height:1.5">
+        Elige el rango de fechas y traeremos todos los partidos de tus <strong>torneos activos</strong> que caen en esos días. Lo típico para planificar una semana: viernes a domingo.
+      </div>
+      <div style="display:flex;gap:.75rem;align-items:end">
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:500;color:var(--gris5);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px">Desde</label>
+          <input id="clupik-semana-from" type="date" style="width:100%;font-size:13px;padding:7px 10px;border:1px solid var(--gris3);border-radius:var(--r);font-family:var(--f)">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:11px;font-weight:500;color:var(--gris5);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px">Hasta</label>
+          <input id="clupik-semana-to" type="date" style="width:100%;font-size:13px;padding:7px 10px;border:1px solid var(--gris3);border-radius:var(--r);font-family:var(--f)">
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="setRangoClupik('finde')">Próximo finde (vie-dom)</button>
+        <button class="btn btn-outline btn-sm" onclick="setRangoClupik('semana')">Próxima semana (lun-dom)</button>
+        <button class="btn btn-outline btn-sm" onclick="setRangoClupik('hoy')">Solo hoy</button>
+      </div>
+      <div style="margin-top:.5rem;display:flex;justify-content:flex-end">
+        <button class="btn btn-verde" onclick="importarSemanaClupik()">Importar partidos del rango</button>
+      </div>
+      <div id="clupik-semana-status" style="font-size:12px;color:var(--gris5);margin-top:.25rem"></div>
     </div>
+
+    <" + bang + "-- Modo: TORNEO -->
+    <div id="panel-clupik-torneo" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div style="padding:.75rem 1.25rem;border-bottom:1px solid var(--gris2);display:flex;gap:8px;align-items:center">
+        <input id="clupik-search" type="text" placeholder="Filtrar por nombre..." style="flex:1;font-size:13px;padding:7px 10px;border:1px solid var(--gris3);border-radius:var(--r);font-family:var(--f)" oninput="filtrarTorneosClupik()">
+        <label style="font-size:11px;color:var(--gris5);display:flex;align-items:center;gap:4px;white-space:nowrap">
+          <input id="clupik-only-active" type="checkbox" checked onchange="filtrarTorneosClupik()">
+          Solo activos
+        </label>
+      </div>
+      <div id="clupik-torneos-lista" style="flex:1;overflow-y:auto;padding:.5rem 0">
+        <div style="text-align:center;padding:2rem;color:var(--gris4);font-size:13px">Cargando torneos…</div>
+      </div>
+    </div>
+
     <div style="padding:.75rem 1.25rem;border-top:1px solid var(--gris2);text-align:right">
       <button class="btn btn-outline btn-sm" onclick="cerrarImportClupik()">Cancelar</button>
     </div>
