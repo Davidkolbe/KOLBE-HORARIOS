@@ -139,7 +139,9 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
 .cond-val{color:var(--gris5)}
 
 /* EXPORT BAR */
-.export-bar{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-bottom:1rem}
+.export-bar{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;align-items:center;margin-bottom:1rem}
+.export-bar .btn-group{display:flex;flex-wrap:wrap;gap:6px}
+.export-bar .btn-group-primary{padding-left:10px;border-left:1px solid var(--gris2)}
 
 .filtro-btn{padding:5px 12px;border-radius:6px;border:1px solid var(--gris3);background:#fff;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;font-family:var(--f);color:var(--gris5)}
 .filtro-btn:hover{border-color:var(--gris4);color:var(--negro)}
@@ -276,17 +278,26 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
     <div class="export-bar">
       <button class="btn btn-outline btn-sm" onclick="volverHistorial()" style="margin-right:4px">← Jornadas</button>
       <span style="font-size:12px;color:var(--gris4);align-self:center;flex:1" id="semana-label"></span>
-      <button class="btn btn-outline btn-sm" onclick="exportarExcel()">↓ Excel</button>
-      <button class="btn btn-outline btn-sm" onclick="exportarPDF()">↓ PDF</button>
-      <button class="btn btn-verde btn-sm" onclick="generarMensajesWhatsApp()">📱 Mensajes entrenadores</button>
-      <button class="btn btn-outline btn-sm" onclick="mensajeUnicoKolbe()">📋 Mensaje único Kolbe</button>
-      <button class="btn btn-outline btn-sm" onclick="vistaEquipos()">📋 Vista por equipos</button>
-      <button class="btn btn-outline btn-sm" onclick="vistaCategorias()">📊 Vista por categorías</button>
-      <button class="btn btn-verde btn-sm" onclick="resumenKolbe()">🟢 Resumen Kolbe partidos</button>
-      <button class="btn btn-verde btn-sm" onclick="asistenteEnvios()" title="Preparar envíos de domingo, lunes y miércoles">📤 Envíos semana</button>
-      <button class="btn btn-outline btn-sm" id="btn-link-clupik" onclick="vincularConClupik()" style="display:none" title="Empareja esta jornada con los partidos de Clupik para poder guardar cambios">🔗 Vincular con Clupik</button>
-      <button class="btn btn-verde btn-sm" id="btn-save-clupik" onclick="guardarCambiosEnClupik()" style="display:none" title="Envía los cambios de horario a Clupik">☁️ Guardar en Clupik</button>
-      <button class="btn btn-verde btn-sm" onclick="modalNuevoPartido()">+ Partido</button>
+      <!-- Grupo 1: Exportar, mensajes y vistas -->
+      <div class="btn-group">
+        <button class="btn btn-outline btn-sm" onclick="exportarExcel()">↓ Excel</button>
+        <button class="btn btn-outline btn-sm" onclick="exportarPDF()">↓ PDF</button>
+        <button class="btn btn-verde btn-sm" onclick="generarMensajesWhatsApp()">📱 Mensajes entrenadores</button>
+        <button class="btn btn-outline btn-sm" onclick="mensajeUnicoKolbe()">📋 Mensaje único Kolbe</button>
+        <button class="btn btn-outline btn-sm" onclick="vistaEquipos()">📋 Vista por equipos</button>
+        <button class="btn btn-outline btn-sm" onclick="vistaCategorias()">📊 Vista por categorías</button>
+      </div>
+      <!-- Grupo 2: Resumen, envíos y Clupik -->
+      <div class="btn-group">
+        <button class="btn btn-verde btn-sm" onclick="resumenKolbe()">🟢 Resumen Kolbe partidos</button>
+        <button class="btn btn-verde btn-sm" onclick="asistenteEnvios()" title="Preparar envíos de domingo, lunes y miércoles">📤 Envíos semana</button>
+        <button class="btn btn-outline btn-sm" id="btn-link-clupik" onclick="vincularConClupik()" style="display:none" title="Empareja esta jornada con los partidos de Clupik para poder guardar cambios">🔗 Vincular con Clupik</button>
+        <button class="btn btn-verde btn-sm" id="btn-save-clupik" onclick="guardarCambiosEnClupik()" style="display:none" title="Envía los cambios de horario a Clupik">☁️ Guardar en Clupik</button>
+      </div>
+      <!-- Grupo 3: Crear (separado) -->
+      <div class="btn-group btn-group-primary">
+        <button class="btn btn-verde btn-sm" onclick="modalNuevoPartido()">+ Partido</button>
+      </div>
     </div>
 
     <div class="layout-main">
