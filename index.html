@@ -507,6 +507,15 @@ const LUGAR_MAP = [
   ["cañada",         "La Cañada"],
 ];
 
+// FACILITY_ID_MAP: fallback cuando /facilities/{id} de Clupik/Leverade no
+// devuelve el nombre (tipicamente porque la instalacion pertenece a otro
+// club al que nuestro token no tiene permiso de lectura). Clave: facility_id
+// devuelto por Clupik. Valor: nombre exacto tal y como aparece en CAMPOS_BASE.
+const FACILITY_ID_MAP = {
+  "66104": "Pista Exterior Infanta Cristina",
+  // "73417": "...",  // pendiente confirmar con David donde juega Los Boliches M.
+};
+
 const CATEG_MAP = {
   "PREBENJAMIN":"Prebenjamín","PREBENJAMÍN":"Prebenjamín",
   "BENJAMIN":"Benjamín","BENJAMÍN":"Benjamín",
@@ -3910,6 +3919,7 @@ async function importarSemanaClupik(){
       // 1) intentar mapear el lugar que nos da Clupik
       // 2) si Clupik no trae lugar (o no se reconoce), inferir por el equipo local usando histórico
       var campo = lugarACampo(p.lugar || "");
+      if(!campo && p.facility_id && FACILITY_ID_MAP[p.facility_id]) campo = FACILITY_ID_MAP[p.facility_id];
       if(!campo) campo = inferirCampoPorEquipoLocal(p.eq1) || "Sin campo";
       if(campo === "Sin campo"){
         console.warn("[Clupik] Partido sin campo tras import:", {
@@ -4032,6 +4042,7 @@ async function importarTorneoClupik(tournamentId){
 
     const nuevos = data.partidos.map(function(p, i){
       var campo = lugarACampo(p.lugar || "");
+      if(!campo && p.facility_id && FACILITY_ID_MAP[p.facility_id]) campo = FACILITY_ID_MAP[p.facility_id];
       if(!campo) campo = inferirCampoPorEquipoLocal(p.eq1) || "Sin campo";
       if(campo === "Sin campo"){
         console.warn("[Clupik] Partido sin campo tras import:", {
