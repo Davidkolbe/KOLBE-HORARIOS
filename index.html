@@ -4031,21 +4031,41 @@ function utcStringToMadridFechaHora(utcStr){
 
 async function guardarCambiosEnClupik(){
   const cambios = [];
+  const detalle = [];
   partidos.forEach(function(p){
     if(!p.match_id) return;
     if(p.sinHora) return;
-    if(!p.datetime_utc_original){ cambios.push(p); return; }
-    const orig = utcStringToMadridFechaHora(p.datetime_utc_original);
-    if(orig.fecha !== p.fecha || orig.hora !== p.hora){
-      cambios.push(p);
+    let origFecha = "(sin referencia)";
+    let origHora = "(sin referencia)";
+    if(p.datetime_utc_original){
+      const orig = utcStringToMadridFechaHora(p.datetime_utc_original);
+      if(orig.fecha === p.fecha && orig.hora === p.hora) return;
+      origFecha = orig.fecha;
+      origHora = orig.hora;
     }
+    cambios.push(p);
+    detalle.push({ p: p, origFecha: origFecha, origHora: origHora });
   });
 
   if(!cambios.length){
     alert("No hay cambios de fecha/hora pendientes de enviar a Clupik.");
     return;
   }
-  if(!confirm("Se van a enviar " + cambios.length + " cambio(s) a Clupik.\n\n¿Continuar?")) return;
+  let msg = "Se van a enviar " + cambios.length + " cambio(s) a Clupik:\n\n";
+  detalle.slice(0, 25).forEach(function(c){
+    const p = c.p;
+    msg += "• " + p.eq1 + " vs " + p.eq2 + "\n";
+    if(c.origFecha === p.fecha){
+      msg += "    " + p.fecha + "   " + c.origHora + "  →  " + p.hora + "\n";
+    } else {
+      msg += "    " + c.origFecha + " " + c.origHora + "  →  " + p.fecha + " " + p.hora + "\n";
+    }
+  });
+  if(detalle.length > 25){
+    msg += "... (y " + (detalle.length - 25) + " más)\n";
+  }
+  msg += "\n¿Continuar?";
+  if(!confirm(msg)) return;
 
   let ok = 0, fail = 0;
   const errores = [];
