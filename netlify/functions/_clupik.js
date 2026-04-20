@@ -14,6 +14,22 @@ const TOKEN_URL = 'https://api.leverade.com/oauth/token';
 let cachedToken = null;
 let cachedExpiry = 0;
 
+async function _tokenRequest(headers, params) {
+  const body = new URLSearchParams(params);
+  const r = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: Object.assign(
+      { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers || {}
+    ),
+    body: body.toString(),
+  });
+  const text = await r.text();
+  let data = null;
+  try { data = JSON.parse(text); } catch (_) {}
+  return { ok: r.ok, status: r.status, data, text };
+}
+
 async function getAccessToken() {
   const now = Date.now();
   if (cachedToken && cachedExpiry > now + 60_000) return cachedToken;
@@ -27,36 +43,44 @@ async function getAccessToken() {
     throw new Error('Falta CLUPIK_CLIENT_SECRET en variables de entorno.');
   }
 
-  // Si tenemos usuario+password, usamos 'password' grant — devuelve un token
-  // con permisos de ese usuario (escritura si es admin). Si no, caemos al
-  // 'client_credentials' que solo tiene lectura.
-  const params = {
-    client_id: clientId,
-    client_secret: clientSecret,
-  };
-  if (username && password) {
-    params.grant_type = 'password';
-    params.username = username;
-    params.password = password;
+  const usePassword = username && password;
+
+  // Construye params. Si usePassword, probamos primero sin credenciales en body
+  // y con Basic Auth (RFC 6749 §2.3.1). Si el servidor prefiere body, lo reintentamos.
+  const baseParams = usePassword
+    ? { grant_type: 'password', username, password }
+    : { grant_type: 'client_credentials' };
+  if (scope) baseParams.scope = scope;
+
+  let resp;
+  let lastErr = null;
+
+  if (usePassword) {
+    // Intento 1: Basic Auth
+    const basic = 'Basic ' + Buffer.from(clientId + ':' + clientSecret).toString('base64');
+    resp = await _tokenRequest({ Authorization: basic }, baseParams);
+    if (!resp.ok) {
+      lastErr = `intento1(Basic) status=${resp.status} body=${(resp.text || '').slice(0,200)}`;
+      // Intento 2: credenciales en body (estilo anterior)
+      const bodyParams = Object.assign({}, baseParams, { client_id: clientId, client_secret: clientSecret });
+      resp = await _tokenRequest({}, bodyParams);
+      if (!resp.ok) {
+        lastErr += ` | intento2(body) status=${resp.status} body=${(resp.text || '').slice(0,200)}`;
+      }
+    }
   } else {
-    params.grant_type = 'client_credentials';
+    // client_credentials: funcionaba con credenciales en body, no tocamos.
+    const bodyParams = Object.assign({}, baseParams, { client_id: clientId, client_secret: clientSecret });
+    resp = await _tokenRequest({}, bodyParams);
   }
-  if (scope) params.scope = scope;
 
-  const body = new URLSearchParams(params);
-
-  const r = await fetch(TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
-  if (!r.ok) {
-    const text = await r.text();
-    throw new Error(`Auth Clupik falló (${r.status}) grant=${params.grant_type}: ${text.slice(0, 300)}`);
+  if (!resp.ok) {
+    throw new Error(`Auth Clupik falló grant=${baseParams.grant_type}. ${lastErr || ''}`);
   }
-  const data = await r.json();
+
+  const data = resp.data || {};
   cachedToken = data.access_token;
-  cachedExpiry = now + (data.expires_in - 60) * 1000;
+  cachedExpiry = now + ((data.expires_in || 3600) - 60) * 1000;
   return cachedToken;
 }
 
