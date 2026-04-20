@@ -3989,10 +3989,18 @@ async function importarTorneoClupik(tournamentId){
 }
 
 function actualizarBotonGuardarClupik(){
-  const btn = document.getElementById("btn-save-clupik");
-  if(!btn) return;
-  const tiene = Array.isArray(partidos) && partidos.some(function(p){ return p.match_id; });
-  btn.style.display = tiene ? "inline-flex" : "none";
+  const btnSave = document.getElementById("btn-save-clupik");
+  const btnLink = document.getElementById("btn-link-clupik");
+  if(!btnSave || !btnLink) return;
+  if(!Array.isArray(partidos) || !partidos.length){
+    btnSave.style.display = "none";
+    btnLink.style.display = "none";
+    return;
+  }
+  const withMatch = partidos.filter(function(p){ return p.match_id; }).length;
+  const withoutMatch = partidos.length - withMatch;
+  btnSave.style.display = withMatch > 0 ? "inline-flex" : "none";
+  btnLink.style.display = withoutMatch > 0 ? "inline-flex" : "none";
 }
 
 function utcStringToMadridFechaHora(utcStr){
