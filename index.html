@@ -588,12 +588,15 @@ function lugarACampo(lugar){
 
 
 // ---- Auto-inferencia de campo por equipo local ----
-// Cuando un partido importado de Clupik no tiene campo asignado pero su equipo
-// local ha jugado en casa en jornadas anteriores, devolvemos el campo más
-// frecuente de su historial. Necesita al menos 1 aparición.
+// Estrategia en 2 pasos:
+//   1) Match por nombre: si el nombre del equipo local contiene el nombre de
+//      un campo configurado, usamos ese campo (ej. 'CD LA CAÑADA' contiene
+//      'La Cañada' -> asignamos La Cañada). Es el caso mas común y robusto.
+//   2) Histórico: buscamos en jornadas ya guardadas el campo más frecuente
+//      donde este equipo ha sido local. Fallback cuando el nombre no ayuda.
 function inferirCampoPorEquipoLocal(eq1){
   if(!eq1) return null;
-  var normTeam = function(s){
+  var normalizar = function(s){
     return (s || "").toString()
       .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
       .toUpperCase()
@@ -601,19 +604,37 @@ function inferirCampoPorEquipoLocal(eq1){
       .replace(/\s+/g," ")
       .trim();
   };
-  var keyBusca = normTeam(eq1);
+  var keyBusca = normalizar(eq1);
   if(!keyBusca) return null;
 
+  // --- Paso 1: match por nombre contra campos configurados ---
+  // Buscamos el nombre de campo MAS LARGO que sea substring del equipo;
+  // así 'La Cañada' gana a 'Kolbe' en 'CD LA CAÑADA' cuando ambos existen.
+  try {
+    var camposNoms = Object.keys(CAMPOS_BASE || {});
+    var mejorMatch = null;
+    camposNoms.forEach(function(nombreCampo){
+      var nNom = normalizar(nombreCampo);
+      if(!nNom) return;
+      if(keyBusca.indexOf(nNom) >= 0){
+        if(!mejorMatch || nNom.length > mejorMatch.longitud){
+          mejorMatch = { campo: nombreCampo, longitud: nNom.length };
+        }
+      }
+    });
+    if(mejorMatch) return mejorMatch.campo;
+  } catch(e){}
+
+  // --- Paso 2: histórico ---
   var jornadas;
   try { jornadas = getAllJornadas(); } catch(e){ return null; }
   if(!Array.isArray(jornadas) || !jornadas.length) return null;
 
-  var conteo = {};  // campo -> numero de apariciones
+  var conteo = {};
   jornadas.forEach(function(j){
     (j.partidos || []).forEach(function(p){
-      if(!p.campo) return;
-      if(p.campo === "Sin campo") return;
-      if(normTeam(p.eq1) !== keyBusca) return;
+      if(!p.campo || p.campo === "Sin campo") return;
+      if(normalizar(p.eq1) !== keyBusca) return;
       conteo[p.campo] = (conteo[p.campo] || 0) + 1;
     });
   });
@@ -622,7 +643,7 @@ function inferirCampoPorEquipoLocal(eq1){
   Object.keys(conteo).forEach(function(c){
     if(conteo[c] > mejorN){ mejor = c; mejorN = conteo[c]; }
   });
-  return mejor;  // puede ser null si no hay histórico
+  return mejor;
 }
 
 
