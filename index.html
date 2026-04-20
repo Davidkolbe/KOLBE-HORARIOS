@@ -3813,7 +3813,15 @@ async function importarSemanaClupik(){
   document.body.appendChild(loader);
 
   try {
-    const qs = "?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to);
+    const discChecks = document.querySelectorAll(".clupik-disc-check");
+    const discSelected = [];
+    discChecks.forEach(function(cb){ if(cb.checked) discSelected.push(cb.value); });
+    if(discSelected.length === 0){
+      alert("Elige al menos una disciplina.");
+      const el = document.getElementById("clupik-loader"); if(el) el.remove();
+      return;
+    }
+    const qs = "?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to) + "&disciplines=" + encodeURIComponent(discSelected.join(","));
     const r = await fetch("/api/clupik-matches-week" + qs);
     if(!r.ok){
       const txt = await r.text();
@@ -4208,6 +4216,14 @@ async function vincularConClupik(){
         <button class="btn btn-outline btn-sm" onclick="setRangoClupik('finde')">Próximo finde (vie-dom)</button>
         <button class="btn btn-outline btn-sm" onclick="setRangoClupik('semana')">Próxima semana (lun-dom)</button>
         <button class="btn btn-outline btn-sm" onclick="setRangoClupik('hoy')">Solo hoy</button>
+      </div>
+      <div style="margin-top:.25rem">
+        <label style="font-size:11px;font-weight:500;color:var(--gris5);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">Disciplinas a incluir</label>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px">
+          <label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" class="clupik-disc-check" value="f7" checked> Futbol 7</label>
+          <label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" class="clupik-disc-check" value="fs" checked> Futbol Sala</label>
+          <label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" class="clupik-disc-check" value="voleibol" checked> Voleibol</label>
+        </div>
       </div>
       <div style="margin-top:.5rem;display:flex;justify-content:flex-end">
         <button class="btn btn-verde" onclick="importarSemanaClupik()">Importar partidos del rango</button>

@@ -1,3 +1,8 @@
+// GET /api/clupik-matches-week?from=DD/MM/YYYY&to=DD/MM/YYYY&disciplines=f7,fs,voleibol
+// Devuelve todos los partidos de los torneos activos del manager que
+// caen en el rango de fechas.  Si se pasa `disciplines`, solo considera
+// torneos cuya disciplina detectada coincida.  Paralelizado.
+
 const { apiGet, paginate, utcToMadrid, json } = require('./_clupik');
 
 function pick(attrs, enKey, esKey) {
@@ -7,21 +12,29 @@ function pick(attrs, enKey, esKey) {
   return null;
 }
 
-// Status que consideramos "activo"
 const ACTIVE_STATUSES = new Set([
   'setting_up', 'running', 'public', 'active', 'in_progress',
   'configurando', 'en_progreso',
 ]);
 
-// Convierte "DD/MM/YYYY" a Date (UTC midnight del día Madrid - UTC-1)
-// Simplificación: tratamos la fecha como día calendario Madrid.
+// Detecta disciplina por nombre. Devuelve 'f7' | 'fs' | 'voleibol' | null.
+function detectDiscipline(name) {
+  const n = (name || '').toUpperCase();
+  if (n.includes('VOLEIBOL') || n.includes('VOLLEY')) return 'voleibol';
+  // Orden importa: F7 antes que FS porque nombres tipo "F-7 FS" raros
+  if (n.includes('F-7') || n.includes('F7') || n.includes('FÚTBOL 7') || n.includes('FUTBOL 7')
+      || n.includes('F-SIETE') || n.includes('FUTBOL-7')) return 'f7';
+  if (n.includes('F-SALA') || n.includes('FS ') || n.startsWith('FS')
+      || n.includes('SALA') || n.includes('FUTBOL SALA') || n.includes('FÚTBOL SALA')) return 'fs';
+  return null;
+}
+
 function parseDDMMYYYY(s) {
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s || '');
   if (!m) return null;
   return { year: parseInt(m[3]), month: parseInt(m[2]), day: parseInt(m[1]) };
 }
 
-// Devuelve true si fechaMadrid ("DD/MM/YYYY") está entre from y to (inclusive)
 function dateInRange(fechaMadrid, from, to) {
   if (!fechaMadrid) return false;
   const d = parseDDMMYYYY(fechaMadrid);
@@ -34,131 +47,139 @@ function dateInRange(fechaMadrid, from, to) {
   return keyD >= keyFrom && keyD <= keyTo;
 }
 
+async function processTournament(t, from, to) {
+  const tid = t.id;
+  const tname = pick(t.attributes, 'name', 'nombre') || '';
+
+  // Lanzar en paralelo las 4 consultas de este torneo
+  let teamsArr = [], groupsArr = [], roundsArr = [], matchesArr = [];
+  const settled = await Promise.allSettled([
+    paginate('/teams', { filter: `registrable_id:${tid}` }),
+    paginate('/groups', { filter: `tournament.id:${tid}` }),
+    paginate('/rounds', { filter: `group.tournament.id:${tid}` }),
+    paginate('/matches', { filter: `round.group.tournament.id:${tid}` }),
+  ]);
+  if (settled[0].status === 'fulfilled') teamsArr = settled[0].value;
+  if (settled[1].status === 'fulfilled') groupsArr = settled[1].value;
+  if (settled[2].status === 'fulfilled') roundsArr = settled[2].value;
+  if (settled[3].status === 'fulfilled') matchesArr = settled[3].value;
+
+  const teamById = new Map();
+  for (const team of teamsArr) {
+    teamById.set(team.id, pick(team.attributes, 'name', 'nombre') || `#${team.id}`);
+  }
+  const groupById = new Map();
+  for (const g of groupsArr) {
+    groupById.set(g.id, pick(g.attributes, 'name', 'nombre') || g.id);
+  }
+  const roundById = new Map();
+  for (const r of roundsArr) {
+    const number = pick(r.attributes, 'number', 'numero');
+    const name = pick(r.attributes, 'name', 'nombre');
+    const roundName = name || (number != null ? `Jornada ${number}` : r.id);
+    const groupId = r.relationships?.group?.data?.id || null;
+    roundById.set(r.id, { name: roundName, groupId });
+  }
+
+  // Filtrar partidos del rango
+  const candidatos = [];
+  const facIds = new Set();
+  for (const m of matchesArr) {
+    if (pick(m.attributes, 'rest', 'descanso')) continue;
+    const dt = pick(m.attributes, 'datetime', 'fecha_hora') || '';
+    const { fecha, hora } = utcToMadrid(dt);
+    if (!dateInRange(fecha, from, to)) continue;
+    candidatos.push({ m, dt, fecha, hora });
+    const fid = m.relationships?.facility?.data?.id;
+    if (fid) facIds.add(fid);
+  }
+  if (!candidatos.length) return { tid, tname, partidos: [], count: 0 };
+
+  // Resolver facilities en paralelo
+  const facResults = await Promise.allSettled(
+    Array.from(facIds).map((fid) => apiGet(`/facilities/${fid}`).then((r) => ({ fid, r })))
+  );
+  const facById = new Map();
+  for (const s of facResults) {
+    if (s.status === 'fulfilled' && s.value.r.status === 200) {
+      facById.set(s.value.fid, pick(s.value.r.body?.data?.attributes, 'name', 'nombre') || '');
+    }
+  }
+
+  const out = [];
+  for (const { m, dt, fecha, hora } of candidatos) {
+    const homeId = m.meta?.home_team || m.meta?.equipo_local;
+    const awayId = m.meta?.away_team || m.meta?.equipo_visitante;
+    const roundId = m.relationships?.round?.data?.id;
+    const round = roundId ? roundById.get(roundId) : null;
+    const groupId = round?.groupId || null;
+    const facilityId = m.relationships?.facility?.data?.id || null;
+    const eq1 = homeId ? teamById.get(homeId) || `#${homeId}` : '';
+    const eq2 = awayId ? teamById.get(awayId) || `#${awayId}` : '';
+    if (!eq1 || !eq2) continue;
+
+    out.push({
+      match_id: m.id,
+      eq1, eq2, fecha, hora,
+      datetime_utc_original: dt || null,
+      lugar: facilityId ? facById.get(facilityId) || '' : '',
+      jornada: round?.name || '',
+      comp: tname,
+      grupo: groupId ? groupById.get(groupId) || '' : '',
+      finished: !!(pick(m.attributes, 'finished', 'terminado') || pick(m.attributes, 'finished', 'finalizado')),
+      canceled: !!(pick(m.attributes, 'canceled', 'cancelado')),
+      postponed: !!(pick(m.attributes, 'postponed', 'aplazado')),
+    });
+  }
+  return { tid, tname, partidos: out, count: out.length };
+}
+
 exports.handler = async (event) => {
   const from = event.queryStringParameters?.from;
   const to = event.queryStringParameters?.to;
   if (!from || !to) {
     return json(400, { error: 'Faltan query params from/to (formato DD/MM/YYYY)' });
   }
+  // Lista opcional de disciplinas deseadas: "f7,fs,voleibol"
+  const discRaw = (event.queryStringParameters?.disciplines || '').trim().toLowerCase();
+  const discFilter = discRaw ? new Set(discRaw.split(',').map((s) => s.trim()).filter(Boolean)) : null;
 
   const managerId = process.env.CLUPIK_MANAGER_ID || '229546';
 
   try {
-    // 1) Torneos activos del manager
-    const tournaments = await paginate('/tournaments', {
-      filter: `manager.id:${managerId}`,
-    });
-    const active = tournaments.filter((t) => {
+    const tournaments = await paginate('/tournaments', { filter: `manager.id:${managerId}` });
+    let active = tournaments.filter((t) => {
       const status = (pick(t.attributes, 'status', 'estado') || '').toLowerCase();
       return ACTIVE_STATUSES.has(status);
     });
 
-    // Para cada torneo activo, bajamos sus partidos y mapeamos al formato del planificador
-    const allPartidos = [];
-    const tournamentsSeen = [];
-
-    for (const t of active) {
-      const tid = t.id;
-      const tname = pick(t.attributes, 'name', 'nombre') || '';
-
-      // Equipos del torneo
-      let teamsArr;
-      try {
-        teamsArr = await paginate('/teams', { filter: `registrable_id:${tid}` });
-      } catch (_) { teamsArr = []; }
-      const teamById = new Map();
-      for (const team of teamsArr) {
-        teamById.set(team.id, pick(team.attributes, 'name', 'nombre') || `#${team.id}`);
-      }
-
-      // Grupos
-      let groupsArr;
-      try {
-        groupsArr = await paginate('/groups', { filter: `tournament.id:${tid}` });
-      } catch (_) { groupsArr = []; }
-      const groupById = new Map();
-      for (const g of groupsArr) {
-        groupById.set(g.id, pick(g.attributes, 'name', 'nombre') || g.id);
-      }
-
-      // Rounds
-      let roundsArr;
-      try {
-        roundsArr = await paginate('/rounds', { filter: `group.tournament.id:${tid}` });
-      } catch (_) { roundsArr = []; }
-      const roundById = new Map();
-      for (const r of roundsArr) {
-        const number = pick(r.attributes, 'number', 'numero');
-        const name = pick(r.attributes, 'name', 'nombre');
-        const roundName = name || (number != null ? `Jornada ${number}` : r.id);
-        const groupId = r.relationships?.group?.data?.id || null;
-        roundById.set(r.id, { name: roundName, groupId });
-      }
-
-      // Partidos
-      let matchesArr;
-      try {
-        matchesArr = await paginate('/matches', {
-          filter: `round.group.tournament.id:${tid}`,
-        });
-      } catch (_) { matchesArr = []; }
-
-      // Facilities referenciadas (cacheadas solo para los partidos que nos quedan)
-      const facIdsForThis = new Set();
-
-      const candidatos = [];
-      for (const m of matchesArr) {
-        if (pick(m.attributes, 'rest', 'descanso')) continue;
-        const dt = pick(m.attributes, 'datetime', 'fecha_hora') || '';
-        const { fecha, hora } = utcToMadrid(dt);
-        if (!dateInRange(fecha, from, to)) continue;
-
-        candidatos.push({ m, dt, fecha, hora });
-        const fid = m.relationships?.facility?.data?.id;
-        if (fid) facIdsForThis.add(fid);
-      }
-      if (!candidatos.length) continue;
-
-      // Resolver facilities solo para los partidos que se quedan
-      const facById = new Map();
-      for (const fid of facIdsForThis) {
-        try {
-          const r = await apiGet(`/facilities/${fid}`);
-          if (r.status === 200) {
-            facById.set(fid, pick(r.body?.data?.attributes, 'name', 'nombre') || '');
-          }
-        } catch (_) {}
-      }
-
-      for (const { m, dt, fecha, hora } of candidatos) {
-        const homeId = m.meta?.home_team || m.meta?.equipo_local;
-        const awayId = m.meta?.away_team || m.meta?.equipo_visitante;
-        const roundId = m.relationships?.round?.data?.id;
-        const round = roundId ? roundById.get(roundId) : null;
-        const groupId = round?.groupId || null;
-        const facilityId = m.relationships?.facility?.data?.id || null;
-
-        const eq1 = homeId ? teamById.get(homeId) || `#${homeId}` : '';
-        const eq2 = awayId ? teamById.get(awayId) || `#${awayId}` : '';
-        if (!eq1 || !eq2) continue;
-
-        allPartidos.push({
-          match_id: m.id,
-          eq1, eq2, fecha, hora,
-          datetime_utc_original: dt || null,
-          lugar: facilityId ? facById.get(facilityId) || '' : '',
-          jornada: round?.name || '',
-          comp: tname,
-          grupo: groupId ? groupById.get(groupId) || '' : '',
-          finished: !!(pick(m.attributes, 'finished', 'terminado') || pick(m.attributes, 'finished', 'finalizado')),
-          canceled: !!(pick(m.attributes, 'canceled', 'cancelado')),
-          postponed: !!(pick(m.attributes, 'postponed', 'aplazado')),
-        });
-      }
-      tournamentsSeen.push({ id: tid, name: tname, matches: candidatos.length });
+    // Filtrar por disciplina si viene especificado
+    if (discFilter) {
+      active = active.filter((t) => {
+        const d = detectDiscipline(pick(t.attributes, 'name', 'nombre') || '');
+        return d && discFilter.has(d);
+      });
     }
 
-    // Ordenar por fecha+hora
+    // Procesar todos los torneos en paralelo
+    const results = await Promise.allSettled(
+      active.map((t) => processTournament(t, from, to))
+    );
+
+    const allPartidos = [];
+    const tournamentsWithMatches = [];
+    const errors = [];
+    for (const s of results) {
+      if (s.status === 'fulfilled') {
+        if (s.value.count > 0) {
+          tournamentsWithMatches.push({ id: s.value.tid, name: s.value.tname, matches: s.value.count });
+          allPartidos.push(...s.value.partidos);
+        }
+      } else {
+        errors.push(s.reason?.message || String(s.reason));
+      }
+    }
+
     allPartidos.sort((a, b) => {
       const ka = (a.datetime_utc_original || '') + a.eq1;
       const kb = (b.datetime_utc_original || '') + b.eq1;
@@ -167,9 +188,11 @@ exports.handler = async (event) => {
 
     return json(200, {
       from, to,
+      disciplines: discFilter ? Array.from(discFilter) : 'all',
       tournaments_checked: active.length,
-      tournaments_with_matches: tournamentsSeen,
+      tournaments_with_matches: tournamentsWithMatches,
       count: allPartidos.length,
+      errors: errors.length ? errors : undefined,
       partidos: allPartidos,
     });
   } catch (e) {
