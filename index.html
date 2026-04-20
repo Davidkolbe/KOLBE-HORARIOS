@@ -3911,6 +3911,12 @@ async function importarSemanaClupik(){
       // 2) si Clupik no trae lugar (o no se reconoce), inferir por el equipo local usando histórico
       var campo = lugarACampo(p.lugar || "");
       if(!campo) campo = inferirCampoPorEquipoLocal(p.eq1) || "Sin campo";
+      if(campo === "Sin campo"){
+        console.warn("[Clupik] Partido sin campo tras import:", {
+          eq1: p.eq1, eq2: p.eq2, lugar: p.lugar, facility_id: p.facility_id,
+          comp: p.comp, jornada: p.jornada, fecha: p.fecha
+        });
+      }
       return {
         id: i + 1,
         match_id: p.match_id,
@@ -4027,6 +4033,12 @@ async function importarTorneoClupik(tournamentId){
     const nuevos = data.partidos.map(function(p, i){
       var campo = lugarACampo(p.lugar || "");
       if(!campo) campo = inferirCampoPorEquipoLocal(p.eq1) || "Sin campo";
+      if(campo === "Sin campo"){
+        console.warn("[Clupik] Partido sin campo tras import:", {
+          eq1: p.eq1, eq2: p.eq2, lugar: p.lugar, facility_id: p.facility_id,
+          comp: p.comp, jornada: p.jornada, fecha: p.fecha
+        });
+      }
       return {
         id: i + 1,
         match_id: p.match_id,
