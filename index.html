@@ -274,6 +274,7 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
       <button class="btn btn-outline btn-sm" onclick="vistaEquipos()">📋 Vista por equipos</button>
       <button class="btn btn-outline btn-sm" onclick="vistaCategorias()">📊 Vista por categorías</button>
       <button class="btn btn-verde btn-sm" onclick="resumenKolbe()">🟢 Resumen Kolbe partidos</button>
+      <button class="btn btn-verde btn-sm" onclick="asistenteEnvios()" title="Preparar envíos de domingo, lunes y miércoles">📤 Envíos semana</button>
       <button class="btn btn-verde btn-sm" onclick="modalNuevoPartido()">+ Partido</button>
     </div>
 
@@ -1429,6 +1430,129 @@ function abrirWhatsAppEntrenador(nombre, mensaje){
   if(!tel){ alert("El entrenador '"+nombre+"' no tiene teléfono configurado. Añádelo en ⚙ Entrenadores."); return; }
   window.open(_urlWhatsApp(tel, mensaje), "_blank");
 }
+
+// ============ ASISTENTE DE ENVÍOS SEMANALES ============
+function asistenteEnvios(){
+  if(!partidos || !partidos.length){ alert("No hay partidos cargados."); return; }
+  var semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
+
+  // Contar destinatarios configurados para que el usuario sepa qué le espera
+  var clubsDetectados = new Set();
+  partidos.forEach(function(p){
+    var c1 = clubBase(p.eq1||""); var c2 = clubBase(p.eq2||"");
+    if(c1 && !/KOLBE/i.test(c1)) clubsDetectados.add(c1);
+    if(c2 && !/KOLBE/i.test(c2)) clubsDetectados.add(c2);
+  });
+  var nCoordinadores = Array.from(clubsDetectados).filter(function(c){
+    var co = coordinadores[c]; return co && _telPrefijo(co.telefono||"");
+  }).length;
+
+  var entsKolbe = new Set();
+  partidos.forEach(function(p){
+    [p.ent1, p.ent2].forEach(function(ents){
+      (ents||"").split(/[,\/]/).forEach(function(n){
+        var nn = n.trim().toUpperCase();
+        if(nn && !/^ENTREN_|ENTRENADOR /i.test(nn) && _telPrefijo(entrenadoresTels[nn]||"")) entsKolbe.add(nn);
+      });
+    });
+  });
+  // Solo los entrenadores Kolbe son "nuestros"; filtramos por equipos donde Kolbe es uno de los dos
+  var entsKolbeNuestros = new Set();
+  partidos.forEach(function(p){
+    var ents = /KOLBE/i.test(p.eq1) ? p.ent1 : (/KOLBE/i.test(p.eq2) ? p.ent2 : "");
+    (ents||"").split(/[,\/]/).forEach(function(n){
+      var nn = n.trim().toUpperCase();
+      if(nn && !/^ENTREN_|ENTRENADOR /i.test(nn) && _telPrefijo(entrenadoresTels[nn]||"")) entsKolbeNuestros.add(nn);
+    });
+  });
+
+  var gruposVistos = new Set();
+  partidos.forEach(function(p){
+    if(!p.categoria) return;
+    gruposVistos.add(p.categoria + "|||" + getDisciplina(p));
+  });
+  var nGrupos = Array.from(gruposVistos).filter(function(k){ return !!gruposWA[k]; }).length;
+
+  var overlay = document.createElement("div");
+  overlay.id = "envios-overlay";
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;overflow-y:auto;padding:2rem 1rem";
+
+  var wrapper = document.createElement("div");
+  wrapper.style.cssText = "max-width:680px;margin:0 auto;background:#fff;border-radius:var(--rl);padding:1.5rem;position:relative";
+
+  var btnCerrar = document.createElement("button");
+  btnCerrar.textContent = "✕ Cerrar";
+  btnCerrar.style.cssText = "position:absolute;top:1rem;right:1rem;padding:6px 12px;border:1px solid var(--gris3);border-radius:var(--r);background:transparent;cursor:pointer;font-size:13px";
+  btnCerrar.addEventListener("click", function(){ overlay.remove(); });
+
+  var titulo = document.createElement("div");
+  titulo.innerHTML = "<h2 style='font-size:16px;font-weight:600;margin-bottom:.25rem;color:var(--verde)'>📤 Envíos de la semana</h2>"
+    + "<p style='font-size:12px;color:var(--gris4);margin-bottom:1.25rem'>Jornada · " + semana + ". Los mensajes saldrán etiquetados automáticamente según el día.</p>";
+
+  wrapper.appendChild(btnCerrar);
+  wrapper.appendChild(titulo);
+
+  function mkBloque(titulo, subtitulo, color, acciones){
+    var bloque = document.createElement("div");
+    bloque.style.cssText = "margin-bottom:1.25rem;border:1px solid var(--gris2);border-radius:var(--rl);overflow:hidden";
+    var header = document.createElement("div");
+    header.style.cssText = "background:"+color+";color:#fff;padding:10px 14px";
+    header.innerHTML = "<div style='font-size:14px;font-weight:700'>"+titulo+"</div>"
+      + "<div style='font-size:11px;opacity:.9;margin-top:2px'>"+subtitulo+"</div>";
+    var body = document.createElement("div");
+    body.style.cssText = "padding:12px 14px;display:flex;flex-direction:column;gap:8px";
+    acciones.forEach(function(a){
+      var btn = document.createElement("button");
+      btn.textContent = a.txt;
+      btn.style.cssText = "padding:8px 14px;background:"+(a.activo?"#25D366":"#fff")+";color:"+(a.activo?"#fff":"var(--gris5)")+";border:"+(a.activo?"none":"1px dashed var(--gris3)")+";border-radius:var(--r);font-size:12px;cursor:pointer;font-family:var(--f);font-weight:600;text-align:left";
+      btn.addEventListener("click", function(){ overlay.remove(); a.fn(); });
+      body.appendChild(btn);
+    });
+    bloque.appendChild(header);
+    bloque.appendChild(body);
+    return bloque;
+  }
+
+  wrapper.appendChild(mkBloque(
+    "🟡 Domingo 23:59 · PROVISIONAL",
+    "Horarios provisionales — coordinadores de clubes rivales + entrenadores Kolbe",
+    "#d08700",
+    [
+      { txt: "📲 Coordinadores (Vista por equipos) — " + nCoordinadores + " con teléfono", activo: nCoordinadores>0,
+        fn: function(){ window._etiquetaEnvio = "🟡 *HORARIOS PROVISIONALES — pueden cambiar*\n\n"; vistaEquipos(); } },
+      { txt: "📲 Entrenadores Kolbe (Mensajes entrenadores) — " + entsKolbeNuestros.size + " con teléfono", activo: entsKolbeNuestros.size>0,
+        fn: function(){ window._etiquetaEnvio = "🟡 *HORARIOS PROVISIONALES — pueden cambiar*\n\n"; generarMensajesWhatsApp(); } }
+    ]
+  ));
+
+  wrapper.appendChild(mkBloque(
+    "📢 Lunes 10:00 · Publicación a grupos",
+    "Partidos de la semana en los grupos de WhatsApp de cada categoría",
+    "#386641",
+    [
+      { txt: "📲 Grupos de categoría (Vista por categorías) — " + nGrupos + " enlazados", activo: nGrupos>0,
+        fn: function(){ window._etiquetaEnvio = ""; vistaCategorias(); } }
+    ]
+  ));
+
+  wrapper.appendChild(mkBloque(
+    "🟢 Miércoles 18:00 · DEFINITIVO",
+    "Reenvío de horarios finales — coordinadores + grupos + entrenadores Kolbe",
+    "#146c3a",
+    [
+      { txt: "📲 Coordinadores (Vista por equipos)", activo: nCoordinadores>0,
+        fn: function(){ window._etiquetaEnvio = "🟢 *HORARIOS DEFINITIVOS*\n\n"; vistaEquipos(); } },
+      { txt: "📲 Grupos de categoría (Vista por categorías)", activo: nGrupos>0,
+        fn: function(){ window._etiquetaEnvio = "🟢 *HORARIOS DEFINITIVOS*\n\n"; vistaCategorias(); } },
+      { txt: "📲 Entrenadores Kolbe (Mensajes entrenadores)", activo: entsKolbeNuestros.size>0,
+        fn: function(){ window._etiquetaEnvio = "🟢 *HORARIOS DEFINITIVOS*\n\n"; generarMensajesWhatsApp(); } }
+    ]
+  ));
+
+  overlay.appendChild(wrapper);
+  document.body.appendChild(overlay);
+}
+window.asistenteEnvios = asistenteEnvios;
 
 // ============ CONFIGURACIÓN EQUIPOS ============
 function renderEquiposConfig(){
@@ -2593,7 +2717,8 @@ function generarMensajesWhatsApp(){
         }
       }
 
-      var msg = "⚽ *" + equipo + "*" + NL
+      var msg = (window._etiquetaEnvio || "")
+        + "⚽ *" + equipo + "*" + NL
         + "📅 " + dia + " " + semana + NL
         + "🔔 Convocatoria: *" + convocatoria + "*" + NL
         + "⏰ Hora partido: *" + hora + "*" + NL
@@ -2821,7 +2946,8 @@ function vistaEquipos(){
 
     // Build message text
     var NL = "\n";
-    var msg = "📋 *" + club.toUpperCase() + "*" + NL;
+    var etiq = window._etiquetaEnvio || "";
+    var msg = etiq + "📋 *" + club.toUpperCase() + "*" + NL;
     msg += "Partidos del fin de semana · " + semana + NL;
 
     var lastDia = "";
@@ -3298,7 +3424,7 @@ function vistaCategorias(){
       return (a.hora||"").localeCompare(b.hora||"");
     });
 
-    let msg = "📋 *" + g.categoria.toUpperCase() + " — " + g.disciplina.toUpperCase() + "*\n";
+    let msg = (window._etiquetaEnvio || "") + "📋 *" + g.categoria.toUpperCase() + " — " + g.disciplina.toUpperCase() + "*\n";
     msg += "Jornada · " + semana + "\n\n";
 
     ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado","Domingo"].forEach(function(dia){
