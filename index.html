@@ -283,6 +283,7 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
       <button class="btn btn-outline btn-sm" onclick="vistaCategorias()">📊 Vista por categorías</button>
       <button class="btn btn-verde btn-sm" onclick="resumenKolbe()">🟢 Resumen Kolbe partidos</button>
       <button class="btn btn-verde btn-sm" onclick="asistenteEnvios()" title="Preparar envíos de domingo, lunes y miércoles">📤 Envíos semana</button>
+      <button class="btn btn-outline btn-sm" id="btn-link-clupik" onclick="vincularConClupik()" style="display:none" title="Empareja esta jornada con los partidos de Clupik para poder guardar cambios">🔗 Vincular con Clupik</button>
       <button class="btn btn-verde btn-sm" id="btn-save-clupik" onclick="guardarCambiosEnClupik()" style="display:none" title="Envía los cambios de horario a Clupik">☁️ Guardar en Clupik</button>
       <button class="btn btn-verde btn-sm" onclick="modalNuevoPartido()">+ Partido</button>
     </div>
@@ -4084,6 +4085,93 @@ async function guardarCambiosEnClupik(){
     }, 500);
   });
 })();
+
+async function vincularConClupik(){
+  if(!Array.isArray(partidos) || !partidos.length){
+    alert("No hay partidos en esta jornada que vincular.");
+    return;
+  }
+  // Rango de fechas de los partidos (para consultar solo ese rango a Clupik)
+  const re = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+  const fechasValid = partidos.map(function(p){ return p.fecha; }).filter(function(f){ return re.test(f); });
+  if(!fechasValid.length){
+    alert("Ningun partido tiene fecha en formato DD/MM/YYYY.");
+    return;
+  }
+  const toKey = function(f){ const p = f.split("/"); return p[2] + p[1] + p[0]; };
+  fechasValid.sort(function(a,b){ return toKey(a).localeCompare(toKey(b)); });
+  const from = fechasValid[0];
+  const to = fechasValid[fechasValid.length - 1];
+
+  const loader = document.createElement("div");
+  loader.id = "clupik-loader";
+  loader.style = "position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;display:flex;align-items:center;justify-content:center";
+  loader.innerHTML = '<div style="background:#fff;padding:1.5rem 2rem;border-radius:var(--rl);font-size:13px;font-weight:500">Consultando Clupik para emparejar partidos...<br><span style="font-size:11px;font-weight:400;color:var(--gris4)">Fechas: ' + from + ' a ' + to + '</span></div>';
+  document.body.appendChild(loader);
+
+  try {
+    const r = await fetch("/api/clupik-matches-week?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to));
+    if(!r.ok){
+      const txt = await r.text();
+      throw new Error("HTTP " + r.status + ": " + txt.slice(0, 200));
+    }
+    const data = await r.json();
+    if(!data.partidos || !data.partidos.length){
+      alert("Clupik no tiene partidos en esas fechas. ¿Son correctas?");
+      return;
+    }
+
+    const norm = function(s){
+      return (s || "").toString()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase()
+        .replace(/["\u201C\u201D\u2018\u2019\u2033]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    };
+
+    const indexClupik = new Map();
+    for(const c of data.partidos){
+      const k = c.fecha + "|" + norm(c.eq1) + "|" + norm(c.eq2);
+      indexClupik.set(k, c);
+    }
+
+    let matched = 0, alreadyLinked = 0, unmatched = 0;
+    const unmatchedList = [];
+    for(const p of partidos){
+      if(p.match_id){ alreadyLinked++; continue; }
+      const k1 = p.fecha + "|" + norm(p.eq1) + "|" + norm(p.eq2);
+      const k2 = p.fecha + "|" + norm(p.eq2) + "|" + norm(p.eq1);
+      const hit = indexClupik.get(k1) || indexClupik.get(k2);
+      if(hit){
+        p.match_id = hit.match_id;
+        p.datetime_utc_original = hit.datetime_utc_original;
+        matched++;
+      } else {
+        unmatched++;
+        unmatchedList.push(p.eq1 + " vs " + p.eq2 + " (" + p.fecha + ")");
+      }
+    }
+
+    savePartidos();
+    renderTodo();
+    actualizarBotonGuardarClupik();
+
+    let msg = "Vinculacion con Clupik:\n";
+    msg += "  OK " + matched + " partido(s) emparejado(s)\n";
+    if(alreadyLinked) msg += "  - " + alreadyLinked + " ya estaban vinculados\n";
+    if(unmatched){
+      msg += "  X " + unmatched + " sin coincidencia:\n    " + unmatchedList.slice(0,6).join("\n    ");
+      if(unmatchedList.length > 6) msg += "\n    ...(y " + (unmatchedList.length - 6) + " mas)";
+    }
+    alert(msg);
+  } catch(e){
+    alert("Error al vincular con Clupik:\n" + e.message);
+  } finally {
+    const el = document.getElementById("clupik-loader");
+    if(el) el.remove();
+  }
+}
 
 // ===== fin Clupik integration =====
 
