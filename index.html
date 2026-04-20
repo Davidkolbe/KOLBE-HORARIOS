@@ -673,9 +673,56 @@ function getEntrenadores(nombreEquipo, categoria, liga){
   // Navalagamella: mismo entrenador en todas las categorías (Benjamín + Alevín comparten)
   if(n.includes("NAVALAGAMELLA")) return "ENTREN_NAVALA";
 
-  // Kolbe Fútbol Sala — detectar por KOLBE en nombre
+  // Helper: normaliza liga mezclando formatos ("Fútbol Sala" vs "sala" vs "f7")
+  function _normLiga(l){
+    const s = (l||"").toString().toUpperCase();
+    if(s.includes("F-7") || s === "F7") return "f7";
+    if(s.includes("SALA") || s.includes("FS")) return "sala";
+    return "";
+  }
+  const ligaCSV = _normLiga(liga);
+  const nClean = n.replace(/[.,;:]/g,"").replace(/\s+/g," ").trim();
+
+  // Match exacto con categoría+liga cuando hay info (desambigua "CD KOLBE BLANCO" Alevín vs Infantil)
+  if(categoria || ligaCSV){
+    const eqExact = equipos.find(function(e){
+      const en = (e.nombre||"").toUpperCase().replace(/[.,;:"""]/g,"").replace(/\s+/g," ").trim();
+      if(nClean !== en) return false;
+      const ligaEq = _normLiga(e.liga);
+      if(categoria && e.categoria && e.categoria !== categoria) return false;
+      if(ligaCSV && ligaEq && ligaEq !== ligaCSV) return false;
+      return true;
+    });
+    if(eqExact) return eqExact.entrenadores;
+  }
+
+  // Resolución inteligente para equipos Kolbe cuando el nombre del CSV no coincide con el
+  // configurado (ej. CSV "CD KOLBE BLANCO" vs config "CD KOLBE ALEVÍN BLANCO", o
+  // CSV "CD KOLBE 3º VERDE" vs config "CD KOLBE BENJAMÍN 3 VERDE").
+  if(nClean.includes("KOLBE")){
+    const pool = equipos.filter(function(e){
+      const en = (e.nombre||"").toUpperCase();
+      if(!en.includes("KOLBE")) return false;
+      if(categoria && e.categoria && e.categoria !== categoria) return false;
+      const lE = _normLiga(e.liga);
+      if(ligaCSV && lE && lE !== ligaCSV) return false;
+      return true;
+    });
+    if(pool.length === 1) return pool[0].entrenadores;
+    if(pool.length > 1){
+      const distintivos = ["BLANCO","VERDE","MORADO","NEGRO","AZUL","AMARILLO"];
+      const color = distintivos.find(function(c){ return nClean.includes(c); });
+      const ordMatch = nClean.match(/([1234])[º°]?/);
+      const ord = ordMatch ? ordMatch[1] : null;
+      let narrowed = pool;
+      if(color) narrowed = narrowed.filter(function(e){ return (e.nombre||"").toUpperCase().includes(color); });
+      if(ord && narrowed.length > 1) narrowed = narrowed.filter(function(e){ return (e.nombre||"").includes(ord); });
+      if(narrowed.length === 1) return narrowed[0].entrenadores;
+    }
+  }
+
+  // Kolbe Fútbol Sala — detectar por KOLBE + ordinal (casos antiguos que caen aquí)
   if(n.includes("KOLBE") && (n.includes("1º") || n.includes("2º") || n.includes("3º") || n.includes("4º") || n.includes("1°") || n.includes("2°") || n.includes("3°") || n.includes("4°"))){
-    // Buscar en equipos configurados primero
     const eqSala = equipos.find(function(e){
       const en = e.nombre.toUpperCase().replace(/["""]/g,"").trim();
       return n === en;
@@ -684,24 +731,12 @@ function getEntrenadores(nombreEquipo, categoria, liga){
     return "ENTREN_KOLBE_SALA";
   }
 
-  // Match exacto con categoría+liga cuando hay info disponible (desambigua nombres repetidos
-  // como "CD KOLBE BLANCO" o "CD KOLBE VERDE" que existen en Alevín y en Infantil con distinto entrenador)
-  if(categoria || liga){
-    const eqExact = equipos.find(function(e){
-      const en = e.nombre.toUpperCase().replace(/["""]/g,"").trim();
-      if(n !== en) return false;
-      if(categoria && e.categoria && e.categoria !== categoria) return false;
-      if(liga && e.liga && e.liga !== liga) return false;
-      return true;
-    });
-    if(eqExact) return eqExact.entrenadores;
-  }
-
   // Buscar en equipos configurados — coincidencia estricta
   const eq = equipos.find(function(e){
     const en = e.nombre.toUpperCase().replace(/["""]/g,"").trim();
     // Si se nos ha pasado liga y el equipo configurado tiene liga distinta, descartar
-    if(liga && e.liga && e.liga !== liga) return false;
+    const ligaEq = _normLiga(e.liga);
+    if(ligaCSV && ligaEq && ligaEq !== ligaCSV) return false;
     // Coincidencia exacta
     if(n === en) return true;
     // El nombre del equipo configurado está completamente contenido en el nombre del CSV
