@@ -1324,6 +1324,7 @@ function cambiarCampo(id){
 
   btnGuardar.addEventListener("click", function(){
     p.campo = selectCampo.value;
+    p.campoManual = true;  // marca que el usuario lo fijo a mano; auto-reparar no debe sobreescribirlo
     overlay.remove();
     savePartidos();
     calcConflictos();
@@ -1489,6 +1490,7 @@ function repararCamposSinCampo(lista){
   var reparados = 0;
   for(var i=0; i<lista.length; i++){
     var p = lista[i];
+    if(p && p.campoManual) continue;  // el usuario ya lo fijo a mano, no tocamos
     if(!p || !p.campo || p.campo === "Sin campo"){
       var nuevo = null;
       if(p && p.lugar) nuevo = lugarACampo(p.lugar);
