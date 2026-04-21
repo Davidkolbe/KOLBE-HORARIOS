@@ -157,11 +157,15 @@ exports.handler = async (event) => {
       return ACTIVE_STATUSES.has(status);
     });
 
-    // Filtrar por disciplina si viene especificado
+    // Filtrar por disciplina si viene especificado.
+    // Si el nombre del torneo no permite detectar la disciplina (ej. "COPA CADETE/JUVENIL"),
+    // dejamos pasar el torneo en vez de descartarlo: es preferible mostrar partidos
+    // de mas que ocultarlos por un nombre poco descriptivo.
     if (discFilter) {
       active = active.filter((t) => {
         const d = detectDiscipline(pick(t.attributes, 'name', 'nombre') || '');
-        return d && discFilter.has(d);
+        if (\!d) return true;  // disciplina desconocida: no filtrar
+        return discFilter.has(d);
       });
     }
 
