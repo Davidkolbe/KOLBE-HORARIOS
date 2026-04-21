@@ -4276,7 +4276,38 @@ async function guardarCambiosEnClupik(){
 
   // 1) Aprender el mapeo campo-local → facility_id a partir de los partidos ya vinculados.
   //    Para cada campo local único, contamos frecuencias de facility_id; gana el más frecuente.
-  var mapaCampos = {};  // _normCampo(p.campo) -> { id, count, nombreClupik }
+  var mapaCampos = {};  // _normCampo(p.campo) -> { facility_id -> count, _nombre }
+
+  // Fallback hardcoded: facility_ids conocidos (descubiertos via DevTools).
+  // Anade nuevos cuando aprendas mas (grep: CAMPO_A_FACILITY_FALLBACK).
+  var CAMPO_A_FACILITY_FALLBACK = {
+    "KOLBE": "65214",
+    "PISTA KOLBE SECUNDARIA": "73417",
+    "PISTA EXTERIOR INFANTA CRISTINA": "66104"
+  };
+  Object.keys(CAMPO_A_FACILITY_FALLBACK).forEach(function(k){
+    if(!mapaCampos[k]) mapaCampos[k] = {};
+    mapaCampos[k][CAMPO_A_FACILITY_FALLBACK[k]] = 1;
+  });
+
+  // Acumular mapeos desde TODAS las jornadas guardadas (no solo la actual):
+  // si en algun momento importamos un partido en Zola, aprendemos su facility_id.
+  var todasLasJornadas = [];
+  try { todasLasJornadas = getAllJornadas() || []; } catch(e){}
+  todasLasJornadas.forEach(function(j){
+    (j.partidos || []).forEach(function(p){
+      if(!p.match_id || !p.facility_id_clupik || !p.campo) return;
+      var k = _normCampo(p.campo);
+      if(!k) return;
+      if(!mapaCampos[k]) mapaCampos[k] = {};
+      var ent = mapaCampos[k];
+      var id = String(p.facility_id_clupik);
+      ent[id] = (ent[id] || 0) + 1;
+      ent._nombre = p.lugar_clupik || ent._nombre;
+    });
+  });
+
+  // Partidos de la jornada actual: doble peso por ser mas recientes
   partidos.forEach(function(p){
     if(!p.match_id || !p.facility_id_clupik || !p.campo) return;
     var k = _normCampo(p.campo);
@@ -4284,7 +4315,7 @@ async function guardarCambiosEnClupik(){
     if(!mapaCampos[k]) mapaCampos[k] = {};
     var ent = mapaCampos[k];
     var id = String(p.facility_id_clupik);
-    ent[id] = (ent[id] || 0) + 1;
+    ent[id] = (ent[id] || 0) + 2;
     ent._nombre = p.lugar_clupik || ent._nombre;
   });
   var campoAFacility = {};  // _normCampo(campo) -> { facility_id, nombreClupik }
