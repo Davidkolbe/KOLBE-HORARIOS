@@ -2809,7 +2809,19 @@ function mensajeUnicoKolbe(){
       msg += "📌 APLAZADO" + NL;
     } else {
       msg += condicion + " vs " + (rival||"—") + NL;
-      msg += "📅 " + dia + " · ⏰ " + hora + NL;
+      // Hora de convocatoria (30 min antes del inicio)
+      var convocatoria = "";
+      if(!p.sinHora && p.hora && p.hora !== "00:00"){
+        var _mins = toMins(p.hora) - 30;
+        if(_mins >= 0){
+          convocatoria = String(Math.floor(_mins/60)).padStart(2,"0") + ":" + String(_mins%60).padStart(2,"0") + "h";
+        }
+      }
+      if(convocatoria){
+        msg += "📅 " + dia + " · 🔔 Conv: " + convocatoria + " · ⏰ Partido: " + hora + NL;
+      } else {
+        msg += "📅 " + dia + " · ⏰ " + hora + NL;
+      }
       if(campo) msg += "🏟 " + campo + NL;
       if(dir && dir !== campo) msg += "📍 " + dir + NL;
     }
