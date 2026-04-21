@@ -4305,7 +4305,7 @@ async function guardarCambiosEnClupik(){
     var desc = {};
 
     // --- Aplazado ---
-    var quiereAplazado = !!(p.aplazado || p.sinHora || p.hora === "00:00");
+    var quiereAplazado = !!p.aplazado;
     var clupikAplazado = !!p._postponed_clupik;
     if(quiereAplazado !== clupikAplazado){
       payload.postponed = quiereAplazado;
@@ -4419,8 +4419,13 @@ async function guardarCambiosEnClupik(){
       sinDatos.push(p.eq1 + " vs " + p.eq2 + " (reimporta la jornada para que tenga tournament_id/team_ids)");
       continue;
     }
-    var quiereAplazado = !!(p.aplazado || p.sinHora || p.hora === "00:00");
+    var quiereAplazado = !!p.aplazado;
     var placeId = c.payload.facility_id || p.facility_id_clupik || "";
+    // Si no es aplazado y no tiene hora real, omitir del sync
+    if(!quiereAplazado && (!p.hora || p.hora === "00:00" || p.sinHora)){
+      sinDatos.push(p.eq1 + " vs " + p.eq2 + " (sin hora asignada)");
+      continue;
+    }
     payloads.push({
       label: p.eq1 + " vs " + p.eq2 + " [" + c.tipos.join(", ") + "]",
       url_path: "/es/ajax/admin/tournament/" + p.tournament_id + "/match/" + p.match_id + "/results",
