@@ -4340,7 +4340,7 @@ async function guardarCambiosEnClupik(){
       if(!a || !b) return false;
       return a.indexOf(b) >= 0 || b.indexOf(a) >= 0;
     };
-    if(p.campo){
+    if(p.campo && p.campo !== "Sin campo"){
       var kLocal = _normCampo(p.campo);
       var kClupik = _normCampo(p.lugar_clupik || "");
       if(kLocal && !_mismoCampo(kLocal, kClupik)){
