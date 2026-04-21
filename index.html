@@ -4459,38 +4459,61 @@ async function guardarCambiosEnClupik(){
 // ============ MODAL SYNC CLUPIK (workaround via bookmarklet) ============
 
 function abrirModalSyncClupik(payloads, sinDatos){
-  var json = JSON.stringify(payloads);
+  var jsonStr = JSON.stringify(payloads);
+  // Construir script completo con JSON embebido y auto-fetch de csrf_token.
+  // El script se ejecuta desde la consola de devtools en clupik.pro estando logueado.
+  var autoScript = "(async()=>{\n"
+    + "var CHANGES = " + jsonStr + ";\n"
+    + "var csrf = document.querySelector('meta[name=\"csrf-token\"]')?.content;\n"
+    + "if(" + B + "csrf){\n"
+    + "  var editUrl = CHANGES[0].url_path.replace('/ajax/','/').replace(/\\/results$/,'');\n"
+    + "  try{ var r = await fetch(editUrl,{credentials:'include'}); var html = await r.text(); var m = html.match(/<meta name=\"csrf-token\" content=\"([^\"]+)\"/); if(m) csrf=m[1]; }catch(e){}\n"
+    + "}\n"
+    + "if(" + B + "csrf){alert('No se obtuvo csrf_token. Inicia sesion en clupik.pro y recarga.');return}\n"
+    + "console.log('[Sync] csrf:', csrf.slice(0,12)+'...', 'total:', CHANGES.length);\n"
+    + "var ok=0, fail=0, errs=[];\n"
+    + "for(var i=0;i<CHANGES.length;i++){\n"
+    + "  var c = CHANGES[i];\n"
+    + "  try{\n"
+    + "    var fd = new FormData(); fd.append('csrf_token',csrf);\n"
+    + "    for(var k in c.fields) fd.append(k,c.fields[k]);\n"
+    + "    var r2 = await fetch(c.url_path,{method:'POST',body:fd,credentials:'include'});\n"
+    + "    if(r2.ok){ok++;console.log('  OK', c.label)}\n"
+    + "    else{fail++;var t=await r2.text();errs.push(c.label+': HTTP '+r2.status);console.warn('  FAIL', c.label, r2.status, t.slice(0,200))}\n"
+    + "  }catch(e){fail++;errs.push(c.label+': '+e.message)}\n"
+    + "}\n"
+    + "alert('Sync Clupik: '+ok+' OK, '+fail+' fallos'+(errs.length?'\\n\\n'+errs.slice(0,10).join('\\n'):''));\n"
+    + "})();";
+
   var overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem";
   var box = document.createElement("div");
-  box.style.cssText = "background:#fff;border-radius:var(--rl);padding:1.5rem;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;font-family:var(--f)";
+  box.style.cssText = "background:#fff;border-radius:var(--rl);padding:1.5rem;max-width:680px;width:100%;max-height:90vh;overflow-y:auto;font-family:var(--f)";
 
-  var bmJs = 'javascript:(async()=>{try{var s=prompt(\'Pega aqui el JSON de cambios de Kolbe Horarios:\');if(!s)return;var changes;try{changes=JSON.parse(s)}catch(e){alert(\'JSON invalido: \'+e.message);return}if(!Array.isArray(changes)||!changes.length){alert(\'No hay cambios en el JSON.\');return}var csrf=null;var m=document.querySelector(\'meta[name="csrf-token"]\');if(m)csrf=m.content;if(!csrf){var inp=document.querySelector(\'input[name="_token"]\');if(inp)csrf=inp.value}if(!csrf){alert(\'No se encontro csrf_token. Abre una pagina del admin de Clupik primero.\');return}var ok=0,fail=0,errs=[];for(var i=0;i<changes.length;i++){var c=changes[i];try{var fd=new FormData();fd.append(\'csrf_token\',csrf);Object.keys(c.fields).forEach(function(k){fd.append(k,c.fields[k])});var r=await fetch(c.url_path,{method:\'POST\',body:fd,credentials:\'include\'});if(r.ok){ok++}else{fail++;errs.push((c.label||c.url_path)+\': HTTP \'+r.status)}}catch(e){fail++;errs.push((c.label||c.url_path)+\': \'+e.message)}}alert(\'Sync Clupik: \'+ok+\' OK, \'+fail+\' fallos\'+(errs.length?\'\\n\\n\'+errs.slice(0,10).join(\'\\n\'):\'\'));}catch(e){alert(\'Error: \'+e.message);}})();';
-
-  box.innerHTML = '<h2 style="font-size:16px;font-weight:600;margin-bottom:.5rem;color:var(--verde)">Sync a Clupik (via bookmarklet)</h2>'
-    + '<p style="font-size:12px;color:var(--gris5);margin-bottom:1rem">Clupik aun no permite escribir via API desde nuestro servidor. Este metodo replica la llamada que hace la propia web de Clupik, usando tu sesion del navegador. Se instala 1 vez y luego son 4 clics.</p>'
-    + '<div style="background:var(--gris1);border-left:3px solid var(--verde);padding:10px 12px;border-radius:6px;margin-bottom:1rem;font-size:12px"><b>Primera vez (una sola):</b><br>1. Muestra la barra de marcadores en tu navegador (<code>Cmd+Shift+B</code> en Chrome).<br>2. <b>Arrastra este enlace</b> a la barra de marcadores:<br><br><a id="bm-link" href="">Sync Kolbe -> Clupik</a><br><small style="color:var(--gris4)">(si no te deja arrastrar: clic derecho &rarr; Anadir a marcadores)</small></div>'
-    + '<div style="background:#fff9e6;border-left:3px solid #ffc107;padding:10px 12px;border-radius:6px;margin-bottom:1rem;font-size:12px"><b>Cada vez que quieras sincronizar:</b><br>1. <b>Copia</b> el JSON de abajo (boton Copiar).<br>2. Ve a <a href="https://clupik.pro/es/admin" target="_blank">clupik.pro/es/admin</a> (login si hace falta).<br>3. Clic en el marcador <b>Sync Kolbe -> Clupik</b>.<br>4. <b>Pega</b> el JSON cuando te lo pida y dale Aceptar.<br>5. Te dira cuantos se han guardado OK.</div>'
-    + (sinDatos && sinDatos.length ? '<div style="background:#f8d7da;border-left:3px solid #c0392b;padding:10px 12px;border-radius:6px;margin-bottom:1rem;font-size:12px"><b>' + sinDatos.length + ' partido(s) omitidos</b> por falta de datos. Reimporta la jornada para poblar sus IDs.<br><ul style="margin:6px 0 0 16px;padding:0">' + sinDatos.slice(0,6).map(function(x){return '<li style="margin:2px 0">' + x + '</li>';}).join("") + '</ul></div>' : '')
-    + '<label style="font-size:11px;color:var(--gris4);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px">JSON a copiar (' + payloads.length + ' cambio(s))</label>'
-    + '<textarea id="sync-json-ta" readonly style="width:100%;height:120px;font-family:monospace;font-size:11px;padding:8px;border:1px solid var(--gris3);border-radius:var(--r);background:var(--gris1);box-sizing:border-box;resize:vertical"></textarea>'
-    + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:1rem"><button id="sync-copy-btn" class="btn btn-verde btn-sm">Copiar JSON</button><button id="sync-close-btn" class="btn btn-outline btn-sm">Cerrar</button></div>';
+  box.innerHTML = '<h2 style="font-size:16px;font-weight:600;margin-bottom:.5rem;color:var(--verde)">Sync a Clupik</h2>'
+    + '<p style="font-size:12px;color:var(--gris5);margin-bottom:1rem">Subir ' + payloads.length + ' cambio(s) a Clupik. Como Clupik aun no tiene API de escritura para nosotros, se hace desde tu sesion del navegador. <b>3 pasos, 20 segundos.</b></p>'
+    + '<div style="background:var(--gris1);border-left:3px solid var(--verde);padding:10px 12px;border-radius:6px;margin-bottom:1rem;font-size:12px">'
+    + '<b>1.</b> Pulsa <b>Copiar script</b> abajo.<br>'
+    + '<b>2.</b> Abre <a href="https://clupik.pro/es/admin" target="_blank">clupik.pro/es/admin</a> (cualquier pagina del admin, logueado) y abre DevTools con <code>Cmd+Option+J</code>. Si Chrome lo pide, escribe <code>allow pasting</code> + Enter.<br>'
+    + '<b>3.</b> Pega con <code>Cmd+V</code> en la consola y pulsa Enter. Espera unos segundos. Un alert te dira cuantos fueron OK.'
+    + '</div>'
+    + (sinDatos && sinDatos.length ? '<div style="background:#f8d7da;border-left:3px solid #c0392b;padding:10px 12px;border-radius:6px;margin-bottom:1rem;font-size:12px"><b>' + sinDatos.length + ' partido(s) omitidos</b> (sin hora o sin IDs). Reimporta la jornada desde Clupik si quieres que se incluyan.<br><ul style="margin:6px 0 0 16px;padding:0">' + sinDatos.slice(0,6).map(function(x){return '<li style="margin:2px 0">' + x + '</li>';}).join("") + '</ul></div>' : '')
+    + '<label style="font-size:11px;color:var(--gris4);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px">Script a pegar en la consola de Clupik</label>'
+    + '<textarea id="sync-script-ta" readonly style="width:100%;height:100px;font-family:monospace;font-size:10px;padding:8px;border:1px solid var(--gris3);border-radius:var(--r);background:var(--gris1);box-sizing:border-box;resize:vertical"></textarea>'
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:1rem"><button id="sync-copy-btn" class="btn btn-verde btn-sm">Copiar script</button><button id="sync-close-btn" class="btn btn-outline btn-sm">Cerrar</button></div>';
 
   overlay.appendChild(box);
   document.body.appendChild(overlay);
 
-  var ta = box.querySelector("#sync-json-ta");
-  ta.value = json;
-  var link = box.querySelector("#bm-link");
-  link.setAttribute("href", bmJs);
-  link.style.cssText = "display:inline-block;padding:6px 12px;background:var(--verde);color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:12px;margin:4px 0";
+  var ta = box.querySelector("#sync-script-ta");
+  ta.value = autoScript;
 
   box.querySelector("#sync-copy-btn").addEventListener("click", function(){
     ta.select();
-    try { navigator.clipboard.writeText(json); this.textContent = "Copiado"; }
+    try { navigator.clipboard.writeText(autoScript); this.textContent = "Copiado"; }
     catch(e){ document.execCommand("copy"); this.textContent = "Copiado"; }
     var self = this;
-    setTimeout(function(){ self.textContent = "Copiar JSON"; }, 2000);
+    setTimeout(function(){ self.textContent = "Copiar script"; }, 2000);
   });
   box.querySelector("#sync-close-btn").addEventListener("click", function(){ overlay.remove(); });
 }
