@@ -164,7 +164,7 @@ exports.handler = async (event) => {
     if (discFilter) {
       active = active.filter((t) => {
         const d = detectDiscipline(pick(t.attributes, 'name', 'nombre') || '');
-        if (\!d) return true;  // disciplina desconocida: no filtrar
+        if (!d) return true;  // disciplina desconocida: no filtrar
         return discFilter.has(d);
       });
     }
