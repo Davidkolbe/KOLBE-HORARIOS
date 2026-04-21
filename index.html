@@ -4466,10 +4466,10 @@ function abrirModalSyncClupik(payloads, sinDatos){
   // El script se ejecuta desde la consola de devtools en clupik.pro estando logueado.
   var autoScript = "(async()=>{\n"
     + "var CHANGES = " + jsonStr + ";\n"
-    + "var csrf = document.querySelector('meta[name=\"csrf-token\"]')?.content;\n"
+    + "var csrf = document.querySelector('meta[name=\"csrf-token\"]')?.content || document.querySelector('input[name=\"csrf_token\"]')?.value || document.querySelector('input[name=\"_token\"]')?.value;\n"
     + "if(!csrf){\n"
     + "  var editUrl = CHANGES[0].url_path.replace('/ajax/','/').replace(/\\/results$/,'');\n"
-    + "  try{ var r = await fetch(editUrl,{credentials:'include'}); var html = await r.text(); var m = html.match(/<meta name=\"csrf-token\" content=\"([^\"]+)\"/); if(m) csrf=m[1]; }catch(e){}\n"
+    + "  try{ var r = await fetch(editUrl,{credentials:'include'}); var html = await r.text(); var m = html.match(/name=\"csrf[_-]token\"[^>]*?(?:content|value)=\"([^\"]+)\"/); if(m) csrf=m[1]; }catch(e){}\n"
     + "}\n"
     + "if(!csrf){alert('No se obtuvo csrf_token. Inicia sesion en clupik.pro y recarga.');return}\n"
     + "console.log('[Sync] csrf:', csrf.slice(0,12)+'...', 'total:', CHANGES.length);\n"
