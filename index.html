@@ -3999,6 +3999,51 @@ function guardarNuevoPartido(){
   alert("✓ Partido añadido correctamente.");
 }
 
+// ============ APLICAR SYNC DEVUELTO DESDE CLUPIK ============
+// Cuando el bookmarklet de sync termina, abre esta app con
+// #sync_apply=<json>  para que marquemos los partidos correspondientes como
+// "ya sincronizados" (y no vuelvan a aparecer como cambios pendientes).
+(function aplicarSyncAlArrancar(){
+  try {
+    var h = window.location.hash || "";
+    if(h.indexOf("#sync_apply=") !== 0) return;
+    var payload = JSON.parse(decodeURIComponent(h.slice("#sync_apply=".length)));
+    if(!Array.isArray(payload) || !payload.length) return;
+
+    var jornadas = getAllJornadas();
+    var actualizados = 0;
+    for(var i=0; i<jornadas.length; i++){
+      var ps = jornadas[i].partidos || [];
+      for(var j=0; j<ps.length; j++){
+        var p = ps[j];
+        for(var k=0; k<payload.length; k++){
+          var d = payload[k];
+          if(String(p.match_id) === String(d.match_id)){
+            p._lastSyncSucceeded = {
+              fecha: d.fecha || p.fecha,
+              hora: d.hora || p.hora,
+              campo: d.campo || p.campo || "",
+              aplazado: !!d.aplazado
+            };
+            if(d.place) p.facility_id_clupik = String(d.place);
+            actualizados++;
+          }
+        }
+      }
+    }
+    if(actualizados > 0){
+      saveAllJornadas(jornadas);
+      setTimeout(function(){
+        alert("✓ Sync aplicado: " + actualizados + " partido(s) marcados como ya sincronizados en Clupik.");
+      }, 500);
+    }
+    // Limpiar el hash para que no se vuelva a aplicar al refrescar
+    try { history.replaceState(null, "", window.location.pathname + window.location.search); } catch(e){}
+  } catch(e) {
+    console.error("Error aplicando sync pendiente:", e);
+  }
+})();
+
 // ============ INIT ============
 try {
   const savedCampos = localStorage.getItem("kolbe_campos");
@@ -4405,8 +4450,18 @@ async function guardarCambiosEnClupik(){
 
   // 2) Recorrer partidos y construir lista de cambios, con tipos bien diferenciados.
   var cambios = [];  // { p, tipos: Set, payload: {...}, desc: {...} }
+  // Saltar partidos que ya estan sincronizados con Clupik (coincide p._lastSyncSucceeded con p actual)
+  var _yaSincronizado = function(p){
+    if(!p._lastSyncSucceeded) return false;
+    var s = p._lastSyncSucceeded;
+    return s.fecha === p.fecha
+        && s.hora === p.hora
+        && (s.campo||"") === (p.campo||"")
+        && !!s.aplazado === !!p.aplazado;
+  };
   partidos.forEach(function(p){
     if(!p.match_id) return;
+    if(_yaSincronizado(p)) return;  // ya esta en Clupik con estos valores
     var payload = { match_id: p.match_id };
     var tipos = [];
     var desc = {};
@@ -4535,6 +4590,8 @@ async function guardarCambiosEnClupik(){
     }
     payloads.push({
       label: p.eq1 + " vs " + p.eq2 + " [" + c.tipos.join(", ") + "]",
+      match_id: String(p.match_id),
+      local: { fecha: p.fecha, hora: p.hora, campo: p.campo || "", aplazado: !!p.aplazado, place: String(placeId) },
       url_path: "/es/ajax/admin/tournament/" + p.tournament_id + "/match/" + p.match_id + "/results",
       fields: {
         date: p.fecha,
@@ -4569,7 +4626,7 @@ function abrirModalSyncClupik(payloads, sinDatos){
   var jsonStr = JSON.stringify(payloads);
 
   // Bookmarklet JS: lee portapapeles automaticamente, cae a prompt si no puede
-  var bmJs = "javascript:" + '(async()=>{try{var s;try{s=await navigator.clipboard.readText()}catch(e){}if(!s||(s.trim()[0]!==\'[\'&&s.trim()[0]!==\'{\')){s=prompt(\'Pega aqui el JSON de Kolbe Horarios:\')}if(!s)return;var changes;try{changes=JSON.parse(s)}catch(e){alert(\'JSON invalido. Copia de nuevo desde Kolbe Horarios.\');return}if(!Array.isArray(changes)||!changes.length){alert(\'No hay cambios en el JSON.\');return}var csrf=document.querySelector(\'meta[name=\\"csrf-token\\"]\')?.content||document.querySelector(\'input[name=\\"csrf_token\\"]\')?.value||document.querySelector(\'input[name=\\"_token\\"]\')?.value;if(!csrf){try{var eu=changes[0].url_path.replace(\'/ajax/\',\'/\').replace(/\\/results$/,\'\');var r=await fetch(eu,{credentials:\'include\'});var h=await r.text();var m=h.match(/name=\\"csrf[_-]token\\"[^>]*?(?:content|value)=\\"([^\\"]+)\\"/);if(m)csrf=m[1]}catch(e){}}if(!csrf){alert(\'No se obtuvo csrf_token. Abre un partido en Clupik primero.\');return}var ok=0,fail=0,errs=[];var sleep=function(ms){return new Promise(function(r){setTimeout(r,ms);});};for(var i=0;i<changes.length;i++){var c=changes[i];var attempt=0;var success=false;while(attempt<3&&!success){attempt++;try{var fd=new FormData();fd.append(\'csrf_token\',csrf);for(var k in c.fields)fd.append(k,c.fields[k]);var r2=await fetch(c.url_path,{method:\'POST\',body:fd,credentials:\'include\'});if(r2.ok){ok++;success=true}else if(r2.status===503&&attempt<3){await sleep(attempt*800)}else{fail++;errs.push((c.label||\'?\')+\': HTTP \'+r2.status);break}}catch(e){if(attempt<3){await sleep(attempt*800)}else{fail++;errs.push((c.label||\'?\')+\': \'+e.message)}}}if(i<changes.length-1)await sleep(400);}alert(\'Sync Clupik: \'+ok+\' OK, \'+fail+\' fallos\'+(errs.length?\'\\n\\n\'+errs.slice(0,10).join(\'\\n\'):\'\'));}catch(e){alert(\'Error: \'+e.message);}})();';
+  var bmJs = "javascript:" + '(async()=>{try{var s;try{s=await navigator.clipboard.readText()}catch(e){}if(!s||(s.trim()[0]!==\'[\'&&s.trim()[0]!==\'{\')){s=prompt(\'Pega aqui el JSON de Kolbe Horarios:\')}if(!s)return;var changes;try{changes=JSON.parse(s)}catch(e){alert(\'JSON invalido. Copia de nuevo desde Kolbe Horarios.\');return}if(!Array.isArray(changes)||!changes.length){alert(\'No hay cambios en el JSON.\');return}var csrf=document.querySelector(\'meta[name=\\"csrf-token\\"]\')?.content||document.querySelector(\'input[name=\\"csrf_token\\"]\')?.value||document.querySelector(\'input[name=\\"_token\\"]\')?.value;if(!csrf){try{var eu=changes[0].url_path.replace(\'/ajax/\',\'/\').replace(/\\/results$/,\'\');var r=await fetch(eu,{credentials:\'include\'});var h=await r.text();var m=h.match(/name=\\"csrf[_-]token\\"[^>]*?(?:content|value)=\\"([^\\"]+)\\"/);if(m)csrf=m[1]}catch(e){}}if(!csrf){alert(\'No se obtuvo csrf_token. Abre un partido en Clupik primero.\');return}var ok=0,fail=0,errs=[];var sleep=function(ms){return new Promise(function(r){setTimeout(r,ms);});};for(var i=0;i<changes.length;i++){var c=changes[i];var attempt=0;var success=false;while(attempt<3&&!success){attempt++;try{var fd=new FormData();fd.append(\'csrf_token\',csrf);for(var k in c.fields)fd.append(k,c.fields[k]);var r2=await fetch(c.url_path,{method:\'POST\',body:fd,credentials:\'include\'});if(r2.ok){ok++;success=true;c._syncedOk=true}else if(r2.status===503&&attempt<3){await sleep(attempt*800)}else{fail++;errs.push((c.label||\'?\')+\': HTTP \'+r2.status);break}}catch(e){if(attempt<3){await sleep(attempt*800)}else{fail++;errs.push((c.label||\'?\')+\': \'+e.message)}}}if(i<changes.length-1)await sleep(400);}var applied=[];for(var ii=0;ii<changes.length;ii++){var cc=changes[ii];if(cc._syncedOk){applied.push({match_id:cc.match_id,fecha:cc.local&&cc.local.fecha,hora:cc.local&&cc.local.hora,campo:cc.local&&cc.local.campo,aplazado:cc.local&&cc.local.aplazado,place:cc.local&&cc.local.place})}}if(applied.length){try{window.open(\'https://kolbe-horarios.netlify.app/#sync_apply=\'+encodeURIComponent(JSON.stringify(applied)),\'_blank\')}catch(e){}}alert(\'Sync Clupik: \'+ok+\' OK, \'+fail+\' fallos\'+(errs.length?\'\\n\\n\'+errs.slice(0,10).join(\'\\n\'):\'\'));}catch(e){alert(\'Error: \'+e.message);}})();';
 
   // Auto-copiar JSON al portapapeles cuando se abre el modal (silencioso)
   try { navigator.clipboard.writeText(jsonStr); } catch(e) {}
@@ -4582,7 +4639,9 @@ function abrirModalSyncClupik(payloads, sinDatos){
     + "if(!csrf){alert('No csrf. Abre un partido en Clupik primero.');return}"
     + "var ok=0,fail=0,errs=[];"
     + "var sleep=function(ms){return new Promise(function(r){setTimeout(r,ms);});};"
-    + "for(var i=0;i<CHANGES.length;i++){var c=CHANGES[i];var attempt=0;var success=false;while(attempt<3&&!success){attempt++;try{var fd=new FormData();fd.append('csrf_token',csrf);for(var k in c.fields)fd.append(k,c.fields[k]);var r2=await fetch(c.url_path,{method:'POST',body:fd,credentials:'include'});if(r2.ok){ok++;success=true}else if(r2.status===503&&attempt<3){await sleep(attempt*800)}else{fail++;errs.push((c.label||'?')+': HTTP '+r2.status);break}}catch(e){if(attempt<3){await sleep(attempt*800)}else{fail++;errs.push((c.label||'?')+': '+e.message)}}}if(i<CHANGES.length-1)await sleep(400);}"
+    + "for(var i=0;i<CHANGES.length;i++){var c=CHANGES[i];var attempt=0;var success=false;while(attempt<3&&!success){attempt++;try{var fd=new FormData();fd.append('csrf_token',csrf);for(var k in c.fields)fd.append(k,c.fields[k]);var r2=await fetch(c.url_path,{method:'POST',body:fd,credentials:'include'});if(r2.ok){ok++;success=true;c._syncedOk=true}else if(r2.status===503&&attempt<3){await sleep(attempt*800)}else{fail++;errs.push((c.label||'?')+': HTTP '+r2.status);break}}catch(e){if(attempt<3){await sleep(attempt*800)}else{fail++;errs.push((c.label||'?')+': '+e.message)}}}if(i<CHANGES.length-1)await sleep(400);}"
+    + "var applied=[];for(var ii=0;ii<CHANGES.length;ii++){var cc=CHANGES[ii];if(cc._syncedOk){applied.push({match_id:cc.match_id,fecha:cc.local&&cc.local.fecha,hora:cc.local&&cc.local.hora,campo:cc.local&&cc.local.campo,aplazado:cc.local&&cc.local.aplazado,place:cc.local&&cc.local.place})}}"
+    + "if(applied.length){try{window.open('https://kolbe-horarios.netlify.app/#sync_apply='+encodeURIComponent(JSON.stringify(applied)),'_blank')}catch(e){}}"
     + "alert('Sync Clupik: '+ok+' OK, '+fail+' fallos'+(errs.length?'\n\n'+errs.slice(0,10).join('\n'):''));"
     + "})();";
 
