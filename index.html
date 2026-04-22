@@ -2936,7 +2936,7 @@ function generarMensajesWhatsApp(){
   barraMasivo.style.cssText = "background:#eaf7ec;border:1px solid var(--verde);border-radius:var(--r);padding:10px 14px;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap";
   var barraTxt = document.createElement("div");
   barraTxt.style.cssText = "font-size:12px;color:var(--verde);flex:1;min-width:200px";
-  barraTxt.innerHTML = "<b>Envío masivo:</b> copia todos los mensajes a la vez y pide a Claude (en Cowork) que los deje preparados en WhatsApp Web.";
+  barraTxt.innerHTML = "<b>Envío masivo:</b> <br><b>Modo secuencial:</b> abre cada chat en WhatsApp Web al pulsar (envía y cierra, luego pulsa \"Siguiente\"). <br><b>Copiar todos:</b> para usar con Claude via Cowork.";
   var btnMasivo = document.createElement("button");
   btnMasivo.textContent = "📤 Copiar todos para envío masivo";
   btnMasivo.style.cssText = "padding:8px 14px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--f)";
@@ -2955,7 +2955,36 @@ function generarMensajesWhatsApp(){
       var ta = document.createElement("textarea"); ta.value = json; ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); ok();
     }
   });
+  // Boton 2: envio secuencial (abre wa.me uno por uno, no necesita Cowork)
+  var btnSecuencial = document.createElement("button");
+  btnSecuencial.textContent = "🚀 Modo envio secuencial";
+  btnSecuencial.style.cssText = "padding:8px 14px;background:#25D366;color:#fff;border:none;border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--f)";
+  btnSecuencial.addEventListener("click", function(){
+    var envios = window._enviosMasivos || [];
+    if(!envios.length){ alert("No hay envios con telefono configurado. Anade los telefonos en ⚙ Entrenadores."); return; }
+    if(window._cadenaIdx === undefined) window._cadenaIdx = 0;
+    var idx = window._cadenaIdx;
+    if(idx >= envios.length){
+      alert("Ya se abrieron los " + envios.length + " mensajes. Reinicio el contador.");
+      window._cadenaIdx = 0;
+      this.textContent = "🚀 Modo envio secuencial";
+      return;
+    }
+    var e = envios[idx];
+    var tel = e.telefono.replace("+", "");
+    var url = "https://web.whatsapp.com/send?phone=" + tel + "&text=" + encodeURIComponent(e.mensaje);
+    window.open(url, "_blank");
+    window._cadenaIdx = idx + 1;
+    if(window._cadenaIdx >= envios.length){
+      this.textContent = "✓ Último abierto (" + envios.length + "/" + envios.length + ")";
+    } else {
+      var next = envios[window._cadenaIdx];
+      this.textContent = "➜ Siguiente: " + next.entrenador + " (" + (window._cadenaIdx+1) + "/" + envios.length + ")";
+    }
+  });
+
   barraMasivo.appendChild(barraTxt);
+  barraMasivo.appendChild(btnSecuencial);
   barraMasivo.appendChild(btnMasivo);
   wrapper.appendChild(barraMasivo);
 
@@ -4547,7 +4576,7 @@ function abrirModalSyncClupik(payloads, sinDatos){
   var jsonStr = JSON.stringify(payloads);
 
   // Bookmarklet JS: lee portapapeles automaticamente, cae a prompt si no puede
-  var bmJs = "javascript:" + '(async()=>{try{var s;try{s=await navigator.clipboard.readText()}catch(e){}if(!s||(s.trim()[0]!==\'[\'&&s.trim()[0]!==\'{\')){s=prompt(\'Pega aqui el JSON de Kolbe Horarios:\')}if(!s)return;var changes;try{changes=JSON.parse(s)}catch(e){alert(\'JSON invalido. Copia de nuevo desde Kolbe Horarios.\');return}if(!Array.isArray(changes)||!changes.length){alert(\'No hay cambios en el JSON.\');return}var csrf=document.querySelector(\'meta[name=\\"csrf-token\\"]\')?.content||document.querySelector(\'input[name=\\"csrf_token\\"]\')?.value||document.querySelector(\'input[name=\\"_token\\"]\')?.value;if(!csrf){try{var eu=changes[0].url_path.replace(\'/ajax/\',\'/\').replace(/\\/results$/,\'\');var r=await fetch(eu,{credentials:\'include\'});var h=await r.text();var m=h.match(/name=\\"csrf[_-]token\\"[^>]*?(?:content|value)=\\"([^\\"]+)\\"/);if(m)csrf=m[1]}catch(e){}}if(!csrf){alert(\'No se obtuvo csrf_token. Abre un partido en Clupik primero.\');return}var ok=0,fail=0,errs=[];for(var i=0;i<changes.length;i++){var c=changes[i];try{var fd=new FormData();fd.append(\'csrf_token\',csrf);for(var k in c.fields)fd.append(k,c.fields[k]);var r2=await fetch(c.url_path,{method:\'POST\',body:fd,credentials:\'include\'});if(r2.ok){ok++}else{fail++;errs.push((c.label||\'?\')+\': HTTP \'+r2.status)}}catch(e){fail++;errs.push((c.label||\'?\')+\': \'+e.message)}}alert(\'Sync Clupik: \'+ok+\' OK, \'+fail+\' fallos\'+(errs.length?\'\\n\\n\'+errs.slice(0,10).join(\'\\n\'):\'\'));}catch(e){alert(\'Error: \'+e.message);}})();';
+  var bmJs = "javascript:" + '(async()=>{try{var s;try{s=await navigator.clipboard.readText()}catch(e){}if(!s||(s.trim()[0]!==\'[\'&&s.trim()[0]!==\'{\')){s=prompt(\'Pega aqui el JSON de Kolbe Horarios:\')}if(!s)return;var changes;try{changes=JSON.parse(s)}catch(e){alert(\'JSON invalido. Copia de nuevo desde Kolbe Horarios.\');return}if(!Array.isArray(changes)||!changes.length){alert(\'No hay cambios en el JSON.\');return}var csrf=document.querySelector(\'meta[name=\\"csrf-token\\"]\')?.content||document.querySelector(\'input[name=\\"csrf_token\\"]\')?.value||document.querySelector(\'input[name=\\"_token\\"]\')?.value;if(!csrf){try{var eu=changes[0].url_path.replace(\'/ajax/\',\'/\').replace(/\\/results$/,\'\');var r=await fetch(eu,{credentials:\'include\'});var h=await r.text();var m=h.match(/name=\\"csrf[_-]token\\"[^>]*?(?:content|value)=\\"([^\\"]+)\\"/);if(m)csrf=m[1]}catch(e){}}if(!csrf){alert(\'No se obtuvo csrf_token. Abre un partido en Clupik primero.\');return}var ok=0,fail=0,errs=[];var sleep=function(ms){return new Promise(function(r){setTimeout(r,ms);});};for(var i=0;i<changes.length;i++){var c=changes[i];var attempt=0;var success=false;while(attempt<3&&!success){attempt++;try{var fd=new FormData();fd.append(\'csrf_token\',csrf);for(var k in c.fields)fd.append(k,c.fields[k]);var r2=await fetch(c.url_path,{method:\'POST\',body:fd,credentials:\'include\'});if(r2.ok){ok++;success=true}else if(r2.status===503&&attempt<3){await sleep(attempt*800)}else{fail++;errs.push((c.label||\'?\')+\': HTTP \'+r2.status);break}}catch(e){if(attempt<3){await sleep(attempt*800)}else{fail++;errs.push((c.label||\'?\')+\': \'+e.message)}}}if(i<changes.length-1)await sleep(400);}alert(\'Sync Clupik: \'+ok+\' OK, \'+fail+\' fallos\'+(errs.length?\'\\n\\n\'+errs.slice(0,10).join(\'\\n\'):\'\'));}catch(e){alert(\'Error: \'+e.message);}})();';
 
   // Auto-copiar JSON al portapapeles cuando se abre el modal (silencioso)
   try { navigator.clipboard.writeText(jsonStr); } catch(e) {}
@@ -4559,7 +4588,8 @@ function abrirModalSyncClupik(payloads, sinDatos){
     + "if(!csrf){try{var eu=CHANGES[0].url_path.replace('/ajax/','/').replace(/\\/results$/,'');var r=await fetch(eu,{credentials:'include'});var h=await r.text();var m=h.match(/name=\"csrf[_-]token\"[^>]*?(?:content|value)=\"([^\"]+)\"/);if(m)csrf=m[1]}catch(e){}}"
     + "if(!csrf){alert('No csrf. Abre un partido en Clupik primero.');return}"
     + "var ok=0,fail=0,errs=[];"
-    + "for(var i=0;i<CHANGES.length;i++){var c=CHANGES[i];try{var fd=new FormData();fd.append('csrf_token',csrf);for(var k in c.fields)fd.append(k,c.fields[k]);var r2=await fetch(c.url_path,{method:'POST',body:fd,credentials:'include'});if(r2.ok){ok++}else{fail++;errs.push((c.label||'?')+': HTTP '+r2.status)}}catch(e){fail++;errs.push((c.label||'?')+': '+e.message)}}"
+    + "var sleep=function(ms){return new Promise(function(r){setTimeout(r,ms);});};"
+    + "for(var i=0;i<CHANGES.length;i++){var c=CHANGES[i];var attempt=0;var success=false;while(attempt<3&&!success){attempt++;try{var fd=new FormData();fd.append('csrf_token',csrf);for(var k in c.fields)fd.append(k,c.fields[k]);var r2=await fetch(c.url_path,{method:'POST',body:fd,credentials:'include'});if(r2.ok){ok++;success=true}else if(r2.status===503&&attempt<3){await sleep(attempt*800)}else{fail++;errs.push((c.label||'?')+': HTTP '+r2.status);break}}catch(e){if(attempt<3){await sleep(attempt*800)}else{fail++;errs.push((c.label||'?')+': '+e.message)}}}if(i<CHANGES.length-1)await sleep(400);}"
     + "alert('Sync Clupik: '+ok+' OK, '+fail+' fallos'+(errs.length?'\n\n'+errs.slice(0,10).join('\n'):''));"
     + "})();";
 
