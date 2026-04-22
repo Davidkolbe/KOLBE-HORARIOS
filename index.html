@@ -2981,6 +2981,61 @@ function generarMensajesWhatsApp(){
   barraMasivo.appendChild(btnMasivo);
   wrapper.appendChild(barraMasivo);
 
+  // ===== BANNER: entrenadores de esta jornada sin telefono =====
+  // Recolectar entrenadores (unicos) que participan en partidos Kolbe de esta jornada
+  var entsJornada = new Set();
+  Object.keys(porEquipo).forEach(function(equipo){
+    porEquipo[equipo].forEach(function(item){
+      var pP = item.p;
+      var ents = ((item.esLocal ? pP.ent1 : pP.ent2) || "").split(/[,\/]/);
+      ents.forEach(function(n){
+        var nn = n.trim().toUpperCase();
+        if(!nn) return;
+        if(/^ENTREN_|ENTRENADOR \d|ENTRENADOR QUERCUS|EXTERN_/i.test(nn)) return;
+        entsJornada.add(nn);
+      });
+    });
+  });
+  var sinTelefono = Array.from(entsJornada).filter(function(n){ return !_telPrefijo(entrenadoresTels[n]||""); }).sort();
+
+  if(sinTelefono.length){
+    var barraTels = document.createElement("div");
+    barraTels.style.cssText = "background:#fff9e6;border:1px solid #ffc107;border-radius:var(--r);padding:10px 14px;margin-bottom:1rem;font-size:12px";
+    var txtTels = document.createElement("div");
+    txtTels.style.cssText = "color:#8a6400;margin-bottom:8px";
+    txtTels.innerHTML = "<b>⚠️ " + sinTelefono.length + " entrenador(es) sin telefono</b> en esta jornada. Anadelos aqui y podras enviarles el mensaje por WhatsApp:";
+    var listaTels = document.createElement("div");
+    listaTels.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:6px";
+    sinTelefono.forEach(function(nombre){
+      var row = document.createElement("div");
+      row.style.cssText = "display:flex;gap:6px;align-items:center";
+      var lbl = document.createElement("span");
+      lbl.style.cssText = "font-weight:600;min-width:80px;font-size:11px";
+      lbl.textContent = nombre;
+      var inp = document.createElement("input");
+      inp.type = "tel";
+      inp.placeholder = "+34...";
+      inp.style.cssText = "flex:1;font-size:11px;padding:4px 6px;border:1px solid var(--gris3);border-radius:4px";
+      inp.dataset.nombre = nombre;
+      inp.addEventListener("change", function(){
+        var nom = this.dataset.nombre;
+        var val = this.value.trim();
+        if(!val){ return; }
+        entrenadoresTels[nom] = val;
+        saveEntrenadoresTels();
+        // Re-abrir el modal para que aparezcan los botones de Enviar a X
+        overlay.remove();
+        generarMensajesWhatsApp();
+      });
+      row.appendChild(lbl);
+      row.appendChild(inp);
+      listaTels.appendChild(row);
+    });
+    barraTels.appendChild(txtTels);
+    barraTels.appendChild(listaTels);
+    wrapper.appendChild(barraTels);
+  }
+
   Object.keys(porEquipo).forEach(function(equipo, gi){
     porEquipo[equipo].forEach(function(item, ii){
       var p = item.p;
