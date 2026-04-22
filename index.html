@@ -289,7 +289,6 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
       </div>
       <!-- Grupo 2: Resumen, envíos y Clupik -->
       <div class="btn-group">
-        <button class="btn btn-outline btn-sm" onclick="repararCamposManual()" title="Asigna campo a partidos Sin campo (util tras actualizar FACILITY_ID_MAP)">Reparar campos</button>
         <button class="btn btn-verde btn-sm" onclick="resumenKolbe()">🟢 Resumen Kolbe partidos</button>
         <button class="btn btn-verde btn-sm" onclick="asistenteEnvios()" title="Preparar envíos de domingo, lunes y miércoles">📤 Envíos semana</button>
         <button class="btn btn-outline btn-sm" id="btn-link-clupik" onclick="vincularConClupik()" style="display:none" title="Empareja esta jornada con los partidos de Clupik para poder guardar cambios">🔗 Vincular con Clupik</button>
@@ -1493,10 +1492,15 @@ function repararCamposSinCampo(lista){
     if(p && p.campoManual) continue;  // el usuario ya lo fijo a mano, no tocamos
     if(!p || !p.campo || p.campo === "Sin campo"){
       var nuevo = null;
-      if(p && p.lugar) nuevo = lugarACampo(p.lugar);
-      if(!nuevo && p && p.facility_id && FACILITY_ID_MAP[p.facility_id]){
-        nuevo = FACILITY_ID_MAP[p.facility_id];
+      // 1) lugar original de Clupik (si Clupik devolvio nombre)
+      var _lug = p && (p.lugar_clupik || p.lugar);
+      if(_lug) nuevo = lugarACampo(_lug);
+      // 2) FACILITY_ID_MAP si hay facility_id conocido
+      var _fid = p && (p.facility_id_clupik || p.facility_id);
+      if(!nuevo && _fid && FACILITY_ID_MAP[_fid]){
+        nuevo = FACILITY_ID_MAP[_fid];
       }
+      // 3) inferir por equipo local (historico + match por nombre)
       if(!nuevo && p) nuevo = inferirCampoPorEquipoLocal(p.eq1);
       if(nuevo && nuevo !== p.campo){
         p.campo = nuevo;
@@ -1506,17 +1510,6 @@ function repararCamposSinCampo(lista){
     }
   }
   return reparados;
-}
-
-function repararCamposManual(){
-  var n = repararCamposSinCampo(partidos);
-  if(n > 0){
-    savePartidos();
-    if(typeof renderTodo === "function") renderTodo();
-    alert("OK: " + n + " partido(s) con campo asignado.");
-  } else {
-    alert("No habia partidos pendientes de reparacion en esta jornada.");
-  }
 }
 
 function abrirJornada(id){
