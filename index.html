@@ -697,7 +697,32 @@ function ligaDeComp(comp){
 
 function getEntrenadores(nombreEquipo, categoria, liga){
   if(!nombreEquipo) return "";
-  const n = nombreEquipo.toUpperCase().replace(/["""]/g,"").trim();
+  const n = nombreEquipo.toUpperCase().replace(/["“”]/g,"").trim();
+
+  // 1) PRIORIDAD MAXIMA: match exacto (name+categoria+liga) en equipos configurados.
+  //    Si el usuario configuro entrenadores para este equipo concreto en esa categoria,
+  //    es la fuente de verdad y gana sobre cualquier hardcode de abajo.
+  function _normLigaTop(l){
+    const s = (l||"").toString().toUpperCase();
+    if(s.includes("F-7") || s === "F7") return "f7";
+    if(s.includes("SALA") || s.includes("FS")) return "sala";
+    return "";
+  }
+  const _ligaCSV_top = _normLigaTop(liga);
+  const _nClean_top = n.replace(/[.,;:]/g,"").replace(/\s+/g," ").trim();
+  if(categoria || _ligaCSV_top){
+    const _eqExactTop = equipos.find(function(e){
+      const en = (e.nombre||"").toUpperCase().replace(/[.,;:"“”]/g,"").replace(/\s+/g," ").trim();
+      if(_nClean_top !== en) return false;
+      const ligaEq = _normLigaTop(e.liga);
+      if(categoria && e.categoria && e.categoria !== categoria) return false;
+      if(_ligaCSV_top && ligaEq && ligaEq !== _ligaCSV_top) return false;
+      return true;
+    });
+    if(_eqExactTop && _eqExactTop.entrenadores && _eqExactTop.entrenadores.trim()){
+      return _eqExactTop.entrenadores;
+    }
+  }
 
   // Highlands: asignar entrenador según categoría detectada en el nombre del equipo
   if(n.includes("HIGHLANDS")){
