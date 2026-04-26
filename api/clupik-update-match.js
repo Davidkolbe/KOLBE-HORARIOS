@@ -1,0 +1,90 @@
+// POST /api/clupik-update-match
+// Body acepta cualquier combinación de:
+//   { "match_id": "12345", "fecha": "25/04/2026", "hora": "10:30" }
+//   { "match_id": "12345", "datetime_utc": "2026-04-25 08:30:00" }
+//   { "match_id": "12345", "postponed": true }
+//   { "match_id": "12345", "facility_id": "9876" }
+//
+// Al menos uno de los campos de cambio (fecha+hora / datetime_utc / postponed / facility_id)
+// es obligatorio.
+
+const { apiPatch, madridToUtc } = require('./_clupik');
+function sendJson(res, status, obj) {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(status).send(JSON.stringify(obj));
+}
+
+
+module.exports = async (req, res) => {
+  if (req.method !== 'POST') {
+    return sendJson(res, 405, { error: 'Método no permitido, usa POST' });
+  }
+
+  let input;
+  try {
+    input = typeof req.body === 'object' && req.body !== null ? req.body : JSON.parse(req.body || '{}');
+  } catch (e) {
+    return sendJson(res, 400, { error: 'Body inválido: debe ser JSON' });
+  }
+
+  const { match_id, fecha, hora, datetime_utc: dtDirect, postponed, facility_id } = input;
+  if (!match_id) return sendJson(res, 400, { error: 'Falta match_id' });
+
+  const attributes = {};
+  const relationships = {};
+
+  // Fecha/hora o datetime UTC
+  if (dtDirect) {
+    if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dtDirect)) {
+      return sendJson(res, 400, { error: 'datetime_utc debe tener formato "YYYY-MM-DD HH:MM:SS"' });
+    }
+    attributes.datetime = dtDirect;
+  } else if (fecha && hora) {
+    try {
+      attributes.datetime = madridToUtc(fecha, hora);
+    } catch (e) {
+      return sendJson(res, 400, { error: e.message });
+    }
+  }
+
+  // Aplazado
+  if (typeof postponed === 'boolean') {
+    attributes.postponed = postponed;
+  }
+
+  // Cambio de campo
+  if (facility_id) {
+    relationships.facility = { data: { type: 'facility', id: String(facility_id) } };
+  }
+
+  if (!Object.keys(attributes).length && !Object.keys(relationships).length) {
+    return sendJson(res, 400, { error: 'Nada que cambiar: falta fecha+hora / datetime_utc / postponed / facility_id' });
+  }
+
+  const payload = {
+    data: {
+      type: 'match',
+      id: String(match_id),
+      attributes: attributes,
+    },
+  };
+  if (Object.keys(relationships).length) payload.data.relationships = relationships;
+
+  try {
+    const { status, body } = await apiPatch(`/matches/${match_id}`, payload);
+    if (status >= 200 && status < 300) {
+      return sendJson(res, 200, {
+        ok: true,
+        match_id,
+        datetime_utc: attributes.datetime || null,
+        postponed: attributes.postponed,
+        facility_id: facility_id || null,
+        match: body && body.data || null,
+      });
+    }
+    return sendJson(res, status, { ok: false, match_id, error: body });
+  } catch (e) {
+    return sendJson(res, 500, { ok: false, match_id, error: e.message });
+  }
+};
