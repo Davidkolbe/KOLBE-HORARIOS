@@ -1588,6 +1588,8 @@ function abrirJornada(id){
     savePartidos();
     console.log('[Reparar] ' + repd + ' partido(s) con campo asignado automaticamente.');
   }
+  // Auto-fix silencioso de fechas inconsistentes (caso: cambiaste dia pero fecha quedo vieja)
+  try { _autoFixFechasJornadaActiva(); } catch(e){ console.warn('autoFix fechas falló:', e); }
   mostrarPlanificador(j.semana);
 }
 
@@ -5195,18 +5197,18 @@ var _DIA_A_OFFSET_ARREGLAR = {
 };
 
 function _calcularPropuestasFechas(){
+  // Refactor: usa _fechaParaDia que parsea cualquier formato de j.semana
+  // ('DD/MM/YYYY' simple, 'Semana DD/MM/YYYY – DD/MM/YYYY', etc.)
   var propuestas = [];  // { jornadaId, jornadaIdx, semana, partidoIdx, id, partido, dia, antes, despues }
   var todas = getAllJornadas();
   for(var ji = 0; ji < todas.length; ji++){
     var j = todas[ji];
-    var semanaF = _fechaDeDDMMYYYY(j.semana);
-    if(!semanaF) continue;  // jornadas con nombre raro se ignoran
+    if(!j.semana) continue;
     for(var pi = 0; pi < (j.partidos || []).length; pi++){
       var p = j.partidos[pi];
       if(!p.dia) continue;
-      var off = _DIA_A_OFFSET_ARREGLAR[p.dia];
-      if(off === undefined) continue;
-      var esperada = _formatDDMMYYYY(new Date(semanaF.getTime() + off * 86400000));
+      var esperada = _fechaParaDia(j, p.dia);
+      if(!esperada) continue;  // dia desconocido o semana no parseable
       if(p.fecha !== esperada){
         propuestas.push({
           jornadaId: j.id,
@@ -5223,6 +5225,40 @@ function _calcularPropuestasFechas(){
     }
   }
   return { propuestas: propuestas, todas: todas };
+}
+
+// Auto-fix silencioso: corrige fechas inconsistentes de la jornada activa al cargarla.
+// Si hay desfases, los aplica automaticamente y guarda. Devuelve cuantos arreglo.
+function _autoFixFechasJornadaActiva(){
+  if(!jornadaActivaId) return 0;
+  var todas = getAllJornadas();
+  var ji = todas.findIndex(function(j){ return j.id === jornadaActivaId; });
+  if(ji < 0) return 0;
+  var j = todas[ji];
+  if(!j || !j.semana) return 0;
+  var arregladas = 0;
+  (j.partidos || []).forEach(function(p, idx){
+    if(!p.dia) return;
+    var esperada = _fechaParaDia(j, p.dia);
+    if(esperada && p.fecha !== esperada){
+      j.partidos[idx].fecha = esperada;
+      arregladas++;
+    }
+  });
+  if(arregladas){
+    j.updatedAt = new Date().toISOString();
+    saveAllJornadas(todas);
+    // sincronizar tambien la copia local 'partidos'
+    if(typeof partidos !== 'undefined' && Array.isArray(partidos)){
+      partidos.forEach(function(p){
+        if(!p.dia) return;
+        var esp = _fechaParaDia(j, p.dia);
+        if(esp && p.fecha !== esp) p.fecha = esp;
+      });
+    }
+    console.log('[Auto-fix fechas] Corregidas ' + arregladas + ' fecha(s) en jornada ' + j.semana);
+  }
+  return arregladas;
 }
 
 function abrirArreglarFechas(){
