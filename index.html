@@ -724,6 +724,46 @@ function getEntrenadores(nombreEquipo, categoria, liga){
     }
   }
 
+    // 2) SOFT MATCH: cuando el nombre del CSV no coincide exactamente con el equipo configurado
+  //    (ej. CSV "COLEGIO HIGHLANDS LOS FRESNOS A" vs config "COLEGIO HIGHLANDS PREB A"),
+  //    usar club + categoria + liga + letra (A/B/C) para encontrar el equipo correcto.
+  function _clubKey_top(s){
+    const filler = new Set(["COLEGIO","CD","AD","CLUB","EDM","ED","CF","FC","DEPORTIVO","ESCUELA","E.M.","EM","C.D.","A.D.","C.F.","F.C."]);
+    const toks = (s||"").toUpperCase().replace(/[.,;:""“”]/g," ").split(/\s+/).filter(Boolean);
+    for(const t of toks){ if(!filler.has(t)) return t; }
+    return toks[0]||"";
+  }
+  function _letra_top(s){
+    const t = (s||"").toUpperCase();
+    if(/(\s|")C(\s|"|$)/.test(t)) return "C";
+    if(/(\s|")B(\s|"|$)/.test(t)) return "B";
+    if(/(\s|")A(\s|"|$)/.test(t)) return "A";
+    if(/\b3[ºoO]?\b/.test(t)) return "C";
+    if(/\b2[ºoO]?\b/.test(t)) return "B";
+    if(/\b1[ºoO]?\b/.test(t)) return "A";
+    return "";
+  }
+  const _ckCSV = _clubKey_top(_nClean_top);
+  const _letraCSV = _letra_top(_nClean_top);
+  if((categoria || _ligaCSV_top) && _ckCSV && _ckCSV !== "KOLBE"){
+    const candidatos = equipos.filter(function(e){
+      if(_clubKey_top(e.nombre) !== _ckCSV) return false;
+      const ligaEq = _normLigaTop(e.liga);
+      if(categoria && e.categoria && e.categoria !== categoria) return false;
+      if(_ligaCSV_top && ligaEq && ligaEq !== _ligaCSV_top) return false;
+      return true;
+    });
+    if(candidatos.length === 1 && candidatos[0].entrenadores && candidatos[0].entrenadores.trim()){
+      return candidatos[0].entrenadores;
+    }
+    if(candidatos.length > 1 && _letraCSV){
+      const conLetra = candidatos.find(function(e){ return _letra_top(e.nombre) === _letraCSV; });
+      if(conLetra && conLetra.entrenadores && conLetra.entrenadores.trim()){
+        return conLetra.entrenadores;
+      }
+    }
+  }
+
   // Highlands: asignar entrenador según categoría detectada en el nombre del equipo
   if(n.includes("HIGHLANDS")){
     if(n.includes("ALEVIN") || n.includes("ALEVÍN")) return "CARLOS";
