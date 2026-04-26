@@ -1242,7 +1242,7 @@ function updatePartido(id, field, val){
     p.hora = val||"00:00";
     p.sinHora = !val || val==="00:00";
   }
-  if(field==="dia") p.dia = val;
+  if(field==="dia"){ p.dia = val; _recalcularFechaDePartido(p); }
   savePartidos();
   renderTodo();
 }
@@ -1312,6 +1312,7 @@ function cambiarDia(id){
       p.hora = inputHora.value;
       p.sinHora = false;
     }
+    _recalcularFechaDePartido(p);
     overlay.remove();
     savePartidos();
     calcConflictos();
@@ -4568,6 +4569,24 @@ async function guardarCambiosEnClupik(){
     if(mejor) campoAFacility[k] = { facility_id: mejor, nombreClupik: cuentas._nombre || "" };
   });
 
+  // 2bis) Red de seguridad: recalcular p.fecha desde dia+semana SI difiere
+  //       (caso típico: el usuario cambió día con cambiarDia antes del fix)
+  try {
+    var _jor = getAllJornadas().find(function(jj){ return jj.id === jornadaActivaId; });
+    if(_jor){
+      var _cambiosFecha = 0;
+      partidos.forEach(function(_p){
+        if(!_p.dia) return;
+        var _esp = _fechaParaDia(_jor, _p.dia);
+        if(_esp && _esp !== _p.fecha){
+          _p.fecha = _esp;
+          _cambiosFecha++;
+        }
+      });
+      if(_cambiosFecha) savePartidos();
+    }
+  } catch(e){ console.warn("recalc fecha pre-sync falló:", e); }
+
   // 2) Recorrer partidos y construir lista de cambios, con tipos bien diferenciados.
   var cambios = [];  // { p, tipos: Set, payload: {...}, desc: {...} }
   // Saltar partidos que ya estan sincronizados con Clupik (coincide p._lastSyncSucceeded con p actual)
@@ -5129,6 +5148,43 @@ function _formatDDMMYYYY(d){
   var p = function(n){ return n<10?'0'+n:''+n; };
   return p(d.getUTCDate()) + '/' + p(d.getUTCMonth()+1) + '/' + d.getUTCFullYear();
 }
+
+// ---- Helpers fecha-día (compartido) ----
+function _viernesDeJornada(j){
+  var m = /(\d{2})\/(\d{2})\/(\d{4})/.exec((j && j.semana) || "");
+  if(!m) return null;
+  var first = new Date(Date.UTC(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1])));
+  var d = first.getUTCDay();  // 0=dom .. 5=vie 6=sab
+  var delta;
+  if(d === 5) delta = 0;
+  else if(d === 6) delta = -1;
+  else if(d === 0) delta = -2;
+  else delta = 5 - d;
+  return new Date(first.getTime() + delta * 86400000);
+}
+function _fechaParaDia(j, dia){
+  var viernes = _viernesDeJornada(j);
+  if(!viernes) return null;
+  var off = _DIA_A_OFFSET_ARREGLAR ? _DIA_A_OFFSET_ARREGLAR[dia] : null;
+  if(off === undefined || off === null) return null;
+  var d2 = new Date(viernes.getTime() + off * 86400000);
+  var pad = function(n){ return n<10?'0'+n:''+n; };
+  return pad(d2.getUTCDate()) + '/' + pad(d2.getUTCMonth()+1) + '/' + d2.getUTCFullYear();
+}
+function _recalcularFechaDePartido(p){
+  if(!p || !p.dia || !jornadaActivaId) return false;
+  try {
+    var jor = getAllJornadas().find(function(jj){ return jj.id === jornadaActivaId; });
+    if(!jor) return false;
+    var nueva = _fechaParaDia(jor, p.dia);
+    if(nueva && nueva !== p.fecha){
+      p.fecha = nueva;
+      return true;
+    }
+  } catch(e){}
+  return false;
+}
+
 var _DIA_A_OFFSET_ARREGLAR = {
   'Viernes': 0,
   'Sabado': 1, 'Sábado': 1,
