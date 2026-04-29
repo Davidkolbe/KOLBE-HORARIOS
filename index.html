@@ -4146,9 +4146,13 @@ function guardarNuevoPartido(){
               fecha: d.fecha || p.fecha,
               hora: d.hora || p.hora,
               campo: d.campo || p.campo || "",
-              aplazado: !!d.aplazado
+              aplazado: !!d.aplazado,
+              place: d.place || ""
             };
             if(d.place) p.facility_id_clupik = String(d.place);
+            // Actualizar p.lugar_clupik: ahora asumimos que Clupik tiene el campo enviado.
+            // Esto permite que el sistema aprenda mapeos verificados (campo↔facility_id).
+            if(d.campo) p.lugar_clupik = d.campo;
             actualizados++;
           }
         }
@@ -4532,34 +4536,39 @@ async function guardarCambiosEnClupik(){
     mapaCampos[k][CAMPO_A_FACILITY_FALLBACK[k]] = 1;
   });
 
-  // Acumular mapeos desde TODAS las jornadas guardadas (no solo la actual):
-  // si en algun momento importamos un partido en Zola, aprendemos su facility_id.
+  // Acumular mapeos desde TODAS las jornadas guardadas (no solo la actual).
+  // CRÍTICO: solo aprender cuando p.lugar_clupik está poblado Y coincide con p.campo.
+  // Si p.lugar_clupik está vacío, no podemos validar que el mapeo es correcto.
+  // Si p.campo y p.lugar_clupik no coinciden, significa que el usuario cambió el
+  // campo en la app sin sincronizar — el facility_id_clupik aún apunta al campo viejo
+  // (por tanto NO debemos aprender ese mapeo o envenenamos el sistema).
   var todasLasJornadas = [];
   try { todasLasJornadas = getAllJornadas() || []; } catch(e){}
+  function _aprenderSiVerificado(p, peso){
+    if(!p.match_id || !p.facility_id_clupik || !p.campo) return;
+    var kApp = _normCampo(p.campo);
+    var kClu = _normCampo(p.lugar_clupik || "");
+    if(!kApp) return;
+    if(!kClu) return;  // sin nombre en Clupik, no validable → no aprender
+    if(!_mismoCampo(kApp, kClu)) return;  // app y Clupik no coinciden → mapeo inválido
+    if(!mapaCampos[kApp]) mapaCampos[kApp] = {};
+    var ent = mapaCampos[kApp];
+    var id = String(p.facility_id_clupik);
+    ent[id] = (ent[id] || 0) + peso;
+    ent._nombre = p.lugar_clupik || ent._nombre;
+  }
+  // _mismoCampo está definido más abajo; lo necesitamos antes — declararlo aquí.
+  var _mismoCampo = function(a, b){
+    if(a === b) return true;
+    if(!a || !b) return false;
+    return a.indexOf(b) >= 0 || b.indexOf(a) >= 0;
+  };
   todasLasJornadas.forEach(function(j){
-    (j.partidos || []).forEach(function(p){
-      if(!p.match_id || !p.facility_id_clupik || !p.campo) return;
-      var k = _normCampo(p.campo);
-      if(!k) return;
-      if(!mapaCampos[k]) mapaCampos[k] = {};
-      var ent = mapaCampos[k];
-      var id = String(p.facility_id_clupik);
-      ent[id] = (ent[id] || 0) + 1;
-      ent._nombre = p.lugar_clupik || ent._nombre;
-    });
+    (j.partidos || []).forEach(function(p){ _aprenderSiVerificado(p, 1); });
   });
 
   // Partidos de la jornada actual: doble peso por ser mas recientes
-  partidos.forEach(function(p){
-    if(!p.match_id || !p.facility_id_clupik || !p.campo) return;
-    var k = _normCampo(p.campo);
-    if(!k) return;
-    if(!mapaCampos[k]) mapaCampos[k] = {};
-    var ent = mapaCampos[k];
-    var id = String(p.facility_id_clupik);
-    ent[id] = (ent[id] || 0) + 2;
-    ent._nombre = p.lugar_clupik || ent._nombre;
-  });
+  partidos.forEach(function(p){ _aprenderSiVerificado(p, 2); });
   var campoAFacility = {};  // _normCampo(campo) -> { facility_id, nombreClupik }
   Object.keys(mapaCampos).forEach(function(k){
     var cuentas = mapaCampos[k];
@@ -4636,13 +4645,7 @@ async function guardarCambiosEnClupik(){
     }
 
     // --- Campo ---
-    // Heurística: consideramos mismo campo si los nombres normalizados son iguales
-    // o uno es substring del otro (p.ej. 'KOLBE' ⊂ 'CAMPO DE FUTBOL 7 DEL COLEGIO KOLBE').
-    var _mismoCampo = function(a, b){
-      if(a === b) return true;
-      if(!a || !b) return false;
-      return a.indexOf(b) >= 0 || b.indexOf(a) >= 0;
-    };
+    // _mismoCampo ya declarado arriba (fix de aprendizaje)
     if(p.campo && p.campo !== "Sin campo"){
       var kLocal = _normCampo(p.campo);
       var kClupik = _normCampo(p.lugar_clupik || "");
