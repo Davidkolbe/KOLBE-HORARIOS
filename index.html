@@ -3510,7 +3510,7 @@ const KOLBE_EQUIPOS = [
   {equipo:"CD KOLBE 3º BLANCO", cat:"BENJAMIN",    label:"CD KOLBE 3º BLANCO", categoria:"Benjamín",    entrenador:"RODRI",        disc:"FS"},
   {equipo:"CD KOLBE 3º VERDE",  cat:"BENJAMIN",    label:"CD KOLBE 3º VERDE",  categoria:"Benjamín",    entrenador:"FRANK",        disc:"FS"},
   {equipo:"CD KOLBE 4º",        cat:"BENJAMIN",    label:"CD KOLBE 4º",        categoria:"Benjamín",    entrenador:"PABLO",        disc:"FS"},
-  {equipo:"CD KOLBE ALEVIN",    cat:"ALEVIN",      label:"CD KOLBE ALEVIN",    categoria:"Alevín",      entrenador:"RUIBI",        disc:"FS"},
+  {equipo:"CD KOLBE",           cat:"ALEVIN",      label:"CD KOLBE ALEVIN",    categoria:"Alevín",      entrenador:"RUIBI",        disc:"FS"},
   // FÚTBOL SALA FEDERADO
   {equipo:"",                   cat:"",            label:"CD KOLBE INFANTIL",  categoria:"Infantil",    entrenador:"RUIBI",        disc:"FS"},
   {equipo:"",                   cat:"",            label:"CD KOLBE CADETE FS", categoria:"Cadete",      entrenador:"GONZALO",      disc:"FS"},
@@ -3551,7 +3551,17 @@ function resumenKolbe(){
         var eq2n = (pp.eq2||"").toUpperCase().trim();
         var keN = ke.equipo.toUpperCase().trim();
         var catMatch = !ke.cat || (pp.comp||pp.categoria||"").toUpperCase().includes(ke.cat.toUpperCase());
-        return (eq1n === keN || eq2n === keN) && catMatch;
+        // Discriminar por disciplina (FS vs F7) — necesario para "CD KOLBE" sin sufijo
+        var discMatch = true;
+        if(ke.disc){
+          var ligaUp = (pp.comp||pp.liga||"").toUpperCase();
+          if(ke.disc === "FS"){
+            discMatch = ligaUp.includes("FS") || ligaUp.includes("SALA");
+          } else if(ke.disc === "F7"){
+            discMatch = ligaUp.includes("F-7") || ligaUp.includes("F7") || (!ligaUp.includes("FS") && !ligaUp.includes("SALA"));
+          }
+        }
+        return (eq1n === keN || eq2n === keN) && catMatch && discMatch;
       });
     }
 
