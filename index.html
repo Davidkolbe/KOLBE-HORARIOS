@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Planificador Semanal — Club Kolbe</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
   --verde: #1b5e3b;
@@ -3789,13 +3789,258 @@ function resumenKolbe(){
     setTimeout(function(){ btnCopiar.textContent = "📋 Copiar tabla"; btnCopiar.style.background = "var(--verde)"; }, 2000);
   });
 
+  // === BOTONES INSTAGRAM (3 formatos) ===
+  function mkBtnIG(label, format){
+    var b = document.createElement("button");
+    b.textContent = label;
+    b.style.cssText = "margin-top:1rem;margin-left:8px;padding:8px 14px;background:#fff;color:var(--verde);border:2px solid var(--verde);border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f)";
+    b.addEventListener("click", function(){
+      // Leer valores actuales (con ediciones) de la tabla
+      var tableRows = tbody.querySelectorAll("tr[data-rowkey]");
+      var editedRows = {};
+      tableRows.forEach(function(tr){
+        var rk = tr.getAttribute("data-rowkey");
+        var cells = tr.querySelectorAll("span");
+        if(cells.length >= 6){
+          editedRows[rk] = {
+            equipo: cells[0].textContent, categoria: cells[1].textContent, entrenador: cells[2].textContent,
+            partido: cells[3].textContent, campo: cells[4].textContent, horario: cells[5].textContent,
+          };
+        }
+      });
+      // Aplicar ediciones a la lista de filas
+      var rowsIG = rows.map(function(r){
+        var rk = r.disc + "_" + r.equipo + "_" + r.categoria;
+        var d = editedRows[rk] || {};
+        return {
+          disc: r.disc,
+          equipo:     d.equipo     || r.equipo,
+          categoria:  d.categoria  || r.categoria,
+          entrenador: d.entrenador || r.entrenador,
+          partido:    d.partido    || r.partido,
+          campo:      d.campo      || r.campo,
+          horario:    d.horario    || r.horario,
+        };
+      });
+      var labelOriginal = b.textContent;
+      b.textContent = "⏳ Generando…"; b.disabled = true;
+      exportarInstagramKolbe(format, semana, rowsIG).then(function(){
+        b.textContent = "✓ Descargado"; b.style.background = "var(--verde)"; b.style.color = "#fff";
+        setTimeout(function(){ b.textContent = labelOriginal; b.style.background = "#fff"; b.style.color = "var(--verde)"; b.disabled = false; }, 2000);
+      }).catch(function(err){
+        console.error(err);
+        alert("No se pudo generar la imagen: " + (err && err.message || err));
+        b.textContent = labelOriginal; b.disabled = false;
+      });
+    });
+    return b;
+  }
+  var igLabel = document.createElement("div");
+  igLabel.style.cssText = "margin-top:1.25rem;font-size:11px;color:var(--gris4);text-transform:uppercase;letter-spacing:.6px;border-top:1px solid var(--gris2);padding-top:1rem";
+  igLabel.textContent = "📸 Exportar para Instagram";
+  var igBtnRow = document.createElement("div");
+  igBtnRow.style.cssText = "display:flex;flex-wrap:wrap;gap:0;margin-top:-.25rem";
+  igBtnRow.appendChild(mkBtnIG("⬜ Cuadrado (feed)", "square"));
+  igBtnRow.appendChild(mkBtnIG("📱 Vertical (feed)", "portrait"));
+  igBtnRow.appendChild(mkBtnIG("📖 Story", "story"));
+
   wrapper.appendChild(btnCerrar);
   wrapper.appendChild(titulo);
   wrapper.appendChild(table);
   wrapper.appendChild(btnGuardar);
   wrapper.appendChild(btnCopiar);
+  wrapper.appendChild(igLabel);
+  wrapper.appendChild(igBtnRow);
   overlay.appendChild(wrapper);
   document.body.appendChild(overlay);
+}
+
+// ============ EXPORTAR RESUMEN A INSTAGRAM ============
+// Carga html2canvas bajo demanda y genera un PNG con dimensiones IG.
+function _ensureHtml2Canvas(){
+  if(window.html2canvas) return Promise.resolve();
+  return new Promise(function(resolve, reject){
+    var s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+    s.onload = function(){ resolve(); };
+    s.onerror = function(){ reject(new Error("No se pudo cargar html2canvas (¿sin conexión?)")); };
+    document.head.appendChild(s);
+  });
+}
+
+function _buildIGContainer(format, semana, rowsIG){
+  // Dimensiones por formato (Instagram)
+  var DIMS = {
+    square:   { w:1080, h:1080 },
+    portrait: { w:1080, h:1350 },
+    story:    { w:1080, h:1920 },
+  }[format];
+
+  // Paleta y proporciones
+  var VERDE = "#1b5e3b", VERDE2 = "#2e7d52", VERDE_S = "#e6f4ed", GRIS5 = "#5c5c57", GRIS4 = "#9e9e99", GRIS2 = "#eeeeeb", NEGRO = "#1c1c1a";
+
+  // Tamaños proporcionales por formato
+  var theme = {
+    square:   { padX:50,  headH:170, titleSize:42, semSize:20, secSize:22, eqSize:17, detSize:14, rowMinH:40, footerSize:13 },
+    portrait: { padX:60,  headH:200, titleSize:54, semSize:24, secSize:28, eqSize:21, detSize:17, rowMinH:50, footerSize:15 },
+    story:    { padX:70,  headH:280, titleSize:64, semSize:28, secSize:34, eqSize:26, detSize:21, rowMinH:64, footerSize:17 },
+  }[format];
+
+  var c = document.createElement("div");
+  c.style.cssText = [
+    "position:fixed", "top:0", "left:-99999px",
+    "width:" + DIMS.w + "px", "height:" + DIMS.h + "px",
+    "background:#ffffff",
+    "font-family:'IBM Plex Sans',sans-serif",
+    "color:" + NEGRO, "overflow:hidden",
+    "box-sizing:border-box",
+    "display:flex", "flex-direction:column",
+  ].join(";");
+
+  // === HEADER (banda verde) ===
+  var header = document.createElement("div");
+  header.style.cssText = [
+    "background:linear-gradient(135deg," + VERDE + " 0%," + VERDE2 + " 100%)",
+    "color:#fff", "padding:" + (theme.headH*0.18) + "px " + theme.padX + "px " + (theme.headH*0.18) + "px " + theme.padX + "px",
+    "min-height:" + theme.headH + "px",
+    "box-sizing:border-box",
+    "display:flex", "flex-direction:column", "justify-content:center",
+    "position:relative",
+  ].join(";");
+  // Pequeño escudo SVG (mismo que la topbar) en esquina
+  var escudo = '<svg width="' + (theme.titleSize*1.2) + '" height="' + (theme.titleSize*1.2) + '" viewBox="0 0 18 18" fill="none" style="vertical-align:middle;margin-right:14px"><circle cx="9" cy="9" r="8" stroke="rgba(255,255,255,0.6)" stroke-width="1.5"/><circle cx="9" cy="9" r="3.5" fill="white" opacity="0.95"/></svg>';
+  var headerInner = document.createElement("div");
+  headerInner.innerHTML =
+    '<div style="font-size:' + (theme.semSize*0.85) + 'px;font-weight:500;letter-spacing:3px;text-transform:uppercase;opacity:.85;margin-bottom:6px">CLUB DEPORTIVO KOLBE</div>'
+    + '<div style="font-size:' + theme.titleSize + 'px;font-weight:700;line-height:1.1;display:flex;align-items:center">' + escudo + '<span>Partidos de la jornada</span></div>'
+    + '<div style="font-size:' + theme.semSize + 'px;font-weight:500;margin-top:10px;opacity:.95">' + (semana || "").toUpperCase() + '</div>';
+  header.appendChild(headerInner);
+  c.appendChild(header);
+
+  // === BODY ===
+  var body = document.createElement("div");
+  body.style.cssText = [
+    "flex:1", "padding:" + (theme.padX*0.6) + "px " + theme.padX + "px",
+    "box-sizing:border-box", "overflow:hidden",
+    "display:flex", "flex-direction:column",
+  ].join(";");
+
+  // Agrupar por disciplina
+  var grupos = {FS: [], F7: []};
+  rowsIG.forEach(function(r){ if(grupos[r.disc]) grupos[r.disc].push(r); });
+
+  function buildSeccion(disc){
+    var arr = grupos[disc];
+    if(!arr || !arr.length) return null;
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "margin-bottom:" + (theme.padX*0.5) + "px";
+
+    var titulo = document.createElement("div");
+    titulo.style.cssText = [
+      "font-size:" + theme.secSize + "px", "font-weight:700",
+      "color:" + VERDE, "background:" + VERDE_S,
+      "padding:" + (theme.secSize*0.45) + "px " + (theme.padX*0.4) + "px",
+      "border-radius:8px", "letter-spacing:1px",
+      "margin-bottom:" + (theme.padX*0.25) + "px",
+      "text-transform:uppercase",
+    ].join(";");
+    titulo.textContent = (disc === "FS" ? "⚽  Fútbol Sala" : "⚽  Fútbol 7");
+    wrap.appendChild(titulo);
+
+    arr.forEach(function(r, i){
+      var sin = r.partido === "—" || !r.partido;
+      var descanso = r.partido && r.partido.toUpperCase().indexOf("DESCANSO") !== -1;
+
+      var row = document.createElement("div");
+      row.style.cssText = [
+        "display:flex", "align-items:center", "justify-content:space-between",
+        "padding:" + (theme.rowMinH*0.18) + "px " + (theme.padX*0.35) + "px",
+        "min-height:" + theme.rowMinH + "px",
+        "box-sizing:border-box",
+        "border-bottom:1px solid " + GRIS2,
+        "background:" + (i % 2 === 0 ? "#ffffff" : "#fafaf8"),
+      ].join(";");
+
+      // Izquierda: equipo + entrenador
+      var left = document.createElement("div");
+      left.style.cssText = "flex:1;min-width:0;padding-right:12px";
+      left.innerHTML =
+        '<div style="font-size:' + theme.eqSize + 'px;font-weight:700;color:' + NEGRO + ';line-height:1.2">' + _esc(r.equipo) + '</div>'
+        + '<div style="font-size:' + theme.detSize + 'px;color:' + GRIS4 + ';margin-top:2px">' + _esc(r.categoria || "") + (r.entrenador ? "  ·  " + _esc(r.entrenador) : "") + '</div>';
+      row.appendChild(left);
+
+      // Derecha: partido + horario / DESCANSO
+      var right = document.createElement("div");
+      right.style.cssText = "text-align:right;flex-shrink:0;max-width:55%";
+      if(descanso || sin){
+        right.innerHTML = '<div style="font-size:' + theme.eqSize + 'px;font-weight:600;color:' + GRIS4 + '">' + (descanso ? "🟡 Descanso" : "⏳ Por confirmar") + '</div>';
+      } else {
+        var horaCol = (r.horario && r.horario !== "—") ? VERDE : GRIS4;
+        right.innerHTML =
+          '<div style="font-size:' + theme.detSize + 'px;color:' + GRIS5 + ';line-height:1.25">' + _esc(r.partido || "") + '</div>'
+          + '<div style="font-size:' + theme.eqSize + 'px;font-weight:700;color:' + horaCol + ';margin-top:3px;font-family:\'IBM Plex Mono\',monospace">' + _esc(r.horario || "") + '</div>'
+          + (r.campo && r.campo !== "—" ? '<div style="font-size:' + (theme.detSize*0.9) + 'px;color:' + GRIS4 + ';margin-top:2px">🏟 ' + _esc(r.campo) + '</div>' : '');
+      }
+      row.appendChild(right);
+      wrap.appendChild(row);
+    });
+    return wrap;
+  }
+
+  var sFS = buildSeccion("FS"); if(sFS) body.appendChild(sFS);
+  var sF7 = buildSeccion("F7"); if(sF7) body.appendChild(sF7);
+  c.appendChild(body);
+
+  // === FOOTER ===
+  var footer = document.createElement("div");
+  footer.style.cssText = [
+    "background:" + VERDE, "color:#fff",
+    "padding:" + (theme.footerSize*0.8) + "px " + theme.padX + "px",
+    "font-size:" + theme.footerSize + "px",
+    "display:flex", "align-items:center", "justify-content:space-between",
+    "letter-spacing:.5px",
+  ].join(";");
+  footer.innerHTML =
+    '<span style="font-weight:600">@clubdeportivokolbe</span>'
+    + '<span style="opacity:.85">competiciones.clubdeportivokolbe.com</span>';
+  c.appendChild(footer);
+
+  return c;
+}
+
+function _esc(s){
+  return String(s == null ? "" : s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+
+function exportarInstagramKolbe(format, semana, rowsIG){
+  return _ensureHtml2Canvas().then(function(){
+    var DIMS = { square:{w:1080,h:1080}, portrait:{w:1080,h:1350}, story:{w:1080,h:1920} }[format];
+    var c = _buildIGContainer(format, semana, rowsIG);
+    document.body.appendChild(c);
+    return window.html2canvas(c, {
+      width: DIMS.w, height: DIMS.h, windowWidth: DIMS.w, windowHeight: DIMS.h,
+      scale: 1, backgroundColor: "#ffffff", useCORS: true, logging: false,
+    }).then(function(canvas){
+      return new Promise(function(resolve){
+        canvas.toBlob(function(blob){
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          var slug = (semana || "").replace(/[^0-9A-Za-z\-]/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"") || "jornada";
+          a.href = url;
+          a.download = "kolbe-" + format + "-" + slug + ".png";
+          document.body.appendChild(a); a.click(); a.remove();
+          URL.revokeObjectURL(url);
+          c.remove();
+          resolve();
+        }, "image/png");
+      });
+    }).catch(function(err){
+      try { c.remove(); } catch(e){}
+      throw err;
+    });
+  });
 }
 
 
