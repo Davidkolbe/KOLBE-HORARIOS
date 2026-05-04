@@ -3880,10 +3880,11 @@ function _buildIGContainer(format, semana, rowsIG){
   var VERDE = "#1b5e3b", VERDE2 = "#2e7d52", VERDE_S = "#e6f4ed", GRIS5 = "#5c5c57", GRIS4 = "#9e9e99", GRIS2 = "#eeeeeb", NEGRO = "#1c1c1a";
 
   // Tamaños proporcionales por formato
+  // 'cols':2 = layout en 2 columnas (FS izquierda / F7 derecha) — mejor para cuadrado
   var theme = {
-    square:   { padX:50,  headH:170, titleSize:42, semSize:20, secSize:22, eqSize:17, detSize:14, rowMinH:40, footerSize:13 },
-    portrait: { padX:60,  headH:200, titleSize:54, semSize:24, secSize:28, eqSize:21, detSize:17, rowMinH:50, footerSize:15 },
-    story:    { padX:70,  headH:280, titleSize:64, semSize:28, secSize:34, eqSize:26, detSize:21, rowMinH:64, footerSize:17 },
+    square:   { padX:46,  headH:160, titleSize:38, semSize:18, secSize:20, eqSize:16, detSize:13, rowMinH:38, footerSize:13, cols:2 },
+    portrait: { padX:56,  headH:190, titleSize:50, semSize:22, secSize:26, eqSize:19, detSize:15, rowMinH:46, footerSize:15, cols:1 },
+    story:    { padX:70,  headH:280, titleSize:64, semSize:28, secSize:34, eqSize:25, detSize:20, rowMinH:62, footerSize:17, cols:1 },
   }[format];
 
   var c = document.createElement("div");
@@ -3919,10 +3920,20 @@ function _buildIGContainer(format, semana, rowsIG){
 
   // === BODY ===
   var body = document.createElement("div");
+  body.setAttribute("data-ig-body", "1");
   body.style.cssText = [
-    "flex:1", "padding:" + (theme.padX*0.6) + "px " + theme.padX + "px",
+    "flex:1", "padding:" + (theme.padX*0.5) + "px " + theme.padX + "px",
     "box-sizing:border-box", "overflow:hidden",
     "display:flex", "flex-direction:column",
+  ].join(";");
+
+  // Inner wrapper para auto-scale (si el contenido se sale, lo reducimos sin recortar)
+  var bodyInner = document.createElement("div");
+  bodyInner.setAttribute("data-ig-body-inner", "1");
+  bodyInner.style.cssText = [
+    "transform-origin:top left", "width:100%",
+    (theme.cols === 2 ? "display:grid;grid-template-columns:1fr 1fr;gap:" + (theme.padX*0.5) + "px"
+                      : "display:flex;flex-direction:column"),
   ].join(";");
 
   // Agrupar por disciplina
@@ -3987,8 +3998,9 @@ function _buildIGContainer(format, semana, rowsIG){
     return wrap;
   }
 
-  var sFS = buildSeccion("FS"); if(sFS) body.appendChild(sFS);
-  var sF7 = buildSeccion("F7"); if(sF7) body.appendChild(sF7);
+  var sFS = buildSeccion("FS"); if(sFS) bodyInner.appendChild(sFS);
+  var sF7 = buildSeccion("F7"); if(sF7) bodyInner.appendChild(sF7);
+  body.appendChild(bodyInner);
   c.appendChild(body);
 
   // === FOOTER ===
@@ -4019,6 +4031,26 @@ function exportarInstagramKolbe(format, semana, rowsIG){
     var DIMS = { square:{w:1080,h:1080}, portrait:{w:1080,h:1350}, story:{w:1080,h:1920} }[format];
     var c = _buildIGContainer(format, semana, rowsIG);
     document.body.appendChild(c);
+
+    // Auto-fit: si el contenido del body (bodyInner) es más alto que el espacio disponible,
+    // reducimos con transform:scale() para que ENTRE TODO sin recortar (FS + F7 completos).
+    try {
+      var bodyEl      = c.querySelector('[data-ig-body]');
+      var bodyInnerEl = c.querySelector('[data-ig-body-inner]');
+      if (bodyEl && bodyInnerEl){
+        // Forzar layout
+        void bodyInnerEl.offsetHeight;
+        var availH  = bodyEl.clientHeight;
+        var contentH = bodyInnerEl.scrollHeight;
+        if (contentH > availH && availH > 0) {
+          var ratio = availH / contentH;
+          // ampliamos width inversamente para que el contenido ocupe todo el ancho tras el scale
+          bodyInnerEl.style.width = (100 / ratio).toFixed(3) + "%";
+          bodyInnerEl.style.transform = "scale(" + ratio.toFixed(4) + ")";
+        }
+      }
+    } catch(e){ /* si falla, html2canvas seguirá clipeando como antes */ }
+
     return window.html2canvas(c, {
       width: DIMS.w, height: DIMS.h, windowWidth: DIMS.w, windowHeight: DIMS.h,
       scale: 1, backgroundColor: "#ffffff", useCORS: true, logging: false,
