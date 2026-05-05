@@ -290,6 +290,7 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
       <!-- Grupo 2: Resumen, envíos y Clupik -->
       <div class="btn-group">
         <button class="btn btn-verde btn-sm" onclick="resumenKolbe()">🟢 Resumen Kolbe partidos</button>
+        <button class="btn btn-verde btn-sm" onclick="resumenKolbeResultados()" title="Tras los partidos del fin de semana: tabla de resultados con export a Instagram">🏆 Resultados Kolbe</button>
         <button class="btn btn-verde btn-sm" onclick="asistenteEnvios()" title="Preparar envíos de domingo, lunes y miércoles">📤 Envíos semana</button>
         <button class="btn btn-outline btn-sm" id="btn-link-clupik" onclick="vincularConClupik()" style="display:none" title="Empareja esta jornada con los partidos de Clupik para poder guardar cambios">🔗 Vincular con Clupik</button>
         <button class="btn btn-verde btn-sm" id="btn-save-clupik" onclick="guardarCambiosEnClupik()" style="display:none" title="Envía los cambios de horario a Clupik">☁️ Guardar en Clupik</button>
@@ -3868,7 +3869,9 @@ function _ensureHtml2Canvas(){
   });
 }
 
-function _buildIGContainer(format, semana, rowsIG){
+function _buildIGContainer(format, semana, rowsIG, kind){
+  // kind: "horarios" (por defecto) o "resultados"
+  kind = kind || "horarios";
   // Dimensiones por formato (Instagram)
   var DIMS = {
     square:   { w:1080, h:1080 },
@@ -3913,7 +3916,7 @@ function _buildIGContainer(format, semana, rowsIG){
   var headerInner = document.createElement("div");
   headerInner.innerHTML =
     '<div style="font-size:' + (theme.semSize*0.85) + 'px;font-weight:500;letter-spacing:3px;text-transform:uppercase;opacity:.85;margin-bottom:6px">CLUB DEPORTIVO KOLBE</div>'
-    + '<div style="font-size:' + theme.titleSize + 'px;font-weight:700;line-height:1.1;display:flex;align-items:center">' + escudo + '<span>Partidos de la jornada</span></div>'
+    + '<div style="font-size:' + theme.titleSize + 'px;font-weight:700;line-height:1.1;display:flex;align-items:center">' + escudo + '<span>' + (kind === "resultados" ? "Resultados de la jornada" : "Partidos de la jornada") + '</span></div>'
     + '<div style="font-size:' + theme.semSize + 'px;font-weight:500;margin-top:10px;opacity:.95">' + (semana || "").toUpperCase() + '</div>';
   header.appendChild(headerInner);
   c.appendChild(header);
@@ -3980,11 +3983,22 @@ function _buildIGContainer(format, semana, rowsIG){
         + '<div style="font-size:' + theme.detSize + 'px;color:' + GRIS4 + ';margin-top:2px">' + _esc(r.categoria || "") + (r.entrenador ? "  ·  " + _esc(r.entrenador) : "") + '</div>';
       row.appendChild(left);
 
-      // Derecha: partido + horario / DESCANSO
+      // Derecha: partido + horario/resultado / DESCANSO
       var right = document.createElement("div");
       right.style.cssText = "text-align:right;flex-shrink:0;max-width:55%";
       if(descanso || sin){
-        right.innerHTML = '<div style="font-size:' + theme.eqSize + 'px;font-weight:600;color:' + GRIS4 + '">' + (descanso ? "🟡 Descanso" : "⏳ Por confirmar") + '</div>';
+        right.innerHTML = '<div style="font-size:' + theme.eqSize + 'px;font-weight:600;color:' + GRIS4 + '">' + (descanso ? "🟡 Descanso" : (kind === "resultados" ? "⏳ Sin resultado" : "⏳ Por confirmar")) + '</div>';
+      } else if(kind === "resultados"){
+        // Modo resultados: marcador grande + icono ✅/❌/➖
+        var resultadoTxt = r.resultado || "";
+        var iconoTxt = r.icono || "";
+        var resCol = iconoTxt === "✅" ? VERDE : (iconoTxt === "❌" ? "#b71c1c" : (iconoTxt === "➖" ? "#e65100" : NEGRO));
+        right.innerHTML =
+          '<div style="font-size:' + (theme.detSize*0.95) + 'px;color:' + GRIS5 + ';line-height:1.2">' + _esc(r.partido || "") + '</div>'
+          + '<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:4px">'
+          +   (iconoTxt ? '<span style="font-size:' + (theme.eqSize*1.1) + 'px;line-height:1">' + _esc(iconoTxt) + '</span>' : '')
+          +   '<span style="font-size:' + (theme.eqSize*1.35) + 'px;font-weight:700;color:' + resCol + ';font-family:\'IBM Plex Mono\',monospace;letter-spacing:1px">' + _esc(resultadoTxt || "—") + '</span>'
+          + '</div>';
       } else {
         var horaCol = (r.horario && r.horario !== "—") ? VERDE : GRIS4;
         right.innerHTML =
@@ -4026,10 +4040,11 @@ function _esc(s){
     .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
 
-function exportarInstagramKolbe(format, semana, rowsIG){
+function exportarInstagramKolbe(format, semana, rowsIG, kind){
+  kind = kind || "horarios";
   return _ensureHtml2Canvas().then(function(){
     var DIMS = { square:{w:1080,h:1080}, portrait:{w:1080,h:1350}, story:{w:1080,h:1920} }[format];
-    var c = _buildIGContainer(format, semana, rowsIG);
+    var c = _buildIGContainer(format, semana, rowsIG, kind);
     document.body.appendChild(c);
 
     // Auto-fit: si el contenido del body (bodyInner) es más alto que el espacio disponible,
@@ -4061,7 +4076,7 @@ function exportarInstagramKolbe(format, semana, rowsIG){
           var a = document.createElement("a");
           var slug = (semana || "").replace(/[^0-9A-Za-z\-]/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"") || "jornada";
           a.href = url;
-          a.download = "kolbe-" + format + "-" + slug + ".png";
+          a.download = "kolbe-" + (kind === "resultados" ? "resultados-" : "") + format + "-" + slug + ".png";
           document.body.appendChild(a); a.click(); a.remove();
           URL.revokeObjectURL(url);
           c.remove();
@@ -4073,6 +4088,302 @@ function exportarInstagramKolbe(format, semana, rowsIG){
       throw err;
     });
   });
+}
+
+// ============ RESUMEN KOLBE RESULTADOS ============
+// Hermano de resumenKolbe(): mismo planteamiento (todas las filas FS+F7) pero con
+// columna RESULTADO editable. Las ediciones se persisten por jornada en localStorage
+// con clave separada (kolbe_resumen_resultados_<semana>) para no pisar las del horario.
+//
+// El icono ✅/❌/➖ se autocalcula a partir del marcador y de si Kolbe jugaba en casa
+// o fuera. Se puede sobrescribir manualmente desde la UI.
+function _autoIcono(p, resultado){
+  if(!resultado) return "";
+  // Aceptar formatos "3-1", "3 - 1", "3:1", "3 1"
+  var m = String(resultado).replace(/\s+/g,"").match(/^(\d{1,3})[\-:](\d{1,3})$/);
+  if(!m) return "";
+  var local = parseInt(m[1],10), visit = parseInt(m[2],10);
+  if(isNaN(local) || isNaN(visit)) return "";
+  // ¿Kolbe es local en este partido?
+  var esLocal = p && (p.eq1||"").toUpperCase().includes("KOLBE");
+  var kolbe   = esLocal ? local : visit;
+  var rival   = esLocal ? visit : local;
+  if(kolbe > rival) return "✅";
+  if(kolbe < rival) return "❌";
+  return "➖";
+}
+
+function resumenKolbeResultados(){
+  if(!partidos || !partidos.length){ alert("No hay partidos cargados. Carga primero la jornada como hagas habitualmente."); return; }
+
+  var semana = document.getElementById("semana-label").textContent.replace("Semana del ","") || "";
+  var STORAGE_KEY = "kolbe_resumen_resultados_" + semana;
+
+  // Cargar ediciones guardadas
+  try {
+    var saved = localStorage.getItem(STORAGE_KEY);
+    window._resultadosEdits = saved ? JSON.parse(saved) : {};
+  } catch(e){ window._resultadosEdits = {}; }
+
+  // Encontrar partidos Kolbe (mismo criterio que resumenKolbe)
+  var kolbePs = partidos.filter(function(p){
+    return (p.eq1||"").toUpperCase().includes("KOLBE") || (p.eq2||"").toUpperCase().includes("KOLBE");
+  });
+
+  // Construir filas usando KOLBE_EQUIPOS (misma lista que el modal de horarios)
+  var rows = KOLBE_EQUIPOS.map(function(ke){
+    var p = null;
+    if(ke.equipo){
+      p = kolbePs.find(function(pp){
+        var eq1n = (pp.eq1||"").toUpperCase().trim();
+        var eq2n = (pp.eq2||"").toUpperCase().trim();
+        var keN = ke.equipo.toUpperCase().trim();
+        var catMatch = !ke.cat || (pp.comp||pp.categoria||"").toUpperCase().includes(ke.cat.toUpperCase());
+        var discMatch = true;
+        if(ke.disc){
+          var ligaUp = (pp.comp||pp.liga||"").toUpperCase();
+          if(ke.disc === "FS"){ discMatch = ligaUp.includes("FS") || ligaUp.includes("SALA"); }
+          else if(ke.disc === "F7"){ discMatch = ligaUp.includes("F-7") || ligaUp.includes("F7") || (!ligaUp.includes("FS") && !ligaUp.includes("SALA")); }
+        }
+        return (eq1n === keN || eq2n === keN) && catMatch && discMatch;
+      });
+    }
+
+    var displayLabel = ke.label || ke.equipo;
+    if(p){
+      var rival2 = (p.eq2||"").trim();
+      var eq2IsNan = !rival2 || rival2.toLowerCase()==="nan" || rival2==="";
+      var isDescanso = rival2.toUpperCase().includes("DESCANSO") || (p.eq1||"").toUpperCase().includes("DESCANSO");
+      if(isDescanso || eq2IsNan){
+        return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: ke.entrenador, disc: ke.disc, partido:"🟡 DESCANSO", resultado:"—", icono:"", _p: null};
+      }
+    }
+    if(!p) return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: ke.entrenador, disc: ke.disc, partido:"🟡 DESCANSO", resultado:"—", icono:"", _p: null};
+
+    var esLocal = (p.eq1||"").toUpperCase().includes("KOLBE");
+    var rival = esLocal ? p.eq2 : p.eq1;
+    var condicion = esLocal ? "🏠" : "✈️";
+    return {
+      equipo: displayLabel,
+      categoria: ke.categoria||"",
+      entrenador: ke.entrenador,
+      disc: ke.disc,
+      partido: condicion + " vs " + (rival||"—"),
+      resultado: "—",   // por defecto sin marcador; el usuario lo rellena
+      icono: "",
+      _p: p,             // guardar referencia para auto-calcular icono
+    };
+  });
+
+  // === Construir overlay ===
+  var overlay = document.createElement("div");
+  overlay.id = "resumen-kolbe-resultados-overlay";
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;overflow-y:auto;padding:2rem 1rem";
+
+  var wrapper = document.createElement("div");
+  wrapper.style.cssText = "max-width:900px;margin:0 auto;background:#fff;border-radius:var(--rl);padding:1.5rem;position:relative";
+
+  var btnCerrar = document.createElement("button");
+  btnCerrar.textContent = "✕ Cerrar";
+  btnCerrar.style.cssText = "position:absolute;top:1rem;right:1rem;padding:6px 12px;border:1px solid var(--gris3);border-radius:var(--r);background:transparent;cursor:pointer;font-size:13px";
+  btnCerrar.addEventListener("click", function(){ overlay.remove(); });
+
+  var titulo = document.createElement("div");
+  titulo.innerHTML = '<h2 style="font-size:16px;font-weight:700;margin-bottom:.25rem;color:var(--verde);text-align:center">🏆 RESULTADOS CD KOLBE — ' + semana.toUpperCase() + '</h2>'
+    + '<p style="font-size:11px;color:var(--gris4);margin-bottom:1rem;text-align:center">Rellena el marcador en cada equipo (formato <strong>3-1</strong>). El icono ✅/❌/➖ se calcula solo. Pulsa el icono para forzarlo si quieres.</p>';
+
+  // Tabla
+  var table = document.createElement("table");
+  table.style.cssText = "width:100%;border-collapse:collapse;font-size:12px";
+
+  var thead = document.createElement("thead");
+  thead.innerHTML = '<tr style="background:var(--verde);color:#fff">'
+    + '<th style="padding:8px 10px;text-align:left;border:1px solid #2d6a4f">EQUIPO</th>'
+    + '<th style="padding:8px 10px;text-align:left;border:1px solid #2d6a4f">CATEGORÍA</th>'
+    + '<th style="padding:8px 10px;text-align:left;border:1px solid #2d6a4f">ENTRENADOR</th>'
+    + '<th style="padding:8px 10px;text-align:left;border:1px solid #2d6a4f">PARTIDO</th>'
+    + '<th style="padding:8px 10px;text-align:center;border:1px solid #2d6a4f;width:110px">RESULTADO</th>'
+    + '<th style="padding:8px 10px;text-align:center;border:1px solid #2d6a4f;width:50px">✓</th>'
+    + '</tr>';
+
+  var tbody = document.createElement("tbody");
+  var lastDisc = "";
+  rows.forEach(function(r, i){
+    if(r.disc !== lastDisc){
+      lastDisc = r.disc;
+      var sepRow = document.createElement("tr");
+      sepRow.innerHTML = '<td colspan="6" style="background:var(--verde-s);color:var(--verde2);font-weight:700;padding:6px 10px;font-size:11px;letter-spacing:.5px;border:1px solid var(--gris2)">'
+        + (r.disc === "FS" ? "⚽ FÚTBOL SALA" : "⚽ FÚTBOL 7") + '</td>';
+      tbody.appendChild(sepRow);
+    }
+
+    var rk = r.disc + "_" + r.equipo + "_" + r.categoria;
+    var savedRow = (window._resultadosEdits && window._resultadosEdits[rk]) || {};
+
+    var tr = document.createElement("tr");
+    tr.setAttribute("data-rowkey", rk);
+    tr.style.cssText = "background:" + (i%2===0?"#fff":"var(--gris1)");
+
+    function cell(content, color, bold){
+      var td = document.createElement("td");
+      td.style.cssText = "padding:7px 10px;border:1px solid var(--gris2);" + (bold?"font-weight:600;":"") + (color?"color:"+color+";":"");
+      td.textContent = content;
+      return td;
+    }
+
+    tr.appendChild(cell(r.equipo, null, true));
+    tr.appendChild(cell(r.categoria, "var(--gris4)", false));
+    tr.appendChild(cell(r.entrenador, "var(--gris5)", false));
+    tr.appendChild(cell(r.partido, r.partido === "🟡 DESCANSO" ? "var(--gris3)" : null, false));
+
+    // Celda resultado (input)
+    var tdRes = document.createElement("td");
+    tdRes.style.cssText = "padding:5px 6px;border:1px solid var(--gris2);text-align:center";
+    var inpRes = document.createElement("input");
+    inpRes.type = "text";
+    inpRes.placeholder = "3-1";
+    inpRes.value = savedRow.resultado || (r.partido === "🟡 DESCANSO" ? "" : "");
+    inpRes.disabled = (r.partido === "🟡 DESCANSO");
+    inpRes.style.cssText = "width:100%;padding:5px 6px;border:1px solid var(--gris3);border-radius:5px;font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:center;font-weight:700;color:var(--verde);background:" + (inpRes.disabled?"var(--gris1)":"#fff");
+    tdRes.appendChild(inpRes);
+    tr.appendChild(tdRes);
+
+    // Celda icono (botón ciclable)
+    var tdIc = document.createElement("td");
+    tdIc.style.cssText = "padding:5px 6px;border:1px solid var(--gris2);text-align:center";
+    var btnIc = document.createElement("button");
+    btnIc.title = "Click para forzar (auto / ✅ / ❌ / ➖)";
+    btnIc.style.cssText = "background:transparent;border:none;cursor:pointer;font-size:18px;padding:0;line-height:1";
+    function setIcono(v){
+      btnIc.dataset.forced = (v === "auto" ? "" : v);
+      btnIc.textContent = (v === "auto") ? (_autoIcono(r._p, inpRes.value) || "—") : v;
+    }
+    setIcono(savedRow.icono ? savedRow.icono : "auto");
+    btnIc.addEventListener("click", function(){
+      var cur = btnIc.dataset.forced || "";
+      var next = cur === "" ? "✅" : cur === "✅" ? "❌" : cur === "❌" ? "➖" : "auto";
+      setIcono(next);
+    });
+    inpRes.addEventListener("input", function(){
+      // Si está en modo auto, recalcular
+      if(!btnIc.dataset.forced) setIcono("auto");
+    });
+    tdIc.appendChild(btnIc);
+    tr.appendChild(tdIc);
+
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(thead);
+  table.appendChild(tbody);
+
+  // === Botones ===
+  function leerEdits(){
+    var edits = {};
+    tbody.querySelectorAll("tr[data-rowkey]").forEach(function(tr){
+      var rk = tr.getAttribute("data-rowkey");
+      var inp = tr.querySelector("input[type=text]");
+      var btn = tr.querySelector("button");
+      if(inp){
+        edits[rk] = {
+          resultado: inp.value || "",
+          icono:     btn && btn.dataset.forced ? btn.dataset.forced : "",
+        };
+      }
+    });
+    return edits;
+  }
+  function rowsParaIG(){
+    var edits = leerEdits();
+    return rows.map(function(r){
+      var rk = r.disc + "_" + r.equipo + "_" + r.categoria;
+      var d = edits[rk] || {};
+      var iconoFinal = d.icono ? d.icono : _autoIcono(r._p, d.resultado);
+      var resultadoFinal = d.resultado || "—";
+      // En DESCANSO no hay marcador
+      if(r.partido === "🟡 DESCANSO"){ resultadoFinal = "—"; iconoFinal = ""; }
+      return {
+        disc: r.disc, equipo: r.equipo, categoria: r.categoria, entrenador: r.entrenador,
+        partido: r.partido,
+        resultado: resultadoFinal,
+        icono: iconoFinal,
+      };
+    });
+  }
+
+  // Guardar
+  var btnGuardar = document.createElement("button");
+  btnGuardar.textContent = "💾 Guardar resultados";
+  btnGuardar.style.cssText = "margin-top:1rem;margin-right:8px;padding:8px 16px;background:#fff;color:var(--verde);border:2px solid var(--verde);border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f)";
+  btnGuardar.addEventListener("click", function(){
+    try {
+      var edits = leerEdits();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(edits));
+      btnGuardar.textContent = "✓ Guardado";
+      btnGuardar.style.background = "var(--verde)"; btnGuardar.style.color = "#fff";
+      setTimeout(function(){ btnGuardar.textContent = "💾 Guardar resultados"; btnGuardar.style.background = "#fff"; btnGuardar.style.color = "var(--verde)"; }, 1800);
+    } catch(e){ alert("No se pudo guardar."); }
+  });
+
+  // Copiar resumen WhatsApp
+  var btnCopiar = document.createElement("button");
+  btnCopiar.textContent = "📋 Copiar resumen";
+  btnCopiar.style.cssText = "margin-top:1rem;padding:8px 16px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f)";
+  btnCopiar.addEventListener("click", function(){
+    var rIG = rowsParaIG();
+    var txt = "🏆 *RESULTADOS CD KOLBE — " + semana.toUpperCase() + "*\n";
+    var lastD = "";
+    rIG.forEach(function(r){
+      if(r.disc !== lastD){ lastD = r.disc; txt += "\n" + (r.disc==="FS" ? "⚽ *FÚTBOL SALA*" : "⚽ *FÚTBOL 7*") + "\n"; }
+      txt += "\n📋 *" + r.equipo + "* (" + r.categoria + ") · " + r.entrenador + "\n";
+      if(r.partido === "🟡 DESCANSO"){ txt += "🟡 Descanso\n"; }
+      else { txt += r.partido + "\n" + (r.icono ? r.icono + " " : "") + (r.resultado || "—") + "\n"; }
+    });
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0";
+    document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+    btnCopiar.textContent = "✓ Copiado"; btnCopiar.style.background = "var(--verde2,#2d6a4f)";
+    setTimeout(function(){ btnCopiar.textContent = "📋 Copiar resumen"; btnCopiar.style.background = "var(--verde)"; }, 1800);
+  });
+
+  // Botones IG (3 formatos)
+  function mkBtnIG(label, format){
+    var b = document.createElement("button");
+    b.textContent = label;
+    b.style.cssText = "margin-top:1rem;margin-left:8px;padding:8px 14px;background:#fff;color:var(--verde);border:2px solid var(--verde);border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f)";
+    b.addEventListener("click", function(){
+      var rIG = rowsParaIG();
+      var labelOriginal = b.textContent;
+      b.textContent = "⏳ Generando…"; b.disabled = true;
+      exportarInstagramKolbe(format, semana, rIG, "resultados").then(function(){
+        b.textContent = "✓ Descargado"; b.style.background = "var(--verde)"; b.style.color = "#fff";
+        setTimeout(function(){ b.textContent = labelOriginal; b.style.background = "#fff"; b.style.color = "var(--verde)"; b.disabled = false; }, 2000);
+      }).catch(function(err){
+        console.error(err);
+        alert("No se pudo generar la imagen: " + (err && err.message || err));
+        b.textContent = labelOriginal; b.disabled = false;
+      });
+    });
+    return b;
+  }
+  var igLabel = document.createElement("div");
+  igLabel.style.cssText = "margin-top:1.25rem;font-size:11px;color:var(--gris4);text-transform:uppercase;letter-spacing:.6px;border-top:1px solid var(--gris2);padding-top:1rem";
+  igLabel.textContent = "📸 Exportar a Instagram (resultados)";
+  var igBtnRow = document.createElement("div");
+  igBtnRow.style.cssText = "display:flex;flex-wrap:wrap;gap:0;margin-top:-.25rem";
+  igBtnRow.appendChild(mkBtnIG("⬜ Cuadrado (feed)", "square"));
+  igBtnRow.appendChild(mkBtnIG("📱 Vertical (feed)", "portrait"));
+  igBtnRow.appendChild(mkBtnIG("📖 Story", "story"));
+
+  wrapper.appendChild(btnCerrar);
+  wrapper.appendChild(titulo);
+  wrapper.appendChild(table);
+  wrapper.appendChild(btnGuardar);
+  wrapper.appendChild(btnCopiar);
+  wrapper.appendChild(igLabel);
+  wrapper.appendChild(igBtnRow);
+  overlay.appendChild(wrapper);
+  document.body.appendChild(overlay);
 }
 
 
