@@ -1481,7 +1481,21 @@ function handleDragLeave(){ document.getElementById("upload-zone").classList.rem
 let jornadaActivaId = null;
 
 function getAllJornadas(){
-  try { return JSON.parse(localStorage.getItem("kolbe_jornadas") || "[]"); } catch(e){ return []; }
+  try {
+    var arr = JSON.parse(localStorage.getItem("kolbe_jornadas") || "[]");
+    // Migración silenciosa: quitar prefijo "Semana " redundante de nombres antiguos
+    var migrado = false;
+    for(var i = 0; i < arr.length; i++){
+      if(arr[i] && arr[i].semana && /^Semana /.test(arr[i].semana)){
+        arr[i].semana = arr[i].semana.replace(/^Semana /, "");
+        migrado = true;
+      }
+    }
+    if(migrado){
+      try { localStorage.setItem("kolbe_jornadas", JSON.stringify(arr)); } catch(e){}
+    }
+    return arr;
+  } catch(e){ return []; }
 }
 function saveAllJornadas(arr){ localStorage.setItem("kolbe_jornadas", JSON.stringify(arr)); }
 
@@ -1535,7 +1549,7 @@ function renderHistorial(){
       onmouseover="this.style.borderColor='var(--verde2)';this.style.background='var(--verde-s)'"
       onmouseout="this.style.borderColor='var(--gris2)';this.style.background='#fff'">
       <div>
-        <div style="font-size:13px;font-weight:500">Semana del ${j.semana}</div>
+        <div style="font-size:13px;font-weight:500">Semana del ${(j.semana||"").replace(/^Semana /, "")}</div>
         <div style="font-size:11px;color:var(--gris4);margin-top:2px">${total} partidos · ${fecha}</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
@@ -1610,7 +1624,7 @@ function volverHistorial(){
 }
 
 function mostrarPlanificador(semanaLabel){
-  if(semanaLabel) document.getElementById("semana-label").textContent = "Semana del " + semanaLabel;
+  if(semanaLabel) document.getElementById("semana-label").textContent = "Semana del " + (semanaLabel||"").replace(/^Semana /, "");
   document.getElementById("estado-inicial").style.display = "none";
   document.getElementById("estado-planificador").style.display = "block";
   document.getElementById("btn-reset").style.display = "inline-flex";
@@ -4923,7 +4937,7 @@ async function importarSemanaClupik(){
       };
     });
 
-    const semana = "Semana " + from + " – " + to;
+    const semana = from + " – " + to;
     const arr = getAllJornadas();
     const id = "j_clupik_semana_" + Date.now();
     arr.unshift({
