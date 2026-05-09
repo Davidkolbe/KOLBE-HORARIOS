@@ -4341,11 +4341,15 @@ function resumenKolbeResultados(){
     tdPart.appendChild(btnEditPart);
     tr.appendChild(tdPart);
 
-    // Si savedRow.partido cambió la condición (🏠/✈️) recalcular _p
-    if(partidoInicial && partidoInicial !== "🟡 DESCANSO" && partidoInicial !== r.partido){
-      var esLocalSav = partidoInicial.indexOf("🏠") !== -1;
-      r._p = esLocalSav ? { eq1: "CD KOLBE", eq2: partidoInicial }
-                        : { eq1: partidoInicial, eq2: "CD KOLBE" };
+    // Sincronizar r.partido con el valor inicial (clave: si savedRow.partido tenía un
+    // valor previo, hay que actualizar r.partido para que rowsParaIG lo refleje).
+    if(partidoInicial !== r.partido){
+      r.partido = partidoInicial;
+      if(partidoInicial && partidoInicial !== "🟡 DESCANSO"){
+        var esLocalSav = partidoInicial.indexOf("🏠") !== -1;
+        r._p = esLocalSav ? { eq1: "CD KOLBE", eq2: partidoInicial }
+                          : { eq1: partidoInicial, eq2: "CD KOLBE" };
+      }
     }
 
     // Celda resultado (input)
@@ -4376,6 +4380,7 @@ function resumenKolbeResultados(){
         var v = inpEd.value.trim();
         if(!v) v = "🟡 DESCANSO";
         spanPart.textContent = v;
+        r.partido = v;   // ← clave: sincronizar para que rowsParaIG y la exportación a Instagram vean el cambio
         tdPart.style.color = (v === "🟡 DESCANSO") ? "var(--gris3)" : "";
         if(v !== "🟡 DESCANSO"){
           // Actualizar _p sintético — necesario para que _autoIcono sepa el lado de Kolbe
@@ -4422,14 +4427,25 @@ function resumenKolbeResultados(){
                : cur === "📌" ? "⏳"
                : "auto";
       setIcono(next);
-      // Si el usuario fuerza un estado especial y el input está vacío, autorelenarlo con la palabra
-      if(next === "📌" && (!inpRes.value || /^\s*$/.test(inpRes.value))){
-        inpRes.value = "APLAZADO";
-        if(inpRes.disabled){ inpRes.disabled = false; inpRes.style.background = "#fff"; }
-      } else if(next === "⏳" && (!inpRes.value || /^\s*$/.test(inpRes.value))){
-        inpRes.value = "POR DISPUTAR";
-        if(inpRes.disabled){ inpRes.disabled = false; inpRes.style.background = "#fff"; }
+      var v = inpRes.value || "";
+      var vacio = !v || /^\s*$/.test(v);
+      var esEtiquetaEspecial = /APLAZAD|POSTPONED|APL\b|POR.?DISPUTAR|SIN.?DISPUTAR|PENDIENTE/i.test(v);
+      // Reemplazar input según el estado al que ciclamos
+      if(next === "📌"){
+        if(vacio || esEtiquetaEspecial){
+          inpRes.value = "APLAZADO";
+          if(inpRes.disabled){ inpRes.disabled = false; inpRes.style.background = "#fff"; }
+        }
+      } else if(next === "⏳"){
+        if(vacio || esEtiquetaEspecial){
+          inpRes.value = "POR DISPUTAR";
+          if(inpRes.disabled){ inpRes.disabled = false; inpRes.style.background = "#fff"; }
+        }
+      } else if(next === "✅" || next === "❌" || next === "➖"){
+        // Pasamos a un icono numérico: si el input tenía una etiqueta especial, limpiarlo
+        if(esEtiquetaEspecial){ inpRes.value = ""; }
       }
+      // 'auto': dejamos el input como está
     });
     inpRes.addEventListener("input", function(){
       // Si está en modo auto, recalcular
@@ -4456,6 +4472,13 @@ function resumenKolbeResultados(){
           resultado: inp.value || "",
           icono:     btn && btn.dataset.forced ? btn.dataset.forced : "",
         };
+      }
+    });
+    // Capturar también las ediciones del partido (vienen sincronizadas en r.partido)
+    rows.forEach(function(r){
+      var rk = r.disc + "_" + r.equipo + "_" + r.categoria;
+      if(edits[rk] && r.partido !== undefined){
+        edits[rk].partido = r.partido;
       }
     });
     return edits;
