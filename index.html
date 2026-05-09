@@ -1481,21 +1481,7 @@ function handleDragLeave(){ document.getElementById("upload-zone").classList.rem
 let jornadaActivaId = null;
 
 function getAllJornadas(){
-  try {
-    var arr = JSON.parse(localStorage.getItem("kolbe_jornadas") || "[]");
-    // Migración silenciosa: quitar prefijo "Semana " redundante de nombres antiguos
-    var migrado = false;
-    for(var i = 0; i < arr.length; i++){
-      if(arr[i] && arr[i].semana && /^Semana /.test(arr[i].semana)){
-        arr[i].semana = arr[i].semana.replace(/^Semana /, "");
-        migrado = true;
-      }
-    }
-    if(migrado){
-      try { localStorage.setItem("kolbe_jornadas", JSON.stringify(arr)); } catch(e){}
-    }
-    return arr;
-  } catch(e){ return []; }
+  try { return JSON.parse(localStorage.getItem("kolbe_jornadas") || "[]"); } catch(e){ return []; }
 }
 function saveAllJornadas(arr){ localStorage.setItem("kolbe_jornadas", JSON.stringify(arr)); }
 
@@ -1549,7 +1535,7 @@ function renderHistorial(){
       onmouseover="this.style.borderColor='var(--verde2)';this.style.background='var(--verde-s)'"
       onmouseout="this.style.borderColor='var(--gris2)';this.style.background='#fff'">
       <div>
-        <div style="font-size:13px;font-weight:500">Semana del ${(j.semana||"").replace(/^Semana /, "")}</div>
+        <div style="font-size:13px;font-weight:500">Semana del ${j.semana}</div>
         <div style="font-size:11px;color:var(--gris4);margin-top:2px">${total} partidos · ${fecha}</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
@@ -1624,7 +1610,7 @@ function volverHistorial(){
 }
 
 function mostrarPlanificador(semanaLabel){
-  if(semanaLabel) document.getElementById("semana-label").textContent = "Semana del " + (semanaLabel||"").replace(/^Semana /, "");
+  if(semanaLabel) document.getElementById("semana-label").textContent = "Semana del " + semanaLabel;
   document.getElementById("estado-inicial").style.display = "none";
   document.getElementById("estado-planificador").style.display = "block";
   document.getElementById("btn-reset").style.display = "inline-flex";
@@ -4339,6 +4325,81 @@ function resumenKolbeResultados(){
     } catch(e){ alert("No se pudo guardar."); }
   });
 
+  // Sincronizar desde Clupik (Camino B)
+  var btnSync = document.createElement("button");
+  btnSync.textContent = "📡 Sincronizar desde Clupik";
+  btnSync.title = "Tira los marcadores de la API de Clupik para esta jornada y rellena los inputs";
+  btnSync.style.cssText = "margin-top:1rem;margin-right:8px;padding:8px 16px;background:var(--verde);color:#fff;border:2px solid var(--verde);border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f)";
+  btnSync.addEventListener("click", function(){
+    // Determinar rango de fechas de la jornada activa
+    // 'partidos' tiene fechas DD/MM/YYYY; usamos min/max
+    var fechas = (partidos||[]).map(function(p){ return p.fecha; }).filter(Boolean);
+    if(!fechas.length){ alert("No hay partidos cargados."); return; }
+    fechas.sort(function(a,b){
+      var pa = a.split("/"); var pb = b.split("/");
+      var ka = pa[2]+pa[1]+pa[0]; var kb = pb[2]+pb[1]+pb[0];
+      return ka<kb?-1:ka>kb?1:0;
+    });
+    var from = fechas[0], to = fechas[fechas.length-1];
+
+    var labelOriginal = btnSync.textContent;
+    btnSync.textContent = "⏳ Consultando…"; btnSync.disabled = true;
+    fetch("/api/clupik-resultados-week?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to))
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if(data && data.error){ throw new Error(data.error); }
+        var marcadores = (data.partidos || []).filter(function(p){ return p.score_text; });
+        if(!marcadores.length){
+          alert("Clupik no tiene marcadores aún para esta jornada (los entrenadores no han cerrado actas).");
+          btnSync.textContent = labelOriginal; btnSync.disabled = false;
+          return;
+        }
+        // Para cada marcador, buscar la fila correspondiente en el modal por nombre de equipo
+        var rellenados = 0;
+        var trs = tbody.querySelectorAll("tr[data-rowkey]");
+        marcadores.forEach(function(p){
+          // Determinar qué equipo es Kolbe y qué marcador le toca
+          var eq1Up = (p.eq1||"").toUpperCase().trim();
+          var eq2Up = (p.eq2||"").toUpperCase().trim();
+          var kolbeEsLocal = eq1Up.indexOf("KOLBE") !== -1;
+          if(!kolbeEsLocal && eq2Up.indexOf("KOLBE") === -1) return; // no es Kolbe
+          var equipoKolbe = kolbeEsLocal ? eq1Up : eq2Up;
+          // Buscar la fila cuyo equipo coincide. KOLBE_EQUIPOS guarda el nombre estilo "CD KOLBE 1º BLANCO"
+          // que coincide con el de Clupik en mayúsculas.
+          for(var i=0; i<trs.length; i++){
+            var rk = trs[i].getAttribute("data-rowkey");
+            // rk = "FS_CD KOLBE 1º BLANCO_Prebenjamín"
+            var partes = rk.split("_");
+            var equipoFila = (partes[1]||"").toUpperCase().trim();
+            // Quitar "CD KOLBE" del label si existe (algunas filas son "CD KOLBE INFANTIL" sin equipo en KOLBE_EQUIPOS)
+            // Comparación tolerante: el equipo de Clupik debe estar contenido en el de la fila (o viceversa)
+            if(equipoKolbe && (equipoFila === equipoKolbe || equipoFila.indexOf(equipoKolbe) !== -1 || equipoKolbe.indexOf(equipoFila) !== -1)){
+              var inp = trs[i].querySelector("input[type=text]");
+              if(inp && !inp.disabled){
+                // Marcador en formato "Kolbe-Rival" desde la perspectiva de Kolbe
+                var golesKolbe = kolbeEsLocal ? p.home_score : p.away_score;
+                var golesRival = kolbeEsLocal ? p.away_score : p.home_score;
+                if(golesKolbe != null && golesRival != null){
+                  inp.value = golesKolbe + "-" + golesRival;
+                  inp.dispatchEvent(new Event("input", { bubbles: true }));
+                  rellenados++;
+                }
+              }
+              break;
+            }
+          }
+        });
+        btnSync.textContent = "✓ " + rellenados + " sincronizados";
+        btnSync.style.background = "var(--verde2,#2d6a4f)";
+        setTimeout(function(){ btnSync.textContent = labelOriginal; btnSync.style.background = "var(--verde)"; btnSync.disabled = false; }, 2500);
+      })
+      .catch(function(err){
+        console.error("Sync clupik:", err);
+        alert("Error al sincronizar: " + (err && err.message || err));
+        btnSync.textContent = labelOriginal; btnSync.disabled = false;
+      });
+  });
+
   // Copiar resumen WhatsApp
   var btnCopiar = document.createElement("button");
   btnCopiar.textContent = "📋 Copiar resumen";
@@ -4392,6 +4453,7 @@ function resumenKolbeResultados(){
   wrapper.appendChild(btnCerrar);
   wrapper.appendChild(titulo);
   wrapper.appendChild(table);
+  wrapper.appendChild(btnSync);
   wrapper.appendChild(btnGuardar);
   wrapper.appendChild(btnCopiar);
   wrapper.appendChild(igLabel);
@@ -4937,7 +4999,7 @@ async function importarSemanaClupik(){
       };
     });
 
-    const semana = from + " – " + to;
+    const semana = "Semana " + from + " – " + to;
     const arr = getAllJornadas();
     const id = "j_clupik_semana_" + Date.now();
     arr.unshift({
