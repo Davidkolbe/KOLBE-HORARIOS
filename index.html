@@ -3849,12 +3849,24 @@ function resumenKolbe(){
   function mkBtnWA(label, format){
     var b = document.createElement("button");
     b.textContent = label;
-    b.style.cssText = "padding:8px 14px;background:#25D366;color:#fff;border:1px solid #1da851;font-size:12px;cursor:pointer;font-family:var(--f);transition:.15s";
-    b.addEventListener("mouseenter", function(){ if(!this.disabled){ this.style.background="#1da851"; } });
-    b.addEventListener("mouseleave", function(){ if(!this.disabled){ this.style.background="#25D366"; } });
+    // Mismo estilo outline que los de Instagram, color verde WhatsApp
+    b.style.cssText = "margin-top:1rem;margin-left:8px;padding:8px 14px;background:#fff;color:#1da851;border:2px solid #1da851;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f)";
     b.addEventListener("click", function(){
-      var rowsIG = rows.map(function(r, idx){
-        var rk = "row-" + idx;
+      // Leer valores editados de la tabla (igual que mkBtnIG)
+      var tableRows = tbody.querySelectorAll("tr[data-rowkey]");
+      var editedRows = {};
+      tableRows.forEach(function(tr){
+        var rk = tr.getAttribute("data-rowkey");
+        var cells = tr.querySelectorAll("span");
+        if(cells.length >= 6){
+          editedRows[rk] = {
+            equipo: cells[0].textContent, categoria: cells[1].textContent, entrenador: cells[2].textContent,
+            partido: cells[3].textContent, campo: cells[4].textContent, horario: cells[5].textContent,
+          };
+        }
+      });
+      var rowsIG = rows.map(function(r){
+        var rk = r.disc + "_" + r.equipo + "_" + r.categoria;
         var d = editedRows[rk] || {};
         return {
           disc: r.disc,
@@ -3871,8 +3883,8 @@ function resumenKolbe(){
       exportarInstagramKolbe(format, semana, rowsIG, "horarios", {
         mimeType: "image/jpeg", quality: 0.92, extension: "jpg", fileTag: "wa"
       }).then(function(){
-        b.textContent = "✓ Descargado"; b.style.background = "#1da851";
-        setTimeout(function(){ b.textContent = labelOriginal; b.style.background = "#25D366"; b.disabled = false; }, 2000);
+        b.textContent = "✓ Descargado"; b.style.background = "#1da851"; b.style.color = "#fff";
+        setTimeout(function(){ b.textContent = labelOriginal; b.style.background = "#fff"; b.style.color = "#1da851"; b.disabled = false; }, 2000);
       }).catch(function(err){
         console.error(err);
         alert("No se pudo generar la imagen: " + (err && err.message || err));
