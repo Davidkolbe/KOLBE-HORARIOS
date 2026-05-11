@@ -3845,6 +3845,50 @@ function resumenKolbe(){
   igBtnRow.appendChild(mkBtnIG("📱 Vertical (feed)", "portrait"));
   igBtnRow.appendChild(mkBtnIG("📖 Story", "story"));
 
+  // Botones WhatsApp (mismo layout pero JPG, mejor compresión en chat)
+  function mkBtnWA(label, format){
+    var b = document.createElement("button");
+    b.textContent = label;
+    b.style.cssText = "padding:8px 14px;background:#25D366;color:#fff;border:1px solid #1da851;font-size:12px;cursor:pointer;font-family:var(--f);transition:.15s";
+    b.addEventListener("mouseenter", function(){ if(!this.disabled){ this.style.background="#1da851"; } });
+    b.addEventListener("mouseleave", function(){ if(!this.disabled){ this.style.background="#25D366"; } });
+    b.addEventListener("click", function(){
+      var rowsIG = rows.map(function(r, idx){
+        var rk = "row-" + idx;
+        var d = editedRows[rk] || {};
+        return {
+          disc: r.disc,
+          equipo:     d.equipo     || r.equipo,
+          categoria:  d.categoria  || r.categoria,
+          entrenador: d.entrenador || r.entrenador,
+          partido:    d.partido    || r.partido,
+          campo:      d.campo      || r.campo,
+          horario:    d.horario    || r.horario,
+        };
+      });
+      var labelOriginal = b.textContent;
+      b.textContent = "⏳ Generando…"; b.disabled = true;
+      exportarInstagramKolbe(format, semana, rowsIG, "horarios", {
+        mimeType: "image/jpeg", quality: 0.92, extension: "jpg", fileTag: "wa"
+      }).then(function(){
+        b.textContent = "✓ Descargado"; b.style.background = "#1da851";
+        setTimeout(function(){ b.textContent = labelOriginal; b.style.background = "#25D366"; b.disabled = false; }, 2000);
+      }).catch(function(err){
+        console.error(err);
+        alert("No se pudo generar la imagen: " + (err && err.message || err));
+        b.textContent = labelOriginal; b.disabled = false;
+      });
+    });
+    return b;
+  }
+  var waLabel = document.createElement("div");
+  waLabel.style.cssText = "margin-top:1rem;font-size:11px;color:var(--gris4);text-transform:uppercase;letter-spacing:.6px;border-top:1px solid var(--gris2);padding-top:1rem";
+  waLabel.textContent = "📱 Exportar para WhatsApp (JPG)";
+  var waBtnRow = document.createElement("div");
+  waBtnRow.style.cssText = "display:flex;flex-wrap:wrap;gap:0;margin-top:-.25rem";
+  waBtnRow.appendChild(mkBtnWA("📱 Vertical (chat)", "portrait"));
+  waBtnRow.appendChild(mkBtnWA("📖 Story (estado)", "story"));
+
   wrapper.appendChild(btnCerrar);
   wrapper.appendChild(titulo);
   wrapper.appendChild(table);
@@ -3852,6 +3896,8 @@ function resumenKolbe(){
   wrapper.appendChild(btnCopiar);
   wrapper.appendChild(igLabel);
   wrapper.appendChild(igBtnRow);
+  wrapper.appendChild(waLabel);
+  wrapper.appendChild(waBtnRow);
   overlay.appendChild(wrapper);
   document.body.appendChild(overlay);
 }
@@ -4054,8 +4100,13 @@ function _esc(s){
     .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
 
-function exportarInstagramKolbe(format, semana, rowsIG, kind){
+function exportarInstagramKolbe(format, semana, rowsIG, kind, opts){
   kind = kind || "horarios";
+  opts = opts || {};
+  var mimeType = opts.mimeType || "image/png";
+  var quality = (typeof opts.quality === "number") ? opts.quality : undefined;
+  var ext = opts.extension || "png";
+  var fileTag = opts.fileTag || "";
   return _ensureHtml2Canvas().then(function(){
     var DIMS = { square:{w:1080,h:1080}, portrait:{w:1080,h:1350}, story:{w:1080,h:1920} }[format];
     var c = _buildIGContainer(format, semana, rowsIG, kind);
@@ -4089,13 +4140,14 @@ function exportarInstagramKolbe(format, semana, rowsIG, kind){
           var url = URL.createObjectURL(blob);
           var a = document.createElement("a");
           var slug = (semana || "").replace(/[^0-9A-Za-z\-]/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"") || "jornada";
+          var tag = fileTag ? (fileTag + "-") : "";
           a.href = url;
-          a.download = "kolbe-" + (kind === "resultados" ? "resultados-" : "") + format + "-" + slug + ".png";
+          a.download = "kolbe-" + tag + (kind === "resultados" ? "resultados-" : "") + format + "-" + slug + "." + ext;
           document.body.appendChild(a); a.click(); a.remove();
           URL.revokeObjectURL(url);
           c.remove();
           resolve();
-        }, "image/png");
+        }, mimeType, quality);
       });
     }).catch(function(err){
       try { c.remove(); } catch(e){}
