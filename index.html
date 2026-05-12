@@ -513,6 +513,7 @@ const LUGAR_MAP = [
 // club al que nuestro token no tiene permiso de lectura). Clave: facility_id
 // devuelto por Clupik. Valor: nombre exacto tal y como aparece en CAMPOS_BASE.
 const FACILITY_ID_MAP = {
+  "65302": "Pabellón Infanta Cristina",
   "66104": "Pista Exterior Infanta Cristina",
   "73417": "Pista Kolbe Secundaria",
 };
@@ -5598,7 +5599,8 @@ async function guardarCambiosEnClupik(){
   var CAMPO_A_FACILITY_FALLBACK = {
     "KOLBE": "65214",
     "PISTA KOLBE SECUNDARIA": "73417",
-    "PISTA EXTERIOR INFANTA CRISTINA": "66104"
+    "PISTA EXTERIOR INFANTA CRISTINA": "66104",
+    "PABELLON INFANTA CRISTINA": "65302"
   };
   Object.keys(CAMPO_A_FACILITY_FALLBACK).forEach(function(k){
     if(!mapaCampos[k]) mapaCampos[k] = {};
