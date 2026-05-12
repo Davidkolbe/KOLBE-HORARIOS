@@ -5219,10 +5219,17 @@ function guardarNuevoPartido(){
               aplazado: !!d.aplazado,
               place: d.place || ""
             };
-            if(d.place) p.facility_id_clupik = String(d.place);
-            // Actualizar p.lugar_clupik: ahora asumimos que Clupik tiene el campo enviado.
-            // Esto permite que el sistema aprenda mapeos verificados (campo↔facility_id).
-            if(d.campo) p.lugar_clupik = d.campo;
+            // Solo actualizar facility/lugar_clupik si el place ENVIADO difiere del que
+            // teniamos guardado de Clupik. Antes lo haciamos siempre, lo cual envenenaba
+            // p.lugar_clupik cuando el sync mandaba solo hora/aplazado y dejaba el campo
+            // como passthrough (p.ej. d.campo = p.campo local sin mover la facility).
+            var placeAntes = String(p.facility_id_clupik || "");
+            var placeAhora = String(d.place || "");
+            var facilityCambio = placeAhora && placeAhora !== placeAntes;
+            if(facilityCambio){
+              p.facility_id_clupik = placeAhora;
+              if(d.campo) p.lugar_clupik = d.campo;
+            }
             actualizados++;
           }
         }
