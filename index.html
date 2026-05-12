@@ -5669,6 +5669,7 @@ async function guardarCambiosEnClupik(){
 
   // 2) Recorrer partidos y construir lista de cambios, con tipos bien diferenciados.
   var cambios = [];  // { p, tipos: Set, payload: {...}, desc: {...} }
+  var avisosCampo = [];  // { p, campoLocal, lugarClupik } - cambios de campo detectados pero sin facility_id en el mapa
   // Saltar partidos que ya estan sincronizados con Clupik (coincide p._lastSyncSucceeded con p actual)
   var _yaSincronizado = function(p){
     if(!p._lastSyncSucceeded) return false;
@@ -5714,34 +5715,38 @@ async function guardarCambiosEnClupik(){
     }
 
     // --- Campo ---
-    // _mismoCampo ya declarado arriba (fix de aprendizaje)
+    // Comparacion canonica: lugarACampo() resuelve la cadena bruta de Clupik
+    // (p.ej. "Pista Semicubierta Pabellon Infanta Cristina, Camino Retamar...")
+    // a una clave de CAMPOS_BASE (p.ej. "Pista Exterior Infanta Cristina").
+    // Antes se usaba substring matching, que confundia "Pabellon Infanta Cristina"
+    // con la cadena larga de Clupik porque uno estaba contenido en el otro y el
+    // sync descartaba el cambio en silencio.
     if(p.campo && p.campo !== "Sin campo"){
       var kLocal = _normCampo(p.campo);
-      var kClupik = _normCampo(p.lugar_clupik || "");
-      if(kLocal && !_mismoCampo(kLocal, kClupik)){
-        // Solo entramos si el campo local NO es compatible con el de Clupik.
-        var mapped = campoAFacility[kLocal];
-        // También buscamos mapeo por substring en las claves conocidas.
-        if(!mapped){
-          var claves = Object.keys(campoAFacility);
-          for(var ci = 0; ci < claves.length; ci++){
-            if(_mismoCampo(kLocal, claves[ci])){ mapped = campoAFacility[claves[ci]]; break; }
-          }
-        }
+      var canClupik = null;
+      try { canClupik = lugarACampo(p.lugar_clupik || ""); } catch(e){}
+      var kCanClupik = _normCampo(canClupik || "");
+      // Si Clupik no tiene lugar identificable, o lo identifica como un campo
+      // canonicamente distinto al local, hay que sincronizar.
+      var hayCambioCampo = !!p.lugar_clupik && (!kCanClupik || kCanClupik !== kLocal);
+      if(hayCambioCampo){
+        var mapped = campoAFacility[kLocal] || null;
         if(mapped && String(mapped.facility_id) !== String(p.facility_id_clupik || "")){
           payload.facility_id = mapped.facility_id;
           tipos.push("campo");
           desc.campo = {
-            from: p.lugar_clupik || "(ninguno)",
+            from: canClupik || p.lugar_clupik || "(ninguno)",
             to: p.campo,
             facility_id: mapped.facility_id
           };
         } else if(!mapped){
-          // Campo genuinamente distinto y sin mapeo: solo avisamos si también
-          // Clupik tiene un lugar asignado (si está vacío, no hay nada que comparar).
-          if(kClupik){
-            desc.campoDesconocido = { campo: p.campo };
-          }
+          // Cambio detectado pero sin facility_id en el mapa: lo registramos
+          // como aviso explicito (visible en el preview) en lugar de tragarlo.
+          avisosCampo.push({
+            p: p,
+            campoLocal: p.campo,
+            lugarClupik: canClupik || p.lugar_clupik || "(?)"
+          });
         }
       }
     }
@@ -5752,7 +5757,19 @@ async function guardarCambiosEnClupik(){
   });
 
   if(!cambios.length){
-    alert("No hay cambios pendientes de enviar a Clupik.");
+    if(avisosCampo.length){
+      var aviso = "No hay cambios sincronizables, PERO hay " + avisosCampo.length + " cambio(s) de campo que no se pueden enviar:\n\n";
+      avisosCampo.slice(0, 15).forEach(function(a){
+        aviso += "• " + a.p.eq1 + " vs " + a.p.eq2 + ": " + a.lugarClupik + " → " + a.campoLocal + "\n";
+      });
+      if(avisosCampo.length > 15) aviso += "... (y " + (avisosCampo.length - 15) + " más)\n";
+      aviso += "\nFalta el facility_id de Clupik para esos campos.\n";
+      aviso += "Solución: mueve 1 partido a ese campo a mano en Clupik web,\n";
+      aviso += "luego pulsa '📡 Sincronizar desde Clupik'. El mapeo se aprende solo.";
+      alert(aviso);
+    } else {
+      alert("No hay cambios pendientes de enviar a Clupik.");
+    }
     return;
   }
 
@@ -5780,6 +5797,16 @@ async function guardarCambiosEnClupik(){
     }
   });
   if(cambios.length > 30) msg += "... (y " + (cambios.length - 30) + " más)\n";
+  if(avisosCampo.length){
+    msg += "\n⚠ " + avisosCampo.length + " partido(s) con cambio de campo que NO se enviarán a Clupik\n";
+    msg += "   (falta facility_id en el mapa interno):\n";
+    avisosCampo.slice(0, 15).forEach(function(a){
+      msg += "   • " + a.p.eq1 + " vs " + a.p.eq2 + ": " + a.lugarClupik + " → " + a.campoLocal + "\n";
+    });
+    if(avisosCampo.length > 15) msg += "   ... (y " + (avisosCampo.length - 15) + " más)\n";
+    msg += "   Cómo arreglarlo: mueve 1 partido a ese campo manualmente en Clupik web,\n";
+    msg += "   luego pulsa \'📡 Sincronizar desde Clupik\' aquí. El mapeo se aprende solo.\n";
+  }
   msg += "\n¿Continuar?";
   if(!confirm(msg)) return;
 
