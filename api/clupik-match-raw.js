@@ -21,8 +21,15 @@ module.exports = async (req, res) => {
   const tournamentId = req.query.tournament_id;
   const wantInclude = req.query.include === '1' || req.query.include === 'true';
   const wantProbe = req.query.probe === '1' || req.query.probe === 'true';
+  const dumpMatchId = req.query.dump_match;
 
   try {
+    // === MODO DUMP: devuelve el body crudo de un match con include=results ===
+    if (dumpMatchId) {
+      const r = await apiGet('/matches', { filter: `id:${dumpMatchId}`, include: 'results' });
+      return sendJson(res, 200, { request: { match_id: dumpMatchId }, body: r.body });
+    }
+
     // === MODO PROBE: prueba endpoints alternativos para descubrir dónde viven los marcadores ===
     if (wantProbe) {
       if (!tournamentId) return sendJson(res, 400, { error: 'probe requiere ?tournament_id=YYY' });
