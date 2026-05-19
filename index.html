@@ -3895,6 +3895,70 @@ function resumenKolbe(){
     window._resumenEdits = savedEdits ? JSON.parse(savedEdits) : {};
   } catch(e){ window._resumenEdits = {}; }
 
+  // Helper: encontrar el partido REAL en partidos[] que corresponde a una fila del resumen.
+  // rowKey format: "DISC_EQUIPO_CATEGORIA" (mismo que se usa al construir filas).
+  function _partidoDeRowKey(rowKey){
+    var parts = rowKey.split("_");
+    var rDisc = parts[0]||"", rEquipo = parts[1]||"", rCategoria = parts[2]||"";
+    return (partidos||[]).find(function(pp){
+      var eq1n = (pp.eq1||"").toUpperCase().trim();
+      var eq2n = (pp.eq2||"").toUpperCase().trim();
+      var keN = rEquipo.toUpperCase().trim();
+      if(!(eq1n === keN || eq2n === keN)) return false;
+      var catMatch = !rCategoria || (pp.comp||pp.categoria||"").toUpperCase().includes(rCategoria.toUpperCase());
+      if(!catMatch) return false;
+      var ligaUp = (pp.comp||pp.liga||"").toUpperCase();
+      if(rDisc === "FS") return ligaUp.includes("FS") || ligaUp.includes("SALA");
+      if(rDisc === "F7") return ligaUp.includes("F-7") || ligaUp.includes("F7") || (!ligaUp.includes("FS") && !ligaUp.includes("SALA"));
+      return true;
+    });
+  }
+
+  // Helper: parsear un string de horario tipo "Sab 10:00h", "Vie 18:30h", "10:00" → {dia, hora}.
+  function _parseHorario(str){
+    var s = (str||"").trim();
+    if(!s) return null;
+    var m = s.match(/^([A-Za-zÁÉÍÓÚáéíóú]+)?\s*(\d{1,2}):(\d{2})h?$/);
+    if(!m) return null;
+    var diaMap = {VIE:"Viernes", VI:"Viernes", SAB:"Sabado", "SÁB":"Sabado", DOM:"Domingo", LUN:"Lunes", MAR:"Martes", MIE:"Miercoles", "MIÉ":"Miercoles", JUE:"Jueves"};
+    var dStr = (m[1]||"").toUpperCase().substring(0,3);
+    var dia = diaMap[dStr] || null;
+    var hora = m[2].padStart(2,"0") + ":" + m[3];
+    return { dia: dia, hora: hora };
+  }
+
+  // === MIGRACIÓN AUTOMÁTICA (one-shot al abrir resumen) ===
+  // Hasta hoy, las ediciones de "horario"/"campo" en el resumen se guardaban
+  // SOLO en _resumenEdits y NO se propagaban a partidos[], generando divergencia
+  // entre el resumen (Sab 10:00) y los mensajes/vistas (Sab 17:00). Aplicar los
+  // edits pendientes al partido real y borrarlos del map de edits.
+  var _hayMigracion = false;
+  Object.keys(window._resumenEdits || {}).forEach(function(rk){
+    var ed = window._resumenEdits[rk];
+    if(!ed) return;
+    var p = _partidoDeRowKey(rk);
+    if(!p) return;
+    if(ed.horario !== undefined){
+      var ph = _parseHorario(ed.horario);
+      if(ph){
+        if(ph.dia) p.dia = ph.dia;
+        if(ph.hora){ p.hora = ph.hora; p.sinHora = false; }
+        delete ed.horario;
+        _hayMigracion = true;
+      }
+    }
+    if(ed.campo !== undefined && typeof ed.campo === "string" && ed.campo.trim() && ed.campo !== "—"){
+      p.campo = ed.campo;
+      delete ed.campo;
+      _hayMigracion = true;
+    }
+  });
+  if(_hayMigracion){
+    try { savePartidos(); } catch(e){}
+    try { localStorage.setItem("kolbe_resumen_edits_" + semana, JSON.stringify(window._resumenEdits || {})); } catch(e){}
+    console.info("Resumen Kolbe: migración aplicada — ediciones de hora/campo propagadas a partidos[].");
+  }
+
   // Find Kolbe partidos
   const kolbePs = partidos.filter(function(p){
     return (p.eq1||"").toUpperCase().includes("KOLBE") || (p.eq2||"").toUpperCase().includes("KOLBE");
@@ -4028,10 +4092,36 @@ function resumenKolbe(){
           span.textContent = inp.value;
           td.replaceChild(span, inp);
           btn.style.display = "";
-          // Save to memory
-          if(!window._resumenEdits) window._resumenEdits = {};
-          if(!window._resumenEdits[rowKey]) window._resumenEdits[rowKey] = {};
-          window._resumenEdits[rowKey][colKey] = inp.value;
+          // Para columnas que afectan a los datos reales (horario, campo), propagar
+          // a partidos[] para que los mensajes, vistas y exports vean el cambio.
+          // NO guardamos esos en _resumenEdits porque la fuente de verdad ahora
+          // es partidos[] (evita la divergencia que arrastrábamos antes).
+          if(colKey === "horario" || colKey === "campo"){
+            var pTarget = _partidoDeRowKey(rowKey);
+            if(pTarget){
+              if(colKey === "horario"){
+                var ph = _parseHorario(inp.value);
+                if(ph){
+                  if(ph.dia) pTarget.dia = ph.dia;
+                  if(ph.hora){ pTarget.hora = ph.hora; pTarget.sinHora = false; }
+                }
+              } else {
+                pTarget.campo = inp.value;
+              }
+              try { savePartidos(); } catch(e){}
+              try { renderTodo(); } catch(e){}
+            }
+            // Asegurar que no quede edit residual de esta columna
+            if(window._resumenEdits && window._resumenEdits[rowKey]){
+              delete window._resumenEdits[rowKey][colKey];
+            }
+          } else {
+            // Columnas puramente visuales (equipo, categoria, entrenador, partido):
+            // mantener el sistema de _resumenEdits actual.
+            if(!window._resumenEdits) window._resumenEdits = {};
+            if(!window._resumenEdits[rowKey]) window._resumenEdits[rowKey] = {};
+            window._resumenEdits[rowKey][colKey] = inp.value;
+          }
         }
         inp.addEventListener("blur", guardar);
         inp.addEventListener("keydown", function(e){
