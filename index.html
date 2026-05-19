@@ -3,6 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Planificador semanal y comunicación de partidos del Club Deportivo Kolbe: importa la jornada desde Clupik, asigna horarios y campos, y genera los mensajes de WhatsApp para entrenadores, padres y coordinadores.">
+<meta name="theme-color" content="#0BAB00">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kolbe Horarios">
+<link rel="icon" type="image/svg+xml" href="/icon-kolbe.svg">
+<link rel="apple-touch-icon" href="/icon-kolbe.svg">
+<link rel="manifest" href="/manifest.json">
 <title>Planificador Semanal — Club Kolbe</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -51,6 +59,25 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
 .btn-ghost:hover{background:rgba(255,255,255,.1);color:#fff}
 .btn-sm{padding:4px 10px;font-size:12px}
 .btn-rojo{background:var(--rojo);color:#fff;border-color:var(--rojo)}
+
+/* Accesibilidad: contenido visualmente oculto pero leído por screen readers */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* Dropdown "Datos" en cabecera */
+.menu-wrap{position:relative;display:inline-block}
+.menu-wrap > .btn-ghost::after{content:" ▾";font-size:10px;opacity:.7;margin-left:2px}
+.menu-pop{position:absolute;top:calc(100% + 6px);right:0;background:#fff;color:var(--negro);border:1px solid var(--gris2);border-radius:var(--r);box-shadow:0 6px 24px rgba(0,0,0,.12);min-width:200px;padding:4px;z-index:300;display:none}
+.menu-wrap.open .menu-pop{display:block}
+.menu-pop button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:transparent;border:none;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--negro);font-family:var(--f)}
+.menu-pop button:hover{background:var(--gris1)}
+
+/* Sidebar Campos y horarios como <details> con animación suave */
+details.card-collapsible{padding:0}
+details.card-collapsible > summary{list-style:none;padding:.875rem 1.25rem;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--negro);border-bottom:1px solid var(--gris2)}
+details.card-collapsible > summary::-webkit-details-marker{display:none}
+details.card-collapsible > summary::after{content:" ▾";font-size:11px;color:var(--gris4);transition:transform .15s}
+details.card-collapsible:not([open]) > summary{border-bottom:none}
+details.card-collapsible:not([open]) > summary::after{transform:rotate(-90deg)}
 
 /* ESTADO VACÍO */
 .empty-state{text-align:center;padding:4rem 2rem;color:var(--gris4)}
@@ -157,6 +184,25 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
   .topbar{padding:0 1rem}
   .wrap{padding:1rem}
 }
+
+@media(max-width:480px){
+  /* Topbar más compacto y permite wrap */
+  .topbar{height:auto;min-height:52px;flex-wrap:wrap;gap:6px;padding:8px 12px}
+  .topbar-actions{flex-wrap:wrap;gap:4px;width:100%;justify-content:flex-start}
+  .topbar-actions .btn{padding:6px 9px;font-size:11px}
+  .menu-pop{right:auto;left:0;min-width:180px}
+  /* Brand compacto */
+  .brand{font-size:13px;gap:6px}
+  .brand-sub{display:none}
+  /* Wrap aún más estrecho */
+  .wrap{padding:.75rem}
+  /* Stats en 2 columnas pero más compactas */
+  .stat{padding:.625rem .5rem}
+  .stat-n{font-size:18px}
+  /* Tabla: ocultar columnas menos críticas (Entrenadores) */
+  .partidos-table th:nth-child(3),
+  .partidos-table td:nth-child(3){display:none}
+}
 .wa-modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem}
 .wa-modal{background:#fff;border-radius:var(--radio-grande);padding:1.5rem;max-width:600px;width:100%;max-height:85vh;overflow-y:auto}
 .wa-modal-title{font-size:15px;font-weight:600;margin-bottom:1rem;color:var(--negro)}
@@ -173,6 +219,7 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
 </style>
 </head>
 <body>
+<h1 class="sr-only">Planificador semanal Club Kolbe — Asignación de horarios y comunicación de partidos</h1>
 
 <div class="topbar">
   <div class="brand">
@@ -184,10 +231,15 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
     <button class="btn btn-ghost btn-sm" onclick="toggleConf('equipos')">⚙ Entrenadores</button>
     <button class="btn btn-ghost btn-sm" onclick="toggleConf('coordinadores')">👤 Coordinadores</button>
     <button class="btn btn-ghost btn-sm" onclick="toggleConf('campos')">🏟 Campos</button>
-    <button class="btn btn-ghost btn-sm" onclick="guardarCopia()" title="Descarga una copia de seguridad con todas tus jornadas">💾 Guardar copia</button>
-    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('restore-input').click()" title="Restaura una copia de seguridad guardada anteriormente">📂 Restaurar</button>
+    <span class="menu-wrap" id="menu-datos">
+      <button class="btn btn-ghost btn-sm" type="button" onclick="toggleMenu('menu-datos')" aria-haspopup="true" aria-expanded="false">📁 Datos</button>
+      <div class="menu-pop" role="menu" aria-label="Acciones de datos">
+        <button type="button" onclick="closeMenus();guardarCopia()" title="Descarga una copia de seguridad con todas tus jornadas">💾 Guardar copia</button>
+        <button type="button" onclick="closeMenus();document.getElementById('restore-input').click()" title="Restaura una copia de seguridad guardada anteriormente">📂 Restaurar</button>
+        <button type="button" onclick="closeMenus();abrirArreglarFechas()" title="Recalcula la fecha de cada partido usando la semana + el día. Útil cuando un CSV importado ha dejado fechas incorrectas o vacías.">🛠 Arreglar fechas</button>
+      </div>
+    </span>
     <input type="file" id="restore-input" accept=".json" style="display:none" onchange="restaurarCopia(event)">
-    <button class="btn btn-ghost btn-sm" onclick="abrirArreglarFechas()" title="Recalcula la fecha de cada partido usando la semana + el día. Útil cuando un CSV importado ha dejado fechas incorrectas o vacías.">🛠 Arreglar fechas</button>
     <button class="btn btn-ghost btn-sm" onclick="resetTodo()" id="btn-reset" style="display:none">↺ Nueva semana</button>
   </div>
 </div>
@@ -371,13 +423,13 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
       <!-- PANEL LATERAL -->
       <div style="display:flex;flex-direction:column;gap:1rem">
 
-        <!-- CAMPOS Y FRANJAS -->
-        <div class="card">
-          <div class="card-head"><span class="card-title">Campos y horarios</span></div>
+        <!-- CAMPOS Y FRANJAS (colapsable en mobile) -->
+        <details class="card card-collapsible" id="card-campos-horarios" open>
+          <summary>Campos y horarios</summary>
           <div class="card-body" style="padding:.75rem 1rem">
             <div id="campos-info"></div>
           </div>
-        </div>
+        </details>
 
         <!-- ENTRENADORES CON CONFLICTO POTENCIAL -->
         <div class="card">
@@ -393,6 +445,86 @@ body{font-family:var(--f);background:var(--gris1);color:var(--negro);font-size:1
 </div>
 
 <script>
+// ============ UI HELPERS (menús cabecera, sidebar mobile, PWA) ============
+function toggleMenu(id){
+  var el = document.getElementById(id);
+  if(!el) return;
+  var isOpen = el.classList.contains("open");
+  closeMenus();
+  if(!isOpen){
+    el.classList.add("open");
+    var btn = el.querySelector("button[aria-haspopup]");
+    if(btn) btn.setAttribute("aria-expanded","true");
+  }
+}
+function closeMenus(){
+  document.querySelectorAll(".menu-wrap.open").forEach(function(w){
+    w.classList.remove("open");
+    var btn = w.querySelector("button[aria-haspopup]");
+    if(btn) btn.setAttribute("aria-expanded","false");
+  });
+}
+document.addEventListener("click", function(e){
+  if(!e.target.closest(".menu-wrap")) closeMenus();
+});
+document.addEventListener("keydown", function(e){
+  if(e.key === "Escape") closeMenus();
+});
+
+// Sidebar Campos y horarios: colapsada por defecto en mobile (≤480px)
+function _autoCollapseSidebar(){
+  var card = document.getElementById("card-campos-horarios");
+  if(!card) return;
+  if(window.matchMedia("(max-width: 480px)").matches){
+    if(!card.dataset.collapsedAuto){
+      card.removeAttribute("open");
+      card.dataset.collapsedAuto = "1";
+    }
+  } else if(card.dataset.collapsedAuto){
+    card.setAttribute("open","");
+    delete card.dataset.collapsedAuto;
+  }
+}
+window.addEventListener("DOMContentLoaded", _autoCollapseSidebar);
+window.addEventListener("resize", _autoCollapseSidebar);
+
+// Service worker (PWA mínima): registro silencioso
+if("serviceWorker" in navigator && location.protocol === "https:"){
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("/sw.js").catch(function(err){
+      console.warn("SW registro falló:", err);
+    });
+  });
+}
+
+// Fix 9: en dispositivos táctiles los title= no aparecen — mostramos toast al pulsar largo
+(function(){
+  var TOUCH = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
+  if(!TOUCH) return;
+  var timer = null;
+  var toastEl = null;
+  function showToast(text){
+    if(!toastEl){
+      toastEl = document.createElement("div");
+      toastEl.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1c1c1a;color:#fff;font-size:12px;padding:8px 14px;border-radius:6px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .15s;max-width:80%;text-align:center";
+      document.body.appendChild(toastEl);
+    }
+    toastEl.textContent = text;
+    toastEl.style.opacity = "1";
+    clearTimeout(toastEl._hide);
+    toastEl._hide = setTimeout(function(){ toastEl.style.opacity = "0"; }, 1800);
+  }
+  document.addEventListener("touchstart", function(e){
+    var t = e.target.closest("[title]");
+    if(!t) return;
+    var txt = t.getAttribute("title");
+    if(!txt) return;
+    timer = setTimeout(function(){ showToast(txt); }, 500);
+  }, {passive:true});
+  document.addEventListener("touchend", function(){ if(timer){ clearTimeout(timer); timer=null; } }, {passive:true});
+  document.addEventListener("touchmove", function(){ if(timer){ clearTimeout(timer); timer=null; } }, {passive:true});
+})();
+
 // ============ DATOS BASE ============
 const EQUIPOS_BASE = [
   // FÚTBOL SALA — nombres exactos como vienen en CSV Clupik
