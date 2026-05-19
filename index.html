@@ -4774,6 +4774,79 @@ function resumenKolbeResultados(){
   titulo.innerHTML = '<h2 style="font-size:16px;font-weight:700;margin-bottom:.25rem;color:var(--verde);text-align:center">🏆 RESULTADOS CD KOLBE — ' + semana.toUpperCase() + '</h2>'
     + '<p style="font-size:11px;color:var(--gris4);margin-bottom:1rem;text-align:center">Rellena el marcador (<strong>3-1</strong>) o escribe <strong>APLAZADO</strong> / <strong>POR DISPUTAR</strong>. El icono ✅/❌/➖/📌/⏳ se calcula solo (clic en el icono para ciclarlo a mano).</p>';
 
+  // === Botón Auto-rellenar marcadores desde Leverade ===
+  var barraAuto = document.createElement("div");
+  barraAuto.style.cssText = "display:flex;justify-content:center;margin-bottom:1rem";
+  var btnAutoFetch = document.createElement("button");
+  btnAutoFetch.textContent = "🏆 Auto-rellenar marcadores desde Leverade";
+  btnAutoFetch.style.cssText = "padding:8px 18px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f)";
+  btnAutoFetch.title = "Consulta los marcadores en api.leverade.com de los partidos finalizados y los rellena automáticamente.";
+  btnAutoFetch.addEventListener("click", async function(){
+    var trs = tbody.querySelectorAll("tr[data-match-id]");
+    if(!trs.length){
+      alert("No hay partidos con match_id de Leverade en esta jornada.\n\nImporta la jornada desde Clupik (en lugar de subir CSV) para que cada partido tenga su match_id.");
+      return;
+    }
+    var ids = Array.from(trs).map(function(t){ return t.getAttribute("data-match-id"); });
+    var orig = btnAutoFetch.textContent;
+    btnAutoFetch.textContent = "⏳ Consultando Leverade...";
+    btnAutoFetch.disabled = true;
+    try {
+      var r = await fetch("/api/clupik-match-results?match_ids=" + encodeURIComponent(ids.join(",")));
+      if(!r.ok) throw new Error("HTTP " + r.status);
+      var data = await r.json();
+      var byId = {};
+      (data.results || []).forEach(function(x){ byId[String(x.match_id)] = x; });
+
+      var nRell = 0, nVacio = 0, nApl = 0, nNoEnc = 0;
+      trs.forEach(function(tr){
+        var mid = tr.getAttribute("data-match-id");
+        var side = tr.getAttribute("data-kolbe-side");
+        var inf = byId[mid];
+        var inp = tr.querySelector("input[type=text]");
+        var btnIc = tr.querySelector("button[title*=\"ciclar\"]");
+        if(!inf || !inf.found){ nNoEnc++; return; }
+
+        if(inf.postponed){
+          if(inp){
+            inp.value = "APLAZADO";
+            if(inp.disabled){ inp.disabled = false; inp.style.background = "#fff"; }
+            inp.dispatchEvent(new Event("input",{bubbles:true}));
+          }
+          if(btnIc){ btnIc.dataset.forced = "📌"; btnIc.textContent = "📌"; }
+          nApl++;
+          return;
+        }
+        if(inf.canceled) return;
+
+        if(inf.home_score == null || inf.away_score == null){ nVacio++; return; }
+
+        var kolbe = side === "home" ? inf.home_score : inf.away_score;
+        var rival = side === "home" ? inf.away_score : inf.home_score;
+        if(inp){
+          if(inp.disabled){ inp.disabled = false; inp.style.background = "#fff"; }
+          inp.value = String(kolbe) + "-" + String(rival);
+          inp.dispatchEvent(new Event("input",{bubbles:true}));
+        }
+        nRell++;
+      });
+
+      var partes = [];
+      partes.push("✅ " + nRell + " marcador" + (nRell!==1?"es":"") + " rellenado" + (nRell!==1?"s":""));
+      if(nApl) partes.push("📌 " + nApl + " aplazado" + (nApl!==1?"s":""));
+      if(nVacio) partes.push("⏳ " + nVacio + " sin resultado en Leverade todavía");
+      if(nNoEnc) partes.push("❓ " + nNoEnc + " partido(s) no encontrado(s) en la API");
+      alert("Resultados Leverade:\n\n" + partes.join("\n"));
+    } catch(e){
+      alert("Error consultando Leverade:\n" + e.message);
+    } finally {
+      btnAutoFetch.textContent = orig;
+      btnAutoFetch.disabled = false;
+    }
+  });
+  barraAuto.appendChild(btnAutoFetch);
+  wrapper.appendChild(barraAuto);
+
   // Tabla
   var table = document.createElement("table");
   table.style.cssText = "width:100%;border-collapse:collapse;font-size:12px";
@@ -4804,6 +4877,12 @@ function resumenKolbeResultados(){
 
     var tr = document.createElement("tr");
     tr.setAttribute("data-rowkey", rk);
+    // Anotar match_id y lado (home/away) para el botón Auto-rellenar Leverade
+    if(r._p && r._p.match_id){
+      tr.setAttribute("data-match-id", String(r._p.match_id));
+      var _esLocalKolbe = (typeof esEquipoKolbe === "function") ? esEquipoKolbe(r._p.eq1) : (String(r._p.eq1||"").toUpperCase().includes("KOLBE"));
+      tr.setAttribute("data-kolbe-side", _esLocalKolbe ? "home" : "away");
+    }
     tr.style.cssText = "background:" + (i%2===0?"#fff":"var(--gris1)");
 
     function cell(content, color, bold){
