@@ -529,11 +529,38 @@ const CATEG_MAP = {
   "LIGA FS INFANTIL":"Infantil","LIGA FS CADETE":"Cadete"
 };
 
+// ===== Sanitizador encoding (caracteres rotos U+FFFD en datos viejos) =====
+function _fixCharReplacement(s){
+  if(typeof s !== "string" || s.indexOf("�") < 0) return s;
+  return s
+    .replace(/PREBENJAM�N/gi, "PREBENJAMÍN")
+    .replace(/BENJAM�MN/gi, "BENJAMÍN")
+    .replace(/BENJAM�N/gi, "BENJAMÍN")
+    .replace(/ALEV�N/gi, "ALEVÍN")
+    .replace(/INFANT�L/gi, "INFANTIL")
+    .replace(/F�TBOL/gi, "FÚTBOL")
+    .replace(/CHUPET�N/gi, "CHUPETÍN")
+    .replace(/�/g, "");  // último recurso
+}
+
 // ============ ESTADO ============
 let partidos = [];
 let campoActivo = "todos";
 let filtroActivo = "todos";
 let equipos = JSON.parse(localStorage.getItem('kolbe_equipos') || 'null') || EQUIPOS_BASE;
+// Migración silenciosa: reparar caracteres U+FFFD heredados de imports antiguos
+(function(){
+  var dirty = false;
+  equipos.forEach(function(e){
+    ["nombre","entrenadores","categoria","liga"].forEach(function(f){
+      if(typeof e[f] === "string" && e[f].indexOf("\uFFFD") >= 0){
+        var fixed = _fixCharReplacement(e[f]);
+        if(fixed !== e[f]){ e[f] = fixed; dirty = true; }
+      }
+    });
+  });
+  if(dirty) localStorage.setItem('kolbe_equipos', JSON.stringify(equipos));
+})();
 
 function recalcularEntrenadores(){
   if(!partidos.length) return;
@@ -595,6 +622,14 @@ function resetEquiposDefault(){
 
 // ============ UTILIDADES ============
 function toMins(t){ const[h,m]=(t||"00:00").split(":").map(Number); return h*60+m; }
+
+// Devuelve la hora de convocatoria (30 min antes del partido) o "" si no aplica
+function _getConvocatoria(p){
+  if(!p || p.aplazado || p.sinHora || !p.hora || p.hora === "00:00") return "";
+  var mins = toMins(p.hora) - 30;
+  if(mins < 0) return "";
+  return String(Math.floor(mins/60)).padStart(2,"0") + ":" + String(mins%60).padStart(2,"0") + "h";
+}
 
 function lugarACampo(lugar){
   if(!lugar) return null;
@@ -1485,6 +1520,47 @@ function getAllJornadas(){
   try { return JSON.parse(localStorage.getItem("kolbe_jornadas") || "[]"); } catch(e){ return []; }
 }
 function saveAllJornadas(arr){ localStorage.setItem("kolbe_jornadas", JSON.stringify(arr)); }
+
+// ===== Migración 19/05/26: claves con prefijo "Semana " (legacy) → formato canónico =====
+(function migrarClavesSemana(){
+  try {
+    if(localStorage.getItem("kolbe_migrado_claves_semana_v1") === "1") return;
+
+    // 1) Normalizar campo `semana` en kolbe_jornadas (quitar prefijo "Semana ")
+    var arr = [];
+    try { arr = JSON.parse(localStorage.getItem("kolbe_jornadas") || "[]"); } catch(_){}
+    var changed = false;
+    arr.forEach(function(j){
+      if(j && typeof j.semana === "string" && /^Semana\s+/.test(j.semana)){
+        j.semana = j.semana.replace(/^Semana\s+/, "");
+        changed = true;
+      }
+    });
+    if(changed) localStorage.setItem("kolbe_jornadas", JSON.stringify(arr));
+
+    // 2) Fusionar claves duplicadas con/sin prefijo "Semana "
+    var prefijos = ["kolbe_resumen_edits_", "kolbe_resumen_resultados_"];
+    var SEM = "Semana ";
+    Object.keys(localStorage).forEach(function(k){
+      prefijos.forEach(function(pref){
+        if(k.indexOf(pref + SEM) === 0){
+          var canonical = pref + k.substring(pref.length + SEM.length);
+          var legacy = localStorage.getItem(k);
+          var current = localStorage.getItem(canonical);
+          if(legacy && !current){
+            localStorage.setItem(canonical, legacy);
+          }
+          // si current existe se queda como canónica (más reciente normalmente)
+          localStorage.removeItem(k);
+        }
+      });
+    });
+
+    localStorage.setItem("kolbe_migrado_claves_semana_v1", "1");
+  } catch(e){
+    if(window.console) console.warn("Migración claves Semana:", e);
+  }
+})();
 
 function savePartidos(){
   if(!jornadaActivaId) return;
@@ -3380,7 +3456,13 @@ function vistaEquipos(){
       var dir = (CAMPOS_BASE[campoDirKey]&&CAMPOS_BASE[campoDirKey].dir) ||
                 (CAMPOS_BASE[p.campo]&&CAMPOS_BASE[p.campo].dir) || p.campo;
 
-      msg += "⏰ " + hora + " · " + (p.eq1||"") + " vs " + (p.eq2||"") + NL;
+      var _conv = _getConvocatoria(p);
+      if(_conv){
+        msg += "🔔 Conv: " + _conv + " · ⏰ Partido: " + hora + NL;
+        msg += (p.eq1||"") + " vs " + (p.eq2||"") + NL;
+      } else {
+        msg += "⏰ " + hora + " · " + (p.eq1||"") + " vs " + (p.eq2||"") + NL;
+      }
       if(p.categoria) msg += "🏆 " + p.categoria + (p.grupo?" · "+p.grupo:"") + " · " + condicion + NL;
       if(!p.aplazado){
         msg += "🏟 " + (campoDirKey||p.campo||"") + NL;
@@ -4920,7 +5002,13 @@ function vistaCategorias(){
         const campoDirKey = p.campo || p.campoOriginal;
         const dir = (CAMPOS_BASE[campoDirKey]&&CAMPOS_BASE[campoDirKey].dir)||
                     (CAMPOS_BASE[p.campo]&&CAMPOS_BASE[p.campo].dir)||p.campo;
-        msg += "⏰ " + hora + " · " + p.eq1 + " vs " + (p.eq2||"—") + "\n";
+        const _convCat = _getConvocatoria(p);
+        if(_convCat){
+          msg += "🔔 Conv: " + _convCat + " · ⏰ Partido: " + hora + "\n";
+          msg += p.eq1 + " vs " + (p.eq2||"—") + "\n";
+        } else {
+          msg += "⏰ " + hora + " · " + p.eq1 + " vs " + (p.eq2||"—") + "\n";
+        }
         msg += "🏟 " + (campoDirKey||p.campo) + " · 📍 " + dir + "\n";
       });
       msg += "\n";
@@ -5401,7 +5489,7 @@ async function importarSemanaClupik(){
       };
     });
 
-    const semana = "Semana " + from + " – " + to;
+    const semana = from + " – " + to;  // sin prefijo "Semana " — consistente con resto del código
     const arr = getAllJornadas();
     const id = "j_clupik_semana_" + Date.now();
     arr.unshift({
