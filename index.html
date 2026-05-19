@@ -298,6 +298,7 @@ details.card-collapsible:not([open]) > summary::after{transform:rotate(-90deg)}
     <div style="max-width:600px;margin:2rem auto">
 
       <!-- Jornadas guardadas -->
+      <div id="backup-indicator" style="font-size:11px;color:var(--gris5);margin-bottom:.5rem;padding:6px 10px;background:var(--gris1);border-radius:6px;display:none"></div>
       <div id="historial-box" style="display:none;margin-bottom:1.5rem">
         <div style="font-size:13px;font-weight:600;margin-bottom:.75rem;color:var(--negro)">Jornadas guardadas</div>
         <div id="historial-lista"></div>
@@ -763,6 +764,60 @@ function _getConvocatoria(p){
   return String(Math.floor(mins/60)).padStart(2,"0") + ":" + String(mins%60).padStart(2,"0") + "h";
 }
 
+// Fix 14: listar quién no tiene teléfono configurado (usado en Envíos semana)
+function _kolbeEntrenadoresSinTel(){
+  var faltan = [];
+  if(typeof partidos === 'undefined' || !partidos) return faltan;
+  var vistos = new Set();
+  partidos.forEach(function(p){
+    if(typeof esEquipoKolbe !== "function") return;
+    var esK1 = esEquipoKolbe(p.eq1), esK2 = esEquipoKolbe(p.eq2);
+    if(!esK1 && !esK2) return;
+    var equipo = esK1 ? p.eq1 : p.eq2;
+    var ents = (typeof getEntrenadores === "function") ? getEntrenadores(equipo, p.categoria, (typeof ligaDeComp==="function")?ligaDeComp(p.comp):"") : "";
+    String(ents||"").split(/[,\/]/).map(function(s){return s.trim();}).filter(Boolean).forEach(function(nn){
+      if(!nn || /^ENTREN_|ENTRENADOR /i.test(nn)) return;
+      if(vistos.has(nn)) return;
+      vistos.add(nn);
+      var tel = (typeof _telPrefijo === "function") ? _telPrefijo(entrenadoresTels[nn]||"") : (entrenadoresTels[nn]||"");
+      if(!tel) faltan.push({nombre: nn, equipo: equipo});
+    });
+  });
+  return faltan;
+}
+function _coordinadoresSinTel(){
+  var faltan = [];
+  if(typeof partidos === 'undefined' || !partidos) return faltan;
+  var clubsRivales = new Set();
+  partidos.forEach(function(p){
+    [p.eq1, p.eq2].forEach(function(eq){
+      if(!eq || !clubBase || typeof clubBase !== "function") return;
+      var c = clubBase(eq);
+      if(c && !/KOLBE/i.test(c) && c !== "Sin campo") clubsRivales.add(c);
+    });
+  });
+  clubsRivales.forEach(function(c){
+    var info = coordinadores && coordinadores[c];
+    var tel = info ? _telPrefijo(info.telefono||"") : "";
+    if(!tel) faltan.push({nombre: (info && info.nombre) || "(sin nombre)", club: c});
+  });
+  return faltan;
+}
+function _mostrarFaltantes(tipo){
+  var lista = tipo === "entrenadores" ? _kolbeEntrenadoresSinTel() : _coordinadoresSinTel();
+  if(!lista.length){
+    alert("✓ Todos los " + (tipo==="entrenadores"?"entrenadores Kolbe":"coordinadores rivales") + " tienen teléfono configurado.");
+    return;
+  }
+  var msg = (tipo==="entrenadores"?"Entrenadores Kolbe":"Coordinadores rivales") + " sin teléfono ("+lista.length+"):\n\n"
+    + lista.map(function(x){
+        return "• " + x.nombre + (x.equipo ? " — " + x.equipo : (x.club ? " — " + x.club : ""));
+      }).join("\n")
+    + "\n\nAñádelos en " + (tipo==="entrenadores"?"⚙ Entrenadores → Teléfonos":"👤 Coordinadores");
+  alert(msg);
+}
+window._mostrarFaltantes = _mostrarFaltantes;
+
 function lugarACampo(lugar){
   if(!lugar) return null;
   const l = lugar.toLowerCase();
@@ -1223,6 +1278,7 @@ function renderAlertas(){
   if(sinH.length) html += `<div class="alert alert-warn"><span class="alert-icon">!</span><div><strong>${sinH.length} partido${sinH.length>1?"s":""} sin hora asignada.</strong> Asigna horario a los marcados en naranja.</div></div>`;
   if(!conf.length && !sinH.length && partidos.length) html = `<div class="alert alert-ok"><span class="alert-icon">✓</span><div>Todos los partidos tienen hora y sin conflictos. Puedes exportar.</div></div>`;
   box.innerHTML = html;
+  try{ renderBackupIndicator(); }catch(e){}
 }
 
 function renderTabs(){
@@ -1722,6 +1778,17 @@ function loadPartidos(){
   renderHistorial();
 }
 
+// Devuelve la fecha fin de la semana (Date) o null si no es parseable
+function _fechaFinJornada(semStr){
+  if(!semStr) return null;
+  // Formato típico: "DD/MM/YYYY – DD/MM/YYYY"  ó  "DD/MM/YYYY"
+  var m = String(semStr).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*[–-]\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m) return new Date(parseInt(m[6],10), parseInt(m[5],10)-1, parseInt(m[4],10));
+  m = String(semStr).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m) return new Date(parseInt(m[3],10), parseInt(m[2],10)-1, parseInt(m[1],10));
+  return null;
+}
+
 function renderHistorial(){
   const jornadas = getAllJornadas();
   const box = document.getElementById("historial-lista");
@@ -1729,20 +1796,32 @@ function renderHistorial(){
   if(!box || !hbox) return;
   if(!jornadas.length){ hbox.style.display="none"; return; }
   hbox.style.display = "block";
-  box.innerHTML = jornadas.map(function(j){
+
+  // Separar activas (hoy o futuro) y pasadas (fecha fin < hoy 00:00)
+  var hoy = new Date(); hoy.setHours(0,0,0,0);
+  var activas = [], pasadas = [];
+  jornadas.forEach(function(j){
+    var fin = _fechaFinJornada(j.semana);
+    if(fin && fin < hoy) pasadas.push(j); else activas.push(j);
+  });
+
+  function _renderJornada(j, esPasada){
     const total = (j.partidos||[]).length;
     const sinH  = (j.partidos||[]).filter(function(p){ return p.sinHora; }).length;
     const conf  = (j.partidos||[]).filter(function(p){ return p.conflicto; }).length;
     const fecha = j.createdAt ? new Date(j.createdAt).toLocaleDateString("es-ES") : "";
-    const badge = conf>0
+    const badge = esPasada
+      ? `<span style="background:var(--gris2);color:var(--gris5);border:1px solid var(--gris3);padding:2px 8px;border-radius:99px;font-size:11px">Pasada</span>`
+      : conf>0
       ? `<span style="background:var(--rojo-s);color:var(--rojo);border:1px solid var(--rojo-b);padding:2px 8px;border-radius:99px;font-size:11px">${conf} conflicto${conf>1?"s":""}</span>`
       : sinH>0
       ? `<span style="background:var(--naranja-s);color:var(--naranja);border:1px solid var(--naranja-b);padding:2px 8px;border-radius:99px;font-size:11px">${sinH} sin hora</span>`
       : `<span style="background:var(--verde-s);color:var(--verde);border:1px solid var(--verde-b);padding:2px 8px;border-radius:99px;font-size:11px">✓ Completa</span>`;
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--gris2);border-radius:var(--r);margin-bottom:6px;background:#fff;cursor:pointer"
+    var opacity = esPasada ? ";opacity:.65" : "";
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--gris2);border-radius:var(--r);margin-bottom:6px;background:#fff;cursor:pointer${opacity}"
       onclick="abrirJornada('${j.id}')"
-      onmouseover="this.style.borderColor='var(--verde2)';this.style.background='var(--verde-s)'"
-      onmouseout="this.style.borderColor='var(--gris2)';this.style.background='#fff'">
+      onmouseover="this.style.borderColor='var(--verde2)';this.style.background='var(--verde-s)';this.style.opacity='1'"
+      onmouseout="this.style.borderColor='var(--gris2)';this.style.background='#fff';this.style.opacity='${esPasada?'.65':'1'}'">
       <div>
         <div style="font-size:13px;font-weight:500">Semana del ${j.semana}</div>
         <div style="font-size:11px;color:var(--gris4);margin-top:2px">${total} partidos · ${fecha}</div>
@@ -1753,8 +1832,38 @@ function renderHistorial(){
           style="padding:3px 8px;border:1px solid var(--gris3);border-radius:5px;background:transparent;cursor:pointer;color:var(--rojo);font-size:12px">✕</button>
       </div>
     </div>`;
-  }).join("");
+  }
+
+  var html = activas.map(function(j){ return _renderJornada(j, false); }).join("");
+  if(pasadas.length){
+    html += '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;color:var(--gris4);padding:6px 4px;list-style:none">Jornadas pasadas (' + pasadas.length + ') ▾</summary><div style="margin-top:6px">'
+         + pasadas.map(function(j){ return _renderJornada(j, true); }).join("")
+         + '</div></details>';
+  }
+  box.innerHTML = html;
 }
+
+function renderBackupIndicator(){
+  var el = document.getElementById("backup-indicator");
+  if(!el) return;
+  var iso = localStorage.getItem("kolbe_last_backup");
+  var parts = ["🗓 Backup automático diario a las 23:00 (Drive)"];
+  if(iso){
+    try {
+      var d = new Date(iso);
+      var diff = Date.now() - d.getTime();
+      var hum;
+      if(diff < 60*1000) hum = "hace un momento";
+      else if(diff < 60*60*1000) hum = "hace " + Math.floor(diff/60000) + " min";
+      else if(diff < 24*60*60*1000) hum = "hace " + Math.floor(diff/3600000) + " h";
+      else hum = "hace " + Math.floor(diff/86400000) + " días";
+      parts.unshift("💾 Última copia manual: " + hum);
+    } catch(e){}
+  }
+  el.textContent = parts.join("  ·  ");
+  el.style.display = "block";
+}
+window.addEventListener("DOMContentLoaded", function(){ try{ renderBackupIndicator(); }catch(e){} });
 
 // Recorre los partidos actuales y, para los que estan "Sin campo", intenta
 // asignarles uno usando (1) lugarACampo sobre el texto original de Clupik si
@@ -1998,14 +2107,40 @@ function asistenteEnvios(){
     return bloque;
   }
 
+  // Fix 14: si faltan teléfonos, fila clickable arriba con el listado
+  var _falEnt = _kolbeEntrenadoresSinTel();
+  var _falCoord = _coordinadoresSinTel();
+  if(_falEnt.length || _falCoord.length){
+    var aviso = document.createElement("div");
+    aviso.style.cssText = "margin-bottom:1rem;padding:10px 14px;border:1px solid var(--naranja-b);background:var(--naranja-s);border-radius:var(--r);font-size:12px;color:var(--naranja);display:flex;gap:12px;flex-wrap:wrap;align-items:center";
+    var label = document.createElement("span");
+    label.innerHTML = "⚠ Sin teléfono: ";
+    aviso.appendChild(label);
+    if(_falEnt.length){
+      var bE = document.createElement("button");
+      bE.textContent = _falEnt.length + " entrenador" + (_falEnt.length>1?"es":"") + " Kolbe";
+      bE.style.cssText = "padding:3px 10px;background:#fff;color:var(--naranja);border:1px solid var(--naranja-b);border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--f);font-weight:600";
+      bE.addEventListener("click", function(){ _mostrarFaltantes("entrenadores"); });
+      aviso.appendChild(bE);
+    }
+    if(_falCoord.length){
+      var bC = document.createElement("button");
+      bC.textContent = _falCoord.length + " coordinador" + (_falCoord.length>1?"es":"") + " rival";
+      bC.style.cssText = "padding:3px 10px;background:#fff;color:var(--naranja);border:1px solid var(--naranja-b);border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--f);font-weight:600";
+      bC.addEventListener("click", function(){ _mostrarFaltantes("coordinadores"); });
+      aviso.appendChild(bC);
+    }
+    wrapper.appendChild(aviso);
+  }
+
   wrapper.appendChild(mkBloque(
     "🟡 Domingo 23:59 · PROVISIONAL",
     "Horarios provisionales — coordinadores de clubes rivales + entrenadores Kolbe",
     "#d08700",
     [
-      { txt: "📲 Coordinadores (Vista por equipos) — " + nCoordinadores + " con teléfono", activo: nCoordinadores>0,
+      { txt: "📲 Coordinadores (Vista por equipos) — " + nCoordinadores + " con teléfono" + (nCoordinadores>0 && _coordinadoresSinTel().length ? "  ·  faltan " + _coordinadoresSinTel().length : ""), activo: nCoordinadores>0,
         fn: function(){ window._etiquetaEnvio = "🟡 *HORARIOS PROVISIONALES — pueden cambiar*\n\n"; vistaEquipos(); } },
-      { txt: "📲 Entrenadores Kolbe (Mensajes entrenadores) — " + entsKolbeNuestros.size + " con teléfono", activo: entsKolbeNuestros.size>0,
+      { txt: "📲 Entrenadores Kolbe (Mensajes entrenadores) — " + entsKolbeNuestros.size + " con teléfono" + (_kolbeEntrenadoresSinTel().length ? "  ·  faltan " + _kolbeEntrenadoresSinTel().length : ""), activo: entsKolbeNuestros.size>0,
         fn: function(){ window._etiquetaEnvio = "🟡 *HORARIOS PROVISIONALES — pueden cambiar*\n\n"; generarMensajesWhatsApp(); } }
     ]
   ));
@@ -2884,6 +3019,11 @@ function _idbSet(key, value){
 }
 
 async function guardarCopia(){
+  // Fix 16: trackear timestamp del último backup manual
+  function _markBackupOk(){
+    try { localStorage.setItem("kolbe_last_backup", new Date().toISOString()); } catch(e){}
+    if(typeof renderBackupIndicator === "function") renderBackupIndicator();
+  }
   const backup = {
     version: 1,
     fecha: new Date().toISOString(),
@@ -2899,6 +3039,8 @@ async function guardarCopia(){
   const iso = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
   const filename = "kolbe_backup_" + iso + ".json";
   const box = document.getElementById("alertas-box");
+  // Fix 16: registramos el intento; se confirma cuando el flujo llega al final OK
+  var _origPick = window.alert; // placeholder, no usado
 
   // Intentar escribir directamente en la carpeta elegida con File System Access API
   if(typeof window.showDirectoryPicker === "function"){
@@ -2919,6 +3061,7 @@ async function guardarCopia(){
       const writable = await fileHandle.createWritable();
       await writable.write(json);
       await writable.close();
+      _markBackupOk();
       if(box) box.innerHTML = '<div class="alert alert-ok"><span class="alert-icon">💾</span><div>Copia guardada como <b>'+filename+'</b> en la carpeta elegida (se sobrescribe si ya existía).</div></div>' + box.innerHTML;
       return;
     } catch(err){
@@ -4444,6 +4587,7 @@ function exportarInstagramKolbe(format, semana, rowsIG, kind, opts){
           a.download = "kolbe-" + tag + (kind === "resultados" ? "resultados-" : "") + format + "-" + slug + "." + ext;
           document.body.appendChild(a); a.click(); a.remove();
           URL.revokeObjectURL(url);
+  _markBackupOk();
           c.remove();
           resolve();
         }, mimeType, quality);
