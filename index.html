@@ -1152,7 +1152,7 @@ function renderPartidoRow(p){
     </td>
     <td style="font-size:12px;color:var(--gris5)">${entDisplay}</td>
     <td><select class="dia-select" onchange="updatePartido(${p.id},'dia',this.value)">${diaOpts}</select></td>
-    <td><input type="time" class="hora-input ${p.conflicto?'conflicto':''}" value="${p.sinHora?'':p.hora}" onchange="updatePartido(${p.id},'hora',this.value)" placeholder="--:--"></td>
+    <td>${p.aplazado ? '<span style="font-size:12px;color:var(--gris5);font-style:italic;padding:4px 6px;display:inline-block">— sin fecha —</span>' : `<input type="time" class="hora-input ${p.conflicto?'conflicto':''}" value="${p.sinHora?'':p.hora}" onchange="updatePartido(${p.id},'hora',this.value)" placeholder="--:--">`}</td>
     <td>${estado}</td>
     <td style="display:flex;gap:4px;align-items:center">
       <button class="btn btn-sm" style="padding:3px 7px;font-size:11px;border:1px solid ${p.aplazado?'#ffc107':'var(--gris3)'};background:${p.aplazado?'#fff3cd':'transparent'};cursor:pointer;border-radius:5px;color:${p.aplazado?'#856404':'var(--gris5)'}" onclick="toggleAplazado(${p.id})" title="Marcar como aplazado">📌</button>
