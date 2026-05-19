@@ -83,8 +83,24 @@ module.exports = async (req, res) => {
             sampleAttrKeys = Object.keys(body.data.attributes || {});
           }
           let includedTypes = null;
+          let includedSamples = null;
           if (Array.isArray(body?.included) && body.included.length) {
             includedTypes = [...new Set(body.included.map((x) => x.type))];
+            // Muestrear el PRIMER recurso de cada tipo encontrado: type, attrKeys y attrs reales
+            const seen = new Set();
+            includedSamples = [];
+            for (const inc of body.included) {
+              if (seen.has(inc.type)) continue;
+              seen.add(inc.type);
+              includedSamples.push({
+                type: inc.type,
+                id: inc.id,
+                attrKeys: Object.keys(inc.attributes || {}),
+                attrs: inc.attributes || {},
+                relationships: inc.relationships ? Object.keys(inc.relationships) : null,
+              });
+              if (includedSamples.length >= 5) break;
+            }
           }
 
           findings.push({
@@ -96,6 +112,7 @@ module.exports = async (req, res) => {
             sampleType,
             sampleAttrKeys,
             includedTypes,
+            includedSamples,
           });
         } catch (e) {
           findings.push({ label: p.label, error: e.message });
