@@ -157,6 +157,106 @@ async function paginate(path, baseParams, maxPages = 50) {
   return all;
 }
 
+// Igual que paginate(), pero además acumula y devuelve el array `included`
+// (recursos sideloaded vía include=...). Devuelve { data, included }.
+async function paginateWithIncluded(path, baseParams, maxPages = 50) {
+  const all = [];
+  const included = [];
+  for (let page = 1; page <= maxPages; page++) {
+    const { status, body } = await apiGet(path, {
+      ...baseParams,
+      'page[size]': 100,
+      'page[number]': page,
+    });
+    if (status !== 200) {
+      throw new Error(
+        `${path} HTTP ${status}: ${JSON.stringify(body).slice(0, 240)}`
+      );
+    }
+    const items = (body && body.data) || [];
+    all.push(...items);
+    const inc = (body && body.included) || [];
+    if (Array.isArray(inc)) included.push(...inc);
+    if (items.length < 100) break;
+  }
+  return { data: all, included };
+}
+
+// Trae los partidos de un torneo intentando incluir las instalaciones
+// (include=facility) para resolver el nombre del campo en la misma consulta.
+// Si la API rechaza el include, reintenta sin él para no romper la importación.
+async function fetchTournamentMatches(tid) {
+  const filter = `round.group.tournament.id:${tid}`;
+  try {
+    return await paginateWithIncluded('/matches', { filter, include: 'facility' });
+  } catch (e) {
+    const data = await paginate('/matches', { filter });
+    return { data, included: [] };
+  }
+}
+
+// Extrae el nombre de una instalación de su bloque de atributos.
+function _facilityName(attrs) {
+  if (!attrs) return '';
+  return attrs.name || attrs.nombre || '';
+}
+
+// Resuelve facility_id -> nombre con varias estrategias en cascada, porque el
+// endpoint /facilities/{id} suele fallar (instalaciones de otros clubes a las
+// que el token no tiene acceso directo):
+//   1) recursos ya recibidos vía include=facility en la consulta de /matches
+//   2) /facilities?filter=id:<id>  (endpoint colección, más permisivo)
+//   3) /facilities/{id}            (item directo, último recurso)
+// Devuelve un Map<string facility_id, string nombre>.
+async function resolveFacilityNames(facIds, includedResources) {
+  const facById = new Map();
+  const ids = Array.from(
+    new Set((facIds || []).map((x) => String(x)).filter(Boolean))
+  );
+
+  // 1) include=facility (sin coste extra: ya viene con los partidos)
+  if (Array.isArray(includedResources)) {
+    for (const inc of includedResources) {
+      if (inc && inc.type === 'facility' && inc.id) {
+        const name = _facilityName(inc.attributes);
+        if (name) facById.set(String(inc.id), name);
+      }
+    }
+  }
+
+  // 2) /facilities?filter=id:<id>
+  let pending = ids.filter((id) => !facById.has(id));
+  await Promise.allSettled(
+    pending.map(async (id) => {
+      try {
+        const r = await apiGet('/facilities', { filter: `id:${id}` });
+        if (r.status === 200) {
+          const data = (r.body && r.body.data) || [];
+          const item = Array.isArray(data) ? data[0] : data;
+          const name = item && _facilityName(item.attributes);
+          if (name) facById.set(id, name);
+        }
+      } catch (_) {}
+    })
+  );
+
+  // 3) /facilities/{id}
+  pending = ids.filter((id) => !facById.has(id));
+  await Promise.allSettled(
+    pending.map(async (id) => {
+      try {
+        const r = await apiGet(`/facilities/${id}`);
+        if (r.status === 200) {
+          const name = r.body && r.body.data && _facilityName(r.body.data.attributes);
+          if (name) facById.set(id, name);
+        }
+      } catch (_) {}
+    })
+  );
+
+  return facById;
+}
+
 // ===== Helpers de zona horaria =====
 // La API trabaja en UTC. El app trabaja en hora local Madrid (Europe/Madrid).
 
@@ -219,6 +319,9 @@ module.exports = {
   apiGet,
   apiPatch,
   paginate,
+  paginateWithIncluded,
+  fetchTournamentMatches,
+  resolveFacilityNames,
   utcToMadrid,
   madridToUtc
 };

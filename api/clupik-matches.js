@@ -1,4 +1,4 @@
-const { apiGet, paginate, utcToMadrid } = require('./_clupik');
+const { apiGet, paginate, fetchTournamentMatches, resolveFacilityNames, utcToMadrid } = require('./_clupik');
 function sendJson(res, status, obj) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
@@ -46,24 +46,16 @@ module.exports = async (req, res) => {
       roundById.set(r.id, { name: roundName, groupId });
     }
 
-    const matchesArr = await paginate('/matches', {
-      filter: `round.group.tournament.id:${tid}`,
-    });
+    const matchesResult = await fetchTournamentMatches(tid);
+    const matchesArr = matchesResult.data || [];
 
     const facIds = new Set();
     for (const m of matchesArr) {
       const fid = m.relationships?.facility?.data?.id;
       if (fid) facIds.add(fid);
     }
-    const facById = new Map();
-    for (const fid of facIds) {
-      try {
-        const r = await apiGet(`/facilities/${fid}`);
-        if (r.status === 200) {
-          facById.set(fid, pick(r.body?.data?.attributes, 'name', 'nombre') || '');
-        }
-      } catch (_) {}
-    }
+    // Resolver nombres de instalaciones: include=facility → /facilities?filter → /facilities/{id}
+    const facById = await resolveFacilityNames(Array.from(facIds), matchesResult.included);
 
     const partidos = matchesArr
       .filter((m) => !(pick(m.attributes, 'rest', 'descanso')))

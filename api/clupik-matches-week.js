@@ -3,7 +3,7 @@
 // caen en el rango de fechas.  Si se pasa `disciplines`, solo considera
 // torneos cuya disciplina detectada coincida.  Paralelizado.
 
-const { apiGet, paginate, utcToMadrid } = require('./_clupik');
+const { paginate, fetchTournamentMatches, resolveFacilityNames, utcToMadrid } = require('./_clupik');
 function sendJson(res, status, obj) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
@@ -58,17 +58,20 @@ async function processTournament(t, from, to) {
   const tname = pick(t.attributes, 'name', 'nombre') || '';
 
   // Lanzar en paralelo las 4 consultas de este torneo
-  let teamsArr = [], groupsArr = [], roundsArr = [], matchesArr = [];
+  let teamsArr = [], groupsArr = [], roundsArr = [], matchesArr = [], matchesIncluded = [];
   const settled = await Promise.allSettled([
     paginate('/teams', { filter: `registrable_id:${tid}` }),
     paginate('/groups', { filter: `tournament.id:${tid}` }),
     paginate('/rounds', { filter: `group.tournament.id:${tid}` }),
-    paginate('/matches', { filter: `round.group.tournament.id:${tid}` }),
+    fetchTournamentMatches(tid),
   ]);
   if (settled[0].status === 'fulfilled') teamsArr = settled[0].value;
   if (settled[1].status === 'fulfilled') groupsArr = settled[1].value;
   if (settled[2].status === 'fulfilled') roundsArr = settled[2].value;
-  if (settled[3].status === 'fulfilled') matchesArr = settled[3].value;
+  if (settled[3].status === 'fulfilled') {
+    matchesArr = settled[3].value.data || [];
+    matchesIncluded = settled[3].value.included || [];
+  }
 
   const teamById = new Map();
   for (const team of teamsArr) {
@@ -101,16 +104,8 @@ async function processTournament(t, from, to) {
   }
   if (!candidatos.length) return { tid, tname, partidos: [], count: 0 };
 
-  // Resolver facilities en paralelo
-  const facResults = await Promise.allSettled(
-    Array.from(facIds).map((fid) => apiGet(`/facilities/${fid}`).then((r) => ({ fid, r })))
-  );
-  const facById = new Map();
-  for (const s of facResults) {
-    if (s.status === 'fulfilled' && s.value.r.status === 200) {
-      facById.set(s.value.fid, pick(s.value.r.body?.data?.attributes, 'name', 'nombre') || '');
-    }
-  }
+  // Resolver nombres de instalaciones: include=facility → /facilities?filter → /facilities/{id}
+  const facById = await resolveFacilityNames(Array.from(facIds), matchesIncluded);
 
   const out = [];
   for (const { m, dt, fecha, hora } of candidatos) {

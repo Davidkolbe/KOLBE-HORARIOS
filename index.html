@@ -1885,8 +1885,10 @@ function repararCamposSinCampo(lista){
       if(!nuevo && _fid && FACILITY_ID_MAP[_fid]){
         nuevo = FACILITY_ID_MAP[_fid];
       }
-      // 3) inferir por equipo local (historico + match por nombre)
-      if(!nuevo && p) nuevo = inferirCampoPorEquipoLocal(p.eq1);
+      // 3) inferir por equipo local — SOLO si Clupik no asignó campo (sin facility_id).
+      //    Con facility_id presente, adivinar por el equipo local falla en
+      //    eliminatorias (se juega en casa del peor clasificado).
+      if(!nuevo && p && !_fid) nuevo = inferirCampoPorEquipoLocal(p.eq1);
       if(nuevo && nuevo !== p.campo){
         p.campo = nuevo;
         if(!p.campoOriginal || p.campoOriginal === "Sin campo") p.campoOriginal = nuevo;
@@ -5898,7 +5900,12 @@ async function importarSemanaClupik(){
       // 2) si Clupik no trae lugar (o no se reconoce), inferir por el equipo local usando histórico
       var campo = lugarACampo(p.lugar || "");
       if(!campo && p.facility_id && FACILITY_ID_MAP[p.facility_id]) campo = FACILITY_ID_MAP[p.facility_id];
-      if(!campo) campo = inferirCampoPorEquipoLocal(p.eq1) || "Sin campo";
+      // Inferir por equipo local SOLO si Clupik no tiene campo asignado.
+      // Si Clupik SÍ asignó un campo (hay facility_id) pero no se ha podido
+      // resolver, dejar "Sin campo" en vez de adivinar: la inferencia por
+      // equipo local falla en eliminatorias (se juega en casa del peor clasificado).
+      if(!campo && !p.facility_id) campo = inferirCampoPorEquipoLocal(p.eq1);
+      if(!campo) campo = "Sin campo";
       if(campo === "Sin campo"){
         console.warn("[Clupik] Partido sin campo tras import:", {
           eq1: p.eq1, eq2: p.eq2, lugar: p.lugar, facility_id: p.facility_id,
@@ -6027,7 +6034,12 @@ async function importarTorneoClupik(tournamentId){
     const nuevos = data.partidos.map(function(p, i){
       var campo = lugarACampo(p.lugar || "");
       if(!campo && p.facility_id && FACILITY_ID_MAP[p.facility_id]) campo = FACILITY_ID_MAP[p.facility_id];
-      if(!campo) campo = inferirCampoPorEquipoLocal(p.eq1) || "Sin campo";
+      // Inferir por equipo local SOLO si Clupik no tiene campo asignado.
+      // Si Clupik SÍ asignó un campo (hay facility_id) pero no se ha podido
+      // resolver, dejar "Sin campo" en vez de adivinar: la inferencia por
+      // equipo local falla en eliminatorias (se juega en casa del peor clasificado).
+      if(!campo && !p.facility_id) campo = inferirCampoPorEquipoLocal(p.eq1);
+      if(!campo) campo = "Sin campo";
       if(campo === "Sin campo"){
         console.warn("[Clupik] Partido sin campo tras import:", {
           eq1: p.eq1, eq2: p.eq2, lugar: p.lugar, facility_id: p.facility_id,
