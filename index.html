@@ -1214,6 +1214,12 @@ function procesarCSV(text){
 }
 
 // ============ CONFLICTOS ============
+// Margen mínimo (min) que necesita un entrenador entre dos partidos suyos en CAMPOS DISTINTOS
+// para poder desplazarse y llegar 15-20 min antes del segundo. Editable.
+let MARGEN_DESPLAZAMIENTO_MIN = (function(){
+  const v = parseInt(localStorage.getItem('kolbe_margen_desplaz')||'',10);
+  return (Number.isFinite(v) && v>=0) ? v : 20;
+})();
 function calcConflictos(){
   partidos.forEach(p=>p.conflicto=null);
   for(let i=0;i<partidos.length;i++){
@@ -1233,14 +1239,17 @@ function calcConflictos(){
       const b = partidos[j];
       if(b.sinHora || a.dia !== b.dia) continue;
       const bIni = toMins(b.hora), bFin = bIni+60;
-      if(aIni < bFin && bIni < aFin){
-        const entsA = [...(a.ent1||"").split(","), ...(a.ent2||"").split(",")].map(e=>e.trim().toUpperCase()).filter(Boolean);
-        const entsB = [...(b.ent1||"").split(","), ...(b.ent2||"").split(",")].map(e=>e.trim().toUpperCase()).filter(Boolean);
-        const shared = entsA.filter(e=>entsB.includes(e)&&e);
-        if(shared.length){
-          const msg = `Conflicto con "${b.eq1}" — entrenador: ${shared.join(", ")}. `;
-          a.conflicto = (a.conflicto||"") + msg;
-          b.conflicto = (b.conflicto||"") + `Conflicto con "${a.eq1}" — entrenador: ${shared.join(", ")}. `;
+      const entsA = [...(a.ent1||"").split(","), ...(a.ent2||"").split(",")].map(e=>e.trim().toUpperCase()).filter(Boolean);
+      const entsB = [...(b.ent1||"").split(","), ...(b.ent2||"").split(",")].map(e=>e.trim().toUpperCase()).filter(Boolean);
+      const shared = entsA.filter(e=>entsB.includes(e)&&e);
+      if(shared.length){
+        // Mismo campo → basta con que no se solapen. Campos distintos → hace falta margen de desplazamiento.
+        const mismoCampo = (a.campo||"") === (b.campo||"");
+        const margen = mismoCampo ? 0 : MARGEN_DESPLAZAMIENTO_MIN;
+        if(aIni < bFin + margen && bIni < aFin + margen){
+          const extra = mismoCampo ? "" : ` (necesita ${margen} min para desplazarse a otro campo)`;
+          a.conflicto = (a.conflicto||"") + `Conflicto con "${b.eq1}" — entrenador: ${shared.join(", ")}${extra}. `;
+          b.conflicto = (b.conflicto||"") + `Conflicto con "${a.eq1}" — entrenador: ${shared.join(", ")}${extra}. `;
         }
       }
     }
@@ -2788,7 +2797,10 @@ function autoAsignar(){
       const qHora = asignados[q.id]?.hora || q.hora;
       if(q.sinHora && !asignados[q.id]) return false;
       const qIni = toMins(qHora), qFin = qIni+60;
-      if(pIni >= qFin || qIni >= pFin) return false;
+      // Campos distintos del mismo entrenador → exigir margen de desplazamiento; mismo campo → solo no solapar.
+      const qCampo = asignados[q.id]?.campo || q.campo || "";
+      const margen = ((p.campo||"") === qCampo) ? 0 : MARGEN_DESPLAZAMIENTO_MIN;
+      if(pIni >= qFin + margen || qIni >= pFin + margen) return false;
       const entsQ = [...(q.ent1||"").split(","), ...(q.ent2||"").split(",")].map(e=>e.trim().toUpperCase()).filter(Boolean);
       return entsP.some(e => e && entsQ.includes(e));
     });
