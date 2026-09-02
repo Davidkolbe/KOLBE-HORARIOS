@@ -230,6 +230,7 @@ details.card-collapsible:not([open]) > summary::after{transform:rotate(-90deg)}
   <div class="topbar-actions">
     <button class="btn btn-ghost btn-sm" onclick="toggleConf('equipos')">⚙ Entrenadores</button>
     <button class="btn btn-ghost btn-sm" onclick="toggleConf('coordinadores')">👤 Coordinadores</button>
+    <button class="btn btn-ghost btn-sm" onclick="toggleConf('coincidencias')">🔁 Coincidencias</button>
     <button class="btn btn-ghost btn-sm" onclick="toggleConf('campos')">🏟 Campos</button>
     <span class="menu-wrap" id="menu-datos">
       <button class="btn btn-ghost btn-sm" type="button" onclick="toggleMenu('menu-datos')" aria-haspopup="true" aria-expanded="false">📁 Datos</button>
@@ -286,6 +287,21 @@ details.card-collapsible:not([open]) > summary::after{transform:rotate(-90deg)}
       </div>
       <div style="font-size:11px;color:var(--gris4);margin-bottom:.75rem">Contacto de cada club externo para mandarles WhatsApp con los partidos. Teléfono con prefijo (+34...). Autodetecta clubes a partir de los partidos cargados.</div>
       <div id="coordinadores-config" style="display:flex;flex-direction:column;gap:4px"></div>
+    </div>
+
+    <!-- SECCIÓN COINCIDENCIAS -->
+    <div id="conf-coincidencias" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+        <span style="font-size:13px;font-weight:600">Coincidencias — entrenadores por equipos</span>
+        <button class="btn btn-verde btn-sm" onclick="addCoincidenciaClub()">+ Añadir club</button>
+      </div>
+      <div style="font-size:11px;color:var(--gris4);margin-bottom:.5rem">Qué equipos lleva cada entrenador en cada club. Los equipos de un mismo entrenador no se programarán a la vez. Cada equipo = categoría + letra (ej. <b>PREB A</b>, <b>BENJ B</b>, <b>ALEVIN</b>, <b>FEMENINO</b>), separados por coma.</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:.75rem;padding:6px 10px;border:1px solid var(--gris2);border-radius:var(--r);background:#fff">
+        <span style="font-size:12px">Margen de desplazamiento entre campos distintos:</span>
+        <input type="number" min="0" max="120" id="margen-desplaz-input" onchange="setMargenDesplaz(this.value)" style="width:70px;font-size:12px;padding:4px 6px;border:1px solid var(--gris3);border-radius:6px">
+        <span style="font-size:12px;color:var(--gris4)">minutos</span>
+      </div>
+      <div id="coincidencias-config" style="display:flex;flex-direction:column;gap:10px"></div>
     </div>
 
   </div>
@@ -2392,17 +2408,92 @@ function toggleConf(seccion){
   const eqDiv = document.getElementById("conf-equipos");
   const caDiv = document.getElementById("conf-campos");
   const coDiv = document.getElementById("conf-coordinadores");
+  const ciDiv = document.getElementById("conf-coincidencias");
   const mismaSeccion = panel.style.display !== "none" &&
     ((seccion==="equipos"       && eqDiv.style.display!=="none") ||
      (seccion==="campos"        && caDiv.style.display!=="none") ||
+     (seccion==="coincidencias" && ciDiv && ciDiv.style.display!=="none") ||
      (seccion==="coordinadores" && coDiv && coDiv.style.display!=="none"));
   if(mismaSeccion){ panel.style.display="none"; return; }
   panel.style.display = "block";
   eqDiv.style.display = seccion==="equipos" ? "block" : "none";
   caDiv.style.display = seccion==="campos"  ? "block" : "none";
   if(coDiv) coDiv.style.display = seccion==="coordinadores" ? "block" : "none";
+  if(ciDiv) ciDiv.style.display = seccion==="coincidencias" ? "block" : "none";
   if(seccion==="campos") renderCamposConfig();
   if(seccion==="coordinadores") renderCoordinadoresConfig();
+  if(seccion==="coincidencias") renderCoincidenciasConfig();
+}
+
+// ---- Edición de COINCIDENCIAS (entrenador -> equipos por club) ----
+let coincidencias = JSON.parse(JSON.stringify(getCoincidencias())); // copia de trabajo (base + usuario)
+function saveCoincidencias(){
+  try{ localStorage.setItem('kolbe_coincidencias', JSON.stringify(coincidencias)); }catch(e){}
+}
+function _jsq(s){ return String(s==null?"":s).replace(/\\/g,"\\\\").replace(/'/g,"\\'"); }
+function _atq(s){ return String(s==null?"":s).replace(/"/g,"&quot;"); }
+function setMargenDesplaz(v){
+  const n = parseInt(v,10);
+  if(Number.isFinite(n) && n>=0){ MARGEN_DESPLAZAMIENTO_MIN = n; try{ localStorage.setItem('kolbe_margen_desplaz', String(n)); }catch(e){} calcConflictos(); if(typeof renderTodo==="function") renderTodo(); }
+}
+function addCoincidenciaClub(){
+  const nom = (prompt("Nombre del club (como aparece en Clupik, ej. ZOLA, HIGHLANDS):")||"").trim().toUpperCase();
+  if(!nom) return;
+  if(!coincidencias[nom]) coincidencias[nom] = [];
+  coincidencias[nom].push({ent:"",equipos:[]});
+  saveCoincidencias(); renderCoincidenciasConfig();
+}
+function delCoincidenciaClub(club){
+  if(!confirm("¿Eliminar el club \""+club+"\" y todas sus coincidencias?")) return;
+  delete coincidencias[club]; saveCoincidencias(); renderCoincidenciasConfig();
+}
+function addCoincidenciaFila(club){
+  (coincidencias[club] = coincidencias[club]||[]).push({ent:"",equipos:[]});
+  saveCoincidencias(); renderCoincidenciasConfig();
+}
+function delCoincidenciaFila(club,i){
+  if(coincidencias[club]){ coincidencias[club].splice(i,1); saveCoincidencias(); renderCoincidenciasConfig(); }
+}
+function setCoincEnt(club,i,val){ if(coincidencias[club]&&coincidencias[club][i]){ coincidencias[club][i].ent=val.trim(); saveCoincidencias(); } }
+function setCoincEquipos(club,i,val){
+  if(coincidencias[club]&&coincidencias[club][i]){
+    coincidencias[club][i].equipos = val.split(",").map(function(x){return x.trim().toUpperCase();}).filter(Boolean);
+    saveCoincidencias();
+  }
+}
+function renderCoincidenciasConfig(){
+  const box = document.getElementById("coincidencias-config");
+  if(!box) return;
+  const mi = document.getElementById("margen-desplaz-input"); if(mi) mi.value = MARGEN_DESPLAZAMIENTO_MIN;
+  const clubs = Object.keys(coincidencias).sort();
+  if(!clubs.length){
+    box.innerHTML = '<div style="padding:10px;border:1px dashed var(--gris3);border-radius:var(--r);font-size:12px;color:var(--gris4)">Aún no hay clubes. Pulsa «+ Añadir club» para empezar.</div>';
+    return;
+  }
+  box.innerHTML = clubs.map(function(club){
+    const filas = (coincidencias[club]||[]).map(function(f,i){
+      return '<div style="display:grid;grid-template-columns:1.2fr 2.5fr auto;gap:6px;align-items:center;margin-bottom:4px">'
+        + '<input type="text" placeholder="Entrenador" value="'+_atq(f.ent)+'" '
+        +   'onchange="setCoincEnt(\''+_jsq(club)+'\','+i+',this.value)" '
+        +   'style="font-size:12px;padding:5px 8px;border:1px solid var(--gris3);border-radius:6px">'
+        + '<input type="text" placeholder="PREB A, BENJ A, CADETE A…" value="'+_atq((f.equipos||[]).join(", "))+'" '
+        +   'onchange="setCoincEquipos(\''+_jsq(club)+'\','+i+',this.value)" '
+        +   'style="font-size:12px;padding:5px 8px;border:1px solid var(--gris3);border-radius:6px">'
+        + '<button onclick="delCoincidenciaFila(\''+_jsq(club)+'\','+i+')" title="Eliminar entrenador" '
+        +   'style="padding:5px 8px;border:1px solid var(--gris3);border-radius:6px;background:transparent;cursor:pointer;color:var(--rojo);font-size:13px">✕</button>'
+        + '</div>';
+    }).join("");
+    return '<div style="border:1px solid var(--gris2);border-radius:var(--r);background:#fff;padding:8px 10px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+      +   '<span style="font-size:13px;font-weight:600">'+club+'</span>'
+      +   '<div style="display:flex;gap:6px">'
+      +     '<button class="btn btn-verde btn-sm" onclick="addCoincidenciaFila(\''+_jsq(club)+'\')">+ Entrenador</button>'
+      +     '<button onclick="delCoincidenciaClub(\''+_jsq(club)+'\')" title="Eliminar club" style="padding:4px 8px;border:1px solid var(--gris3);border-radius:6px;background:transparent;cursor:pointer;color:var(--rojo);font-size:12px">Eliminar club</button>'
+      +   '</div>'
+      + '</div>'
+      + (filas || '<div style="font-size:11px;color:var(--gris4)">Sin entrenadores todavía.</div>')
+      + '</div>';
+  }).join("");
 }
 
 // ============ COORDINADORES (contacto de clubes rivales para WhatsApp) ============

@@ -30,3 +30,12 @@ Rama: `feature/restricciones-desplazamiento`. NO fusionar a main sin probar con 
   lleguen datos, sin tocar código.
 - Resolver `entrenadorPorCoincidencias()` probado con 9 casos (JS puro): todos correctos.
 - Siguiente: migrar el resto de clubes a datos y una UI para editar la tabla (hoy se edita en localStorage).
+
+## UI de edición de coincidencias (02-09-2026)
+- Nuevo botón en la barra: **🔁 Coincidencias**, y panel de edición (mismo estilo que Entrenadores/Campos).
+- Por club: filas entrenador → equipos (texto "PREB A, BENJ B, ALEVIN…"), con añadir/eliminar club y
+  entrenador. Se guarda en localStorage `kolbe_coincidencias` (pisa a COINCIDENCIAS_BASE por club).
+- Campo para el **margen de desplazamiento** (minutos), guardado en `kolbe_margen_desplaz`.
+- Verificado: sintaxis OK; el panel se muestra integrado en la app; el resolver ya usa estos datos.
+- ⚠️ Probar la edición en un navegador real: el panel del entorno de Claude bloquea scripts/localStorage
+  de archivos externos (CSP + origen opaco), así que la lista no se puede poblar aquí, solo en tu navegador.
