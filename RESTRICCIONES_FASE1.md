@@ -21,3 +21,12 @@ Rama: `feature/restricciones-desplazamiento`. NO fusionar a main sin probar con 
   Arenales, Zarzalejo, Unión Pardillo, Navalagamella).
 - UI editable de restricciones por club (ventana de campo ya existe en "Campos y franjas").
 - Fase 2: Fútbol Sala por sedes; matriz de desplazamiento entre campos (hoy el margen es único).
+
+## Punto 1 — No coincidir por datos (02-09-2026)
+- Nueva capa de datos `COINCIDENCIAS` (club → entrenador → equipos), consultada en `getEntrenadores`
+  ANTES del código a fuego. Si hay tabla para el club, manda; si no, cae al comportamiento actual
+  (cero regresión). Editable en `COINCIDENCIAS_BASE` o en localStorage `kolbe_coincidencias`.
+- Pre-cargados **Zola** y **Highlands** (de los pantallazos de David). Resto de clubes: se añaden según
+  lleguen datos, sin tocar código.
+- Resolver `entrenadorPorCoincidencias()` probado con 9 casos (JS puro): todos correctos.
+- Siguiente: migrar el resto de clubes a datos y una UI para editar la tabla (hoy se edita en localStorage).

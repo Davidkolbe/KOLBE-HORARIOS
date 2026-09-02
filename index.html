@@ -919,6 +919,74 @@ function ligaDeComp(comp){
   return "";
 }
 
+// ============ COINCIDENCIAS (entrenador -> equipos, editable por datos) ============
+// Fuente de las restricciones "no coincidir" por club, en datos (no a fuego).
+// Estructura: CLUB -> [ { ent:"NOMBRE", equipos:["CHUPETIN","PREB A","BENJ A",...] } ]
+// Cada "equipo" es CATEGORIA + letra opcional (A/B/C) o FEMENINO. Se rellena según llegan datos.
+const COINCIDENCIAS_BASE = {
+  "ZOLA": [
+    { ent:"TOMÁS",   equipos:["CHUPETIN","PREB A","BENJ A","CADETE A"] },
+    { ent:"ANDRÉS",  equipos:["PREB B","FEMENINO","CADETE B"] },
+    { ent:"FELIPE",  equipos:["ALEVIN A"] },
+    { ent:"RODRIGO", equipos:["BENJ B","ALEVIN B"] }
+  ],
+  "HIGHLANDS": [
+    { ent:"CARLOS",    equipos:["ALEVIN"] },
+    { ent:"JULIÁN",    equipos:["CHUPETIN","PREB B","BENJ A"] },
+    { ent:"ALEJANDRO", equipos:["PREB A","BENJ B"] }
+  ]
+  // Resto de clubes: se añaden aquí (o desde localStorage 'kolbe_coincidencias') cuando lleguen datos.
+};
+function getCoincidencias(){
+  let user = {};
+  try { user = JSON.parse(localStorage.getItem('kolbe_coincidencias')||'{}') || {}; } catch(e){ user = {}; }
+  return Object.assign({}, COINCIDENCIAS_BASE, user); // el usuario pisa a la base por club
+}
+// Categoría normalizada de un texto de equipo/slot
+function _catKey(s){
+  const t = (s||"").toUpperCase();
+  if(t.includes("CHUPE")) return "CHUPE";
+  if(t.includes("PREB")) return "PREB";
+  if(t.includes("BENJ")) return "BENJ";
+  if(t.includes("ALEV")) return "ALEV";
+  if(t.includes("INFANT")) return "INF";
+  if(t.includes("CADETE")) return "CAD";
+  if(t.includes("JUV")) return "JUV";
+  if(t.includes("FEMEN")) return "FEM";
+  return "";
+}
+function _letraKey(s){
+  const t=(s||"").toUpperCase();
+  if(/(\s|"|^)C(\s|"|$)/.test(t)) return "C";
+  if(/(\s|"|^)B(\s|"|$)/.test(t)) return "B";
+  if(/(\s|"|^)A(\s|"|$)/.test(t)) return "A";
+  if(/\b3[ºoO]?\b/.test(t)) return "C";
+  if(/\b2[ºoO]?\b/.test(t)) return "B";
+  if(/\b1[ºoO]?\b/.test(t)) return "A";
+  return "";
+}
+// Devuelve el nombre del entrenador según la tabla de coincidencias, o "" si no hay dato.
+function entrenadorPorCoincidencias(nombreEquipo, categoria){
+  const n=(nombreEquipo||"").toUpperCase();
+  const CO=getCoincidencias();
+  const clubKey=Object.keys(CO).find(k=>n.includes(k));
+  if(!clubKey) return "";
+  const catT=_catKey(categoria)||_catKey(n);
+  const femT=n.includes("FEMEN");
+  const letraT=_letraKey(n);
+  for(const fila of CO[clubKey]){
+    for(const slot of fila.equipos){
+      const catS=_catKey(slot), letraS=_letraKey(slot), femS=/FEMEN/.test(slot.toUpperCase());
+      if(femS){ if(femT) return fila.ent; else continue; }
+      if(!catS) continue;
+      if(catS!==catT) continue;
+      if(letraS && letraT && letraS!==letraT) continue; // si el slot fija letra, debe coincidir
+      return fila.ent;
+    }
+  }
+  return "";
+}
+
 function getEntrenadores(nombreEquipo, categoria, liga){
   if(!nombreEquipo) return "";
   const n = nombreEquipo.toUpperCase().replace(/["“”]/g,"").trim();
@@ -987,6 +1055,10 @@ function getEntrenadores(nombreEquipo, categoria, liga){
       }
     }
   }
+
+  // 3) COINCIDENCIAS por datos (editable): si hay tabla para este club, manda sobre el código a fuego.
+  const _entCo = entrenadorPorCoincidencias(n, categoria);
+  if(_entCo) return _entCo;
 
   // Highlands: asignar entrenador según categoría detectada en el nombre del equipo
   if(n.includes("HIGHLANDS")){
