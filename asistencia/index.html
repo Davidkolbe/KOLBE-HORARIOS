@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Control de asistencia &#183; CDK</title>
+<style>
+ :root{--v:#006E32;--baja:#b3261e;--sin:#b06000;--t:#1a1a1a;--g:#666;--l:#e0e0e0;--bg:#fff;--c:#fafafa}
+ @media(prefers-color-scheme:dark){:root{--baja:#ff8a80;--sin:#e0a050;--t:#eee;--g:#aaa;--l:#333;--bg:#151515;--c:#1f1f1f}}
+ *{box-sizing:border-box}
+ body{margin:0;background:var(--bg);color:var(--t);
+  font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+ .w{max-width:560px;margin:0 auto;padding:20px 16px 130px}
+ header{border-bottom:3px solid var(--v);padding-bottom:12px;margin-bottom:8px}
+ h1{font-size:20px;margin:0 0 4px;color:var(--v)}
+ .sub{color:var(--g);font-size:14px}
+ .ayuda{background:var(--c);border-left:4px solid var(--v);padding:12px 14px;
+   border-radius:0 6px 6px 0;margin:16px 0;font-size:14.5px}
+ .ayuda b.baja{color:var(--baja)} .ayuda b.sin{color:var(--sin)}
+ ul{list-style:none;padding:0;margin:0}
+ li{border-bottom:1px solid var(--l);padding:11px 4px;display:flex;
+    align-items:center;gap:10px;flex-wrap:wrap}
+ .nom{flex:1 1 100%;font-size:15.5px}
+ .chip{border:1.5px solid var(--l);background:transparent;color:var(--g);
+   border-radius:20px;padding:8px 15px;font-size:14px;font-weight:600;
+   cursor:pointer;-webkit-tap-highlight-color:transparent}
+ .chip.on-baja{background:var(--baja);border-color:var(--baja);color:#fff}
+ .chip.on-sin{background:var(--sin);border-color:var(--sin);color:#fff}
+ li.marcada .nom{font-weight:600}
+ .barra{position:fixed;left:0;right:0;bottom:0;background:var(--bg);
+   border-top:1px solid var(--l);padding:12px 16px;display:flex;gap:10px;
+   align-items:center;max-width:560px;margin:0 auto}
+ .cuenta{flex:1;font-size:13.5px;color:var(--g);line-height:1.35}
+ button.acc{background:var(--v);color:#fff;border:0;border-radius:8px;
+   padding:13px 20px;font-size:16px;font-weight:600;cursor:pointer}
+ button.acc.sec2{background:transparent;color:var(--v);border:1px solid var(--v);padding:13px 14px}
+ .mas{margin:14px 0 0;background:transparent;border:1.5px dashed var(--l);color:var(--v);
+   border-radius:8px;padding:13px;width:100%;font-size:15px;font-weight:600;cursor:pointer}
+ .extra li{gap:8px}
+ .extra .nuevo{flex:1 1 100%;color:var(--v);font-size:13px;font-weight:600}
+ .extra input{flex:1 1 auto;min-width:0;font:inherit;padding:10px;border-radius:8px;
+   border:1.5px solid var(--l);background:var(--bg);color:var(--t)}
+ .extra select{flex:0 1 auto;max-width:100%;font:inherit;font-size:14px;padding:9px;
+   border-radius:8px;border:1.5px solid var(--l);background:var(--bg);color:var(--t)}
+ .quitar{border:0;background:transparent;color:var(--g);font-size:24px;line-height:1;
+   padding:4px 10px;cursor:pointer}
+ li.cab{background:var(--c);font-weight:700;font-size:13px;letter-spacing:.04em;
+   color:var(--v);text-transform:uppercase;padding:9px 10px;border-bottom:2px solid var(--v)}
+ li.cab .hr{font-weight:500;color:var(--g);text-transform:none;letter-spacing:0}
+</style></head><body><div class="w">
+<div id="app">
+  <header><h1>Control de asistencia</h1><div class="sub">Club Deportivo Kolbe</div></header>
+  <div class="ayuda">
+    <strong>&#191;Esperabas ver tu lista de jugadores?</strong><br><br>
+    No pasa nada: tu m&#243;vil est&#225; <em>ense&#241;ando</em> el archivo en vez de abrirlo.<br><br>
+    &#128073; Dale a <strong>&#171;Abrir con Google Chrome&#187;</strong>, el bot&#243;n que te sale arriba a la
+    derecha. Y ya est&#225;: aparece tu lista con los botones.<br><br>
+    Si no te sale ese bot&#243;n, toca el de compartir &#8212;el cuadradito con la flecha&#8212; y elige
+    <strong>Chrome</strong> o <strong>Safari</strong>.<br><br>
+    Y si has llegado aqu&#237; por tu cuenta, sin que el club te haya mandado nada: esta p&#225;gina
+    <strong>no guarda ning&#250;n nombre</strong>, ni aqu&#237; ni en ning&#250;n servidor. No hay nada que ver.
+  </div>
+</div>
+<script>
+const TEL="34676578734", SEMANAS=3, DATOS=null;
+const MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO',
+             'JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+const NL=String.fromCharCode(10);
+function mesHoy(){const d=new Date();return MESES[d.getMonth()]+' '+d.getFullYear()}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+// Lo que va despu\u00e9s de # NUNCA se env\u00eda al servidor: se queda en el navegador.
+function leerEnlace(){
+  let h=location.hash.slice(1);
+  if(!h) return null;
+  try{
+    h=h.replace(/-/g,'+').replace(/_/g,'/');
+    while(h.length%4) h+='=';
+    return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(h),c=>c.charCodeAt(0))));
+  }catch(e){ return null; }
+}
+
+const D = DATOS || leerEnlace();
+if(D){
+  // Con varios grupos en una misma p\u00e1gina, cada alumno lleva el \u00edndice de el suyo en
+  // 's' y los nombres van una sola vez en 'gs'. Con un grupo, nada de esto existe.
+  const VARIOS = D.a.some(x=>x.s!==undefined);
+  const nomGrupo = i => (D.gs && D.gs[i]!==undefined) ? D.gs[i] : i;
+  const conGrupo = (nombre,s) => (VARIOS && s!==undefined) ? nombre+' ('+nomGrupo(s)+')' : nombre;
+
+  const sub=[D.c?'curso '+D.c:'', D.h||'',
+             VARIOS?(D.gs||[]).length+' grupos':'', D.a.length+' alumnos'].filter(Boolean).join(' \u00b7 ');
+  document.getElementById('app').innerHTML=
+    '<header><h1>'+esc(D.g)+'</h1><div class="sub">'+esc(sub)+'</div></header>'
+   +'<div class="ayuda">Marca solo a quien lo necesite. <strong>Lo normal es no marcar nada.</strong><br><br>'
+   +'<b class="baja">Lo deja</b> \u2014 te han dicho que se va, o sabes que no vuelve.<br>'
+   +'<b class="sin">Sin venir</b> \u2014 lleva '+SEMANAS+' semanas o m\u00e1s sin aparecer y no ha avisado.<br>'
+   +'Y si entrena alguien que <b>no sale en la lista</b>, a\u00f1\u00e1delo abajo del todo.'
+   +'<br><br>Al terminar, pulsa <strong>Enviar</strong> y se abrir\u00e1 WhatsApp con el mensaje escrito.</div>'
+   +'<ul>'+D.a.map(function(x,i){
+      // Un entrenador puede llevar varios grupos: van en la misma p\u00e1gina, separados
+      // por una cabecera. Con un solo grupo no hay 's' y esto no pinta nada.
+      var cab='';
+      if(x.s!==undefined && (i===0 || D.a[i-1].s!==x.s)){
+        var h=(D.hs && D.hs[x.s]) ? ' <span class="hr">'+esc(D.hs[x.s])+'</span>' : '';
+        cab='<li class="cab">'+esc(nomGrupo(x.s))+h+'</li>';
+      }
+      return cab+'<li data-i="'+i+'"><span class="nom">'+esc(x.n)+'</span>'
+       +'<button class="chip" data-e="baja">Lo deja</button>'
+       +'<button class="chip" data-e="sin">Sin venir</button></li>';
+     }).join('')+'</ul>'
+   +'<button class="mas" id="bmas">\u2795 Falta alguien en esta lista</button>'
+   +'<ul class="extra" id="extra"></ul>'
+   +'<div class="barra"><div class="cuenta" id="cuenta">Nadie marcado \u00b7 vienen todos</div>'
+   +'<button class="acc sec2" id="bcopiar">Copiar</button>'
+   +'<button class="acc" id="benviar">Enviar</button></div>';
+
+  const estado={};   // \u00edndice -> 'baja' | 'sin'
+  document.querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>{
+    const li=b.closest('li'), i=li.dataset.i, e=b.dataset.e;
+    estado[i] = (estado[i]===e) ? null : e;         // volver a pulsar lo quita
+    li.querySelectorAll('.chip').forEach(c=>{
+      c.classList.toggle('on-baja', estado[i]==='baja' && c.dataset.e==='baja');
+      c.classList.toggle('on-sin',  estado[i]==='sin'  && c.dataset.e==='sin');
+    });
+    li.classList.toggle('marcada', !!estado[i]);
+    refrescar();
+  }));
+
+  // Quien entrena y no sale en el listado de Alexia. El entrenador solo lo escribe;
+  // comprobar si est\u00e1 de alta \u2014y cobrarle\u2014 es cosa del club, igual que con las bajas.
+  // El nombre marcado viaja con su grupo: es lo que permite al club saber en qu\u00e9
+  // secci\u00f3n de Alexia hay que dar la baja.
+  const GRUPOS = D.gs || [];
+
+  const extra=document.getElementById('extra');
+  const listaExtra=()=>[].slice.call(extra.querySelectorAll('li')).map(function(li){
+    const v=li.querySelector('input').value.trim();
+    const s=li.querySelector('select');          // solo existe si hay varios grupos
+    return v ? (s ? v+' ('+s.value+')' : v) : '';
+  }).filter(Boolean);
+
+  document.getElementById('bmas').onclick=function(){
+    const li=document.createElement('li');
+    const sel=VARIOS ? '<select>'+GRUPOS.map(g=>'<option>'+esc(g)+'</option>').join('')+'</select>' : '';
+    li.innerHTML='<span class="nuevo">Entrena y no est\u00e1 en la lista</span>'
+      +'<input type="text" placeholder="Apellidos, Nombre" autocomplete="off">'+sel
+      +'<button class="quitar" aria-label="Quitar">&times;</button>';
+    li.querySelector('.quitar').onclick=function(){ li.remove(); refrescar(); };
+    li.querySelector('input').addEventListener('input', refrescar);
+    extra.appendChild(li);
+    li.querySelector('input').focus();
+  };
+
+  const listaDe=e=>D.a.filter((_,i)=>estado[i]===e).map(x=>conGrupo(x.n, x.s));
+  function refrescar(){
+    const b=listaDe('baja').length, s=listaDe('sin').length, x=listaExtra().length;
+    document.getElementById('cuenta').textContent = (b+s+x)===0
+      ? 'Nadie marcado \u00b7 vienen todos'
+      : [b?b+' lo dejan':'', s?s+' sin venir':'', x?x+' sin listar':''].filter(Boolean).join(' \u00b7 ');
+  }
+  function texto(){
+    const b=listaDe('baja'), s=listaDe('sin'), x=listaExtra();
+    let t='CONTROL '+mesHoy()+' \u2014 '+D.g+NL;
+    if(!b.length && !s.length && !x.length) return t+'Sin novedades: vienen todos.';
+    if(b.length) t+=NL+'LO DEJAN (formalizar baja antes del 25):'+NL+b.map(n=>'\u00b7 '+n).join(NL)+NL;
+    if(s.length) t+=NL+'SIN VENIR (averiguar qu\u00e9 pasa):'+NL+s.map(n=>'\u00b7 '+n).join(NL)+NL;
+    if(x.length) t+=NL+'NO EST\u00c1N EN LA LISTA (comprobar si est\u00e1n de alta):'+NL+x.map(n=>'\u00b7 '+n).join(NL)+NL;
+    return t;
+  }
+  document.getElementById('benviar').onclick=()=>
+    window.open('https://wa.me/'+TEL+'?text='+encodeURIComponent(texto()),'_blank');
+  document.getElementById('bcopiar').onclick=()=>
+    navigator.clipboard.writeText(texto()).then(()=>alert('Copiado.'))
+      .catch(()=>prompt('Copia este texto:',texto()));
+  refrescar();
+}
+</script>
+</div></body></html>
