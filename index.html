@@ -947,6 +947,7 @@ const COINCIDENCIAS_BASE = {
   // 26-27: generado el 16-10-2026 desde las hojas de condicionantes que devolvieron los clubes
   // (condicionantes_a_app_horarios.py -> COINCIDENCIAS_APP_HORARIOS_26-27.json). Solo F7.
   // Una fila por equipo con TODOS sus entrenadores: dos equipos que compartan un nombre no coinciden.
+  // Fresnedillas va sin hoja: un solo entrenador para sus cuatro equipos (David, 16-10-2026).
   "NAVALAGAMELLA": [
     { ent:"MARCO FLORIAN FLORIAN", equipos:["ALEVIN"] },
     { ent:"ZAID EL BANNOUDI EL BANNOUDI", equipos:["INFANTIL"] }
@@ -959,11 +960,19 @@ const COINCIDENCIAS_BASE = {
     { ent:"ALVARO GALINDO DOMINGUEZ", equipos:["CADETE"] }
   ],
   "QUERCUS": [
-    { ent:"ALVARO PARRAS REY", equipos:["BENJ"] }
+    { ent:"ALVARO PARRAS REY", equipos:["BENJ AZUL"] },
+    { ent:"ALVARO PARRAS REY", equipos:["BENJ AMARILLO"] }
   ],
   "QUIJORNA": [
     { ent:"JAIME SERRANO SANCHEZ, PEDRO MARTINEZ", equipos:["BENJ"] },
     { ent:"AARON BELTRAN FUENTES", equipos:["CADETE"] }
+  ],
+  "KOLBE": [
+    { ent:"RUIBI", equipos:["ALEVIN BLANCO"] },
+    { ent:"PABLO ORDONEZ", equipos:["ALEVIN VERDE"] },
+    { ent:"RUIBI", equipos:["INFANTIL BLANCO"] },
+    { ent:"PABLO GOMEZ", equipos:["INFANTIL VERDE"] },
+    { ent:"CHECHU", equipos:["CADETE"] }
   ],
   "VALLMONT": [
     { ent:"JAVIER HELLIN, ALEJANDRO PUERTO", equipos:["BENJ"] },
@@ -1007,8 +1016,14 @@ const COINCIDENCIAS_BASE = {
   "MICHAEL": [
     { ent:"AITOR FERNANDEZ DONAIRE, JOSE MARIA LEDESMA GONZALEZ, MIGUEL BENITEZ", equipos:["PREB"] },
     { ent:"NICOLAS ALVAREZ QUINTANA, AITOR FERNANDEZ DONAIRE", equipos:["BENJ"] }
+  ],
+  "FRESNEDILLAS": [
+    { ent:"ENTRENADOR UNICO CD FRESNEDILLAS", equipos:["BENJ"] },
+    { ent:"ENTRENADOR UNICO CD FRESNEDILLAS", equipos:["ALEVIN"] },
+    { ent:"ENTRENADOR UNICO CD FRESNEDILLAS", equipos:["INFANTIL"] },
+    { ent:"ENTRENADOR UNICO CD FRESNEDILLAS", equipos:["CADETE"] }
   ]
-  // Clubes sin hoja todavía (Arenales, Fresnedillas, Kolbe, La Cañada): se cargan con «Importar tabla».
+  // Arenales, sin hoja todavía: se carga con «Importar tabla» cuando llegue.
 };
 function getCoincidencias(){
   let user = {};
@@ -1031,6 +1046,8 @@ function _catKey(s){
   return "";
 }
 function _sinTildes(s){ return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,""); }
+// Mismo listado que COLORES en condicionantes_a_app_horarios.py
+const _COLORES_EQ = ["BLANCO","VERDE","AZUL","AMARILLO","ROJO","NEGRO","NARANJA","MORADO","GRANATE","GRIS"];
 function _letraKey(s){
   const t=(s||"").toUpperCase();
   if(/(\s|"|^)C(\s|"|$)/.test(t)) return "C";
@@ -1059,6 +1076,10 @@ function entrenadorPorCoincidencias(nombreEquipo, categoria){
       if(!catS) continue;
       if(catS!==catT) continue;
       if(letraS && letraT && letraS!==letraT) continue; // si el slot fija letra, debe coincidir
+      // Clubes que distinguen por color (Kolbe BLANCO/VERDE, Quercus AZUL/AMARILLO): si el slot
+      // lleva color, el nombre del equipo en Clupik tiene que llevarlo también.
+      const colorS=_COLORES_EQ.find(function(c){ return new RegExp("\\b"+c+"\\b").test(_sinTildes(slot).toUpperCase()); });
+      if(colorS && !new RegExp("\\b"+colorS+"\\b").test(nPlano)) continue;
       return fila.ent;
     }
   }
