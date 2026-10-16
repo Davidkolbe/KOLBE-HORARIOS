@@ -293,7 +293,11 @@ details.card-collapsible:not([open]) > summary::after{transform:rotate(-90deg)}
     <div id="conf-coincidencias" style="display:none">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
         <span style="font-size:13px;font-weight:600">Coincidencias — entrenadores por equipos</span>
-        <button class="btn btn-verde btn-sm" onclick="addCoincidenciaClub()">+ Añadir club</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="document.getElementById('coinc-import-file').click()" title="Carga COINCIDENCIAS_APP_HORARIOS_26-27.json (lo genera condicionantes_a_app_horarios.py). Sustituye solo los clubes que vienen en el archivo.">📥 Importar tabla</button>
+          <input type="file" id="coinc-import-file" accept=".json,application/json" style="display:none" onchange="importarCoincidencias(this)">
+          <button class="btn btn-verde btn-sm" onclick="addCoincidenciaClub()">+ Añadir club</button>
+        </div>
       </div>
       <div style="font-size:11px;color:var(--gris4);margin-bottom:.5rem">Qué equipos lleva cada entrenador en cada club. Los equipos de un mismo entrenador no se programarán a la vez. Cada equipo = categoría + letra (ej. <b>PREB A</b>, <b>BENJ B</b>, <b>ALEVIN</b>, <b>FEMENINO</b>), separados por coma.</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:.75rem;padding:6px 10px;border:1px solid var(--gris2);border-radius:var(--r);background:#fff">
@@ -940,18 +944,71 @@ function ligaDeComp(comp){
 // Estructura: CLUB -> [ { ent:"NOMBRE", equipos:["CHUPETIN","PREB A","BENJ A",...] } ]
 // Cada "equipo" es CATEGORIA + letra opcional (A/B/C) o FEMENINO. Se rellena según llegan datos.
 const COINCIDENCIAS_BASE = {
-  "ZOLA": [
-    { ent:"TOMÁS",   equipos:["CHUPETIN","PREB A","BENJ A","CADETE A"] },
-    { ent:"ANDRÉS",  equipos:["PREB B","FEMENINO","CADETE B"] },
-    { ent:"FELIPE",  equipos:["ALEVIN A"] },
-    { ent:"RODRIGO", equipos:["BENJ B","ALEVIN B"] }
+  // 26-27: generado el 16-10-2026 desde las hojas de condicionantes que devolvieron los clubes
+  // (condicionantes_a_app_horarios.py -> COINCIDENCIAS_APP_HORARIOS_26-27.json). Solo F7.
+  // Una fila por equipo con TODOS sus entrenadores: dos equipos que compartan un nombre no coinciden.
+  "NAVALAGAMELLA": [
+    { ent:"MARCO FLORIAN FLORIAN", equipos:["ALEVIN"] },
+    { ent:"ZAID EL BANNOUDI EL BANNOUDI", equipos:["INFANTIL"] }
+  ],
+  "ATHLETIC": [
+    { ent:"ALEJANDRO JURADO, ABEL COLLAR", equipos:["INFANTIL"] }
+  ],
+  "NUEVO": [
+    { ent:"DAVID SERRANO GADEA", equipos:["PREB A"] },
+    { ent:"ALVARO GALINDO DOMINGUEZ", equipos:["CADETE"] }
+  ],
+  "QUERCUS": [
+    { ent:"ALVARO PARRAS REY", equipos:["BENJ"] }
+  ],
+  "QUIJORNA": [
+    { ent:"JAIME SERRANO SANCHEZ, PEDRO MARTINEZ", equipos:["BENJ"] },
+    { ent:"AARON BELTRAN FUENTES", equipos:["CADETE"] }
+  ],
+  "VALLMONT": [
+    { ent:"JAVIER HELLIN, ALEJANDRO PUERTO", equipos:["BENJ"] },
+    { ent:"NICOLAS MARTINEZ, DIEGO VIDAL", equipos:["ALEVIN"] }
+  ],
+  "CEU": [
+    { ent:"MIGUEL ANGEL", equipos:["PREB"] },
+    { ent:"DANIEL AUNION", equipos:["BENJ"] },
+    { ent:"DANIEL AUNION", equipos:["ALEVIN"] }
+  ],
+  "UNION": [
+    { ent:"ADRIAN BORREGO, MARTA GARCIA", equipos:["PREB"] },
+    { ent:"IVAN NAVARRO, FER", equipos:["ALEVIN"] }
+  ],
+  "EVEREST": [
+    { ent:"JUAN ANDRES RODRIGUEZ, ADRIAN GARCIA", equipos:["PREB A"] },
+    { ent:"ALEJANDRO SORIANO, ADRIAN GARCIA", equipos:["PREB B"] },
+    { ent:"ADRIAN GARCIA, ALEJANDRO SORIANO", equipos:["PREB C"] }
   ],
   "HIGHLANDS": [
-    { ent:"CARLOS",    equipos:["ALEVIN"] },
-    { ent:"JULIÁN",    equipos:["CHUPETIN","PREB B","BENJ A"] },
-    { ent:"ALEJANDRO", equipos:["PREB A","BENJ B"] }
+    { ent:"ALEX DIAZ", equipos:["CHUPETIN"] },
+    { ent:"JULIAN CARRETERO", equipos:["PREB A"] },
+    { ent:"ALEX DIAZ", equipos:["PREB B"] },
+    { ent:"ALEX DIAZ", equipos:["BENJ"] },
+    { ent:"JULIAN CARRETERO", equipos:["ALEVIN"] },
+    { ent:"CARLOS PRIETO", equipos:["INFANTIL"] }
+  ],
+  "HÉLADE": [
+    { ent:"GABRIEL DEL CASTILLO", equipos:["BENJ"] }
+  ],
+  "ZOLA": [
+    { ent:"RODRIGO", equipos:["BENJ A"] },
+    { ent:"TOMAS", equipos:["BENJ B"] },
+    { ent:"RODRIGO", equipos:["ALEVIN A"] },
+    { ent:"ANDRES", equipos:["ALEVIN B"] },
+    { ent:"ANDRES", equipos:["JUVENIL A"] }
+  ],
+  "ZARZALEJO": [
+    { ent:"PABLO HERNANDEZ SANCHEZ, JAIME SASTRE MARTIN", equipos:["ALEVIN"] }
+  ],
+  "MICHAEL": [
+    { ent:"AITOR FERNANDEZ DONAIRE, JOSE MARIA LEDESMA GONZALEZ, MIGUEL BENITEZ", equipos:["PREB"] },
+    { ent:"NICOLAS ALVAREZ QUINTANA, AITOR FERNANDEZ DONAIRE", equipos:["BENJ"] }
   ]
-  // Resto de clubes: se añaden aquí (o desde localStorage 'kolbe_coincidencias') cuando lleguen datos.
+  // Clubes sin hoja todavía (Arenales, Fresnedillas, Kolbe, La Cañada): se cargan con «Importar tabla».
 };
 function getCoincidencias(){
   let user = {};
@@ -966,11 +1023,14 @@ function _catKey(s){
   if(t.includes("BENJ")) return "BENJ";
   if(t.includes("ALEV")) return "ALEV";
   if(t.includes("INFANT")) return "INF";
+  // En 26-27 cadete y juvenil juegan la misma liga (LIGA CADETE-JUVENIL): misma clave,
+  // y la letra del equipo es la que distingue.
   if(t.includes("CADETE")) return "CAD";
-  if(t.includes("JUV")) return "JUV";
+  if(t.includes("JUV")) return "CAD";
   if(t.includes("FEMEN")) return "FEM";
   return "";
 }
+function _sinTildes(s){ return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,""); }
 function _letraKey(s){
   const t=(s||"").toUpperCase();
   if(/(\s|"|^)C(\s|"|$)/.test(t)) return "C";
@@ -985,7 +1045,9 @@ function _letraKey(s){
 function entrenadorPorCoincidencias(nombreEquipo, categoria){
   const n=(nombreEquipo||"").toUpperCase();
   const CO=getCoincidencias();
-  const clubKey=Object.keys(CO).find(k=>n.includes(k));
+  // Sin tildes en los dos lados: Clupik puede traer «UNIÓN» o «HELADE» y la tabla al revés.
+  const nPlano=_sinTildes(n);
+  const clubKey=Object.keys(CO).find(k=>nPlano.includes(_sinTildes(k).toUpperCase()));
   if(!clubKey) return "";
   const catT=_catKey(categoria)||_catKey(n);
   const femT=n.includes("FEMEN");
@@ -1006,6 +1068,14 @@ function entrenadorPorCoincidencias(nombreEquipo, categoria){
 function getEntrenadores(nombreEquipo, categoria, liga){
   if(!nombreEquipo) return "";
   const n = nombreEquipo.toUpperCase().replace(/["“”]/g,"").trim();
+
+  // 0) 26-27: si el club está en la tabla de coincidencias (sale de las hojas de condicionantes de
+  //    este curso), manda sobre los equipos guardados del 25-26 y sobre el código a fuego de abajo.
+  //    La tabla es solo de F7: en Fútbol Sala no se consulta.
+  if(!/SALA/i.test(String(liga||""))){
+    const _entCo0 = entrenadorPorCoincidencias(n, categoria);
+    if(_entCo0) return _entCo0;
+  }
 
   // 1) PRIORIDAD MAXIMA: match exacto (name+categoria+liga) en equipos configurados.
   //    Si el usuario configuro entrenadores para este equipo concreto en esa categoria,
@@ -2435,6 +2505,33 @@ function _atq(s){ return String(s==null?"":s).replace(/"/g,"&quot;"); }
 function setMargenDesplaz(v){
   const n = parseInt(v,10);
   if(Number.isFinite(n) && n>=0){ MARGEN_DESPLAZAMIENTO_MIN = n; try{ localStorage.setItem('kolbe_margen_desplaz', String(n)); }catch(e){} calcConflictos(); if(typeof renderTodo==="function") renderTodo(); }
+}
+// Carga el JSON que sale de condicionantes_a_app_horarios.py. Sustituye solo los clubes que trae
+// el archivo; el resto (y lo editado a mano en otros clubes) se queda como estaba.
+function importarCoincidencias(input){
+  const f = input.files && input.files[0];
+  if(!f) return;
+  const lector = new FileReader();
+  lector.onload = function(){
+    let datos;
+    try { datos = JSON.parse(lector.result); } catch(e){ alert("El archivo no es un JSON válido."); input.value=""; return; }
+    const clubes = (datos && typeof datos === "object" && !Array.isArray(datos)) ? Object.keys(datos) : [];
+    const malos = clubes.filter(function(c){
+      return !Array.isArray(datos[c]) || datos[c].some(function(r){ return !r || typeof r.ent !== "string" || !Array.isArray(r.equipos); });
+    });
+    if(!clubes.length || malos.length){
+      alert("El archivo no tiene el formato de la tabla de coincidencias" + (malos.length ? " (revisa: " + malos.join(", ") + ")" : "") + ". No se ha cambiado nada.");
+      input.value=""; return;
+    }
+    const n = clubes.reduce(function(s,c){ return s + datos[c].length; }, 0);
+    if(!confirm("Se van a cargar " + clubes.length + " clubes (" + n + " equipos):\n" + clubes.join(", ") + "\n\nSustituye lo que hubiera de esos clubes. ¿Seguir?")){ input.value=""; return; }
+    clubes.forEach(function(c){ coincidencias[c.toUpperCase()] = datos[c]; });
+    saveCoincidencias();
+    renderCoincidenciasConfig();
+    try { recalcularEntrenadores(); calcConflictos(); if(typeof renderTodo==="function") renderTodo(); } catch(e){ console.warn("Recalculo tras importar coincidencias:", e); }
+    input.value = "";
+  };
+  lector.readAsText(f, "utf-8");
 }
 function addCoincidenciaClub(){
   const nom = (prompt("Nombre del club (como aparece en Clupik, ej. ZOLA, HIGHLANDS):")||"").trim().toUpperCase();
