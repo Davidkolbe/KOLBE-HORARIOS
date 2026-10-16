@@ -251,22 +251,25 @@ details.card-collapsible:not([open]) > summary::after{transform:rotate(-90deg)}
 
     <!-- SECCIÓN EQUIPOS -->
     <div id="conf-equipos">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
-        <span style="font-size:13px;font-weight:600">Equipos y entrenadores</span>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-verde btn-sm" onclick="recalcularEntrenadoresBtn(this)" title="Actualiza los entrenadores en todos los partidos cargados">↺ Actualizar entrenadores</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+        <span style="font-size:13px;font-weight:600">Teléfonos de entrenadores</span>
+        <button class="btn btn-verde btn-sm" onclick="recalcularEntrenadoresBtn(this)" title="Vuelve a poner los entrenadores en todos los partidos cargados">↺ Actualizar entrenadores</button>
+      </div>
+      <div style="font-size:11px;color:var(--gris4);margin-bottom:.75rem">Un teléfono por persona · formato +34... o 9 dígitos. Los nombres salen de 🔁 Coincidencias: quién entrena cada equipo se cambia allí, no aquí.</div>
+      <div id="entrenadores-tels-config" style="display:flex;flex-direction:column;gap:4px"></div>
+
+      <!-- Lista vieja de equipos (25-26). Desde el 16-10-2026 no decide los entrenadores de los clubes que
+           están en Coincidencias; solo se consulta para los que no están. Se pliega para que no parezca
+           un segundo sitio donde cambiar entrenadores. -->
+      <details style="margin-top:1.5rem">
+        <summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--gris4)">Lista antigua de equipos (curso 25-26) — ya no decide los entrenadores</summary>
+        <div style="font-size:11px;color:var(--gris4);margin:.5rem 0">Solo se usa para clubes que no están en 🔁 Coincidencias. Para los que están, manda la tabla.</div>
+        <div style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:.5rem">
           <button class="btn btn-sm" style="border:1px solid var(--gris3);background:transparent;font-size:11px" onclick="resetEquiposDefault()">↺ Restaurar por defecto</button>
           <button class="btn btn-verde btn-sm" onclick="addEquipoRow()">+ Añadir equipo</button>
         </div>
-      </div>
-      <div style="font-size:11px;color:var(--gris4);margin-bottom:.75rem">Nombre del equipo tal como aparece en Clupik · Entrenadores separados por coma</div>
-      <div id="equipos-config" style="display:flex;flex-direction:column;gap:4px"></div>
-
-      <div style="display:flex;justify-content:space-between;align-items:center;margin:1.5rem 0 .5rem">
-        <span style="font-size:13px;font-weight:600">Teléfonos de entrenadores</span>
-        <span style="font-size:11px;color:var(--gris4)">Un teléfono por persona · formato +34... o 9 dígitos</span>
-      </div>
-      <div id="entrenadores-tels-config" style="display:flex;flex-direction:column;gap:4px"></div>
+        <div id="equipos-config" style="display:flex;flex-direction:column;gap:4px"></div>
+      </details>
     </div>
 
     <!-- SECCIÓN CAMPOS -->
@@ -799,7 +802,7 @@ function _kolbeEntrenadoresSinTel(){
       if(!nn || /^ENTREN_|ENTRENADOR /i.test(nn)) return;
       if(vistos.has(nn)) return;
       vistos.add(nn);
-      var tel = (typeof _telPrefijo === "function") ? _telPrefijo(entrenadoresTels[nn]||"") : (entrenadoresTels[nn]||"");
+      var tel = (typeof _telPrefijo === "function") ? _telPrefijo(_telDe(nn)) : _telDe(nn);
       if(!tel) faltan.push({nombre: nn, equipo: equipo});
     });
   });
@@ -2176,41 +2179,79 @@ function saveEntrenadoresTels(){
   try { localStorage.setItem("kolbe_entrenadores_tels", JSON.stringify(entrenadoresTels)); } catch(e){}
 }
 
+function _normNombre(n){ return _sinTildes(String(n||"")).toUpperCase().replace(/\s+/g," ").trim(); }
+// Teléfono de un entrenador aunque el nombre venga con o sin tildes («PABLO ORDONEZ» / «PABLO ORDÓÑEZ»).
+function _claveTel(nombre){
+  if(Object.prototype.hasOwnProperty.call(entrenadoresTels, nombre)) return nombre;
+  const nn = _normNombre(nombre);
+  return Object.keys(entrenadoresTels).find(function(k){ return _normNombre(k) === nn; }) || "";
+}
+function _telDe(nombre){ const k = _claveTel(nombre); return k ? (entrenadoresTels[k]||"") : ""; }
+function _setTel(nombre, val){ entrenadoresTels[_claveTel(nombre) || nombre] = val; saveEntrenadoresTels(); }
+
+// Entrenadores para la lista de teléfonos. Desde 26-27 salen de la tabla de Coincidencias (que sale
+// de las hojas de los clubes), no de la lista vieja de equipos. Devuelve [{nombre, club}].
 function _entrenadoresUnicos(){
-  var set = new Set();
-  (equipos||[]).forEach(function(e){
-    (e.entrenadores||"").split(/[,\/]/).forEach(function(n){
-      var nn = n.trim().toUpperCase();
-      if(nn && !/^ENTREN_|ENTRENADOR \d|ENTRENADOR QUERCUS|EXTERN_/i.test(nn)) set.add(nn);
+  const out = [], vistos = new Set();
+  const CO = getCoincidencias();
+  Object.keys(CO).forEach(function(club){
+    (CO[club]||[]).forEach(function(fila){
+      String(fila.ent||"").split(/[,\/]/).forEach(function(n){
+        const nn = n.trim().toUpperCase();
+        if(!nn || /^ENTREN_|ENTRENADOR |EXTERN_/i.test(nn) || vistos.has(_normNombre(nn))) return;
+        vistos.add(_normNombre(nn)); out.push({nombre: nn, club: club});
+      });
     });
   });
-  Object.keys(entrenadoresTels).forEach(function(n){ if(n) set.add(n); });
-  return Array.from(set).sort();
+  // Teléfonos ya guardados de personas que no están en la tabla: se enseñan aparte, no se pierden.
+  Object.keys(entrenadoresTels).forEach(function(k){
+    if(k && !vistos.has(_normNombre(k))){ vistos.add(_normNombre(k)); out.push({nombre: k, club: ""}); }
+  });
+  return out;
+}
+
+function _filaTel(nombre){
+  const tel = _telDe(nombre);
+  const telOk = !!_telPrefijo(tel);
+  return '<div style="display:grid;grid-template-columns:2fr 2fr auto;gap:6px;align-items:center;padding:6px;border:1px solid var(--gris2);border-radius:var(--r);background:#fff">'
+    + '<div style="font-size:12px;font-weight:600">'+nombre+'</div>'
+    + '<input type="tel" placeholder="+34..." value="'+tel.replace(/"/g,"&quot;")+'" '
+    +      'onchange="_setTel(\''+nombre.replace(/'/g,"\\'")+'\',this.value);renderEntrenadoresTels()" '
+    +      'style="font-size:12px;padding:5px 8px;border:1px solid '+(telOk?"var(--verde)":"var(--gris3)")+';border-radius:6px">'
+    + (telOk ? '<span style="color:var(--verde);font-size:11px">✓</span>' : '<span style="color:var(--gris4);font-size:11px">sin tel.</span>')
+    + '</div>';
 }
 
 function renderEntrenadoresTels(){
-  var box = document.getElementById("entrenadores-tels-config");
+  const box = document.getElementById("entrenadores-tels-config");
   if(!box) return;
-  var nombres = _entrenadoresUnicos();
-  if(!nombres.length){
-    box.innerHTML = '<div style="padding:10px;border:1px dashed var(--gris3);border-radius:var(--r);font-size:12px;color:var(--gris4)">Añade entrenadores a los equipos arriba para que aparezcan aquí.</div>';
+  const lista = _entrenadoresUnicos();
+  if(!lista.length){
+    box.innerHTML = '<div style="padding:10px;border:1px dashed var(--gris3);border-radius:var(--r);font-size:12px;color:var(--gris4)">No hay entrenadores en la tabla de 🔁 Coincidencias.</div>';
     return;
   }
-  box.innerHTML = nombres.map(function(nombre){
-    var tel = entrenadoresTels[nombre] || "";
-    var telOk = !!_telPrefijo(tel);
-    return '<div style="display:grid;grid-template-columns:2fr 2fr auto;gap:6px;align-items:center;padding:6px;border:1px solid var(--gris2);border-radius:var(--r);background:#fff">'
-      + '<div style="font-size:12px;font-weight:600">'+nombre+'</div>'
-      + '<input type="tel" placeholder="+34..." value="'+tel.replace(/"/g,"&quot;")+'" '
-      +      'onchange="entrenadoresTels[\''+nombre.replace(/'/g,"\\'")+'\']=this.value;saveEntrenadoresTels();renderEntrenadoresTels()" '
-      +      'style="font-size:12px;padding:5px 8px;border:1px solid '+(telOk?"var(--verde)":"var(--gris3)")+';border-radius:6px">'
-      + (telOk ? '<span style="color:var(--verde);font-size:11px">✓</span>' : '<span style="color:var(--gris4);font-size:11px">sin tel.</span>')
-      + '</div>';
-  }).join("");
+  const porClub = {};
+  lista.forEach(function(e){ (porClub[e.club] = porClub[e.club] || []).push(e.nombre); });
+  const titulo = function(t){ return '<div style="font-size:12px;font-weight:600;color:var(--verde);margin:.5rem 0 .25rem">'+t+'</div>'; };
+  let html = "";
+  // Kolbe arriba y abierto: son los que reciben los mensajes de la jornada.
+  if(porClub.KOLBE) html += titulo("CD KOLBE") + porClub.KOLBE.map(_filaTel).join("");
+  const otros = Object.keys(porClub).filter(function(c){ return c && c !== "KOLBE"; }).sort();
+  if(otros.length){
+    const n = otros.reduce(function(s,c){ return s + porClub[c].length; }, 0);
+    html += '<details style="margin-top:.75rem"><summary style="cursor:pointer;font-size:12px;font-weight:600">Entrenadores de otros clubes ('+n+')</summary>'
+      + otros.map(function(c){ return titulo(c) + porClub[c].map(_filaTel).join(""); }).join("") + '</details>';
+  }
+  if(porClub[""]){
+    html += '<details style="margin-top:.75rem"><summary style="cursor:pointer;font-size:12px;font-weight:600">Teléfonos guardados de personas que no están en la tabla ('+porClub[""].length+')</summary>'
+      + '<div style="font-size:11px;color:var(--gris4);margin:.25rem 0">Suelen ser del curso pasado o el mismo entrenador escrito de otra forma. Se conservan por si acaso.</div>'
+      + porClub[""].map(_filaTel).join("") + '</details>';
+  }
+  box.innerHTML = html;
 }
 
 function abrirWhatsAppEntrenador(nombre, mensaje){
-  var tel = _telPrefijo(entrenadoresTels[nombre]||"");
+  var tel = _telPrefijo(_telDe(nombre));
   if(!tel){ alert("El entrenador '"+nombre+"' no tiene teléfono configurado. Añádelo en ⚙ Entrenadores."); return; }
   window.open(_urlWhatsApp(tel, mensaje), "_blank");
 }
@@ -2236,7 +2277,7 @@ function asistenteEnvios(){
     [p.ent1, p.ent2].forEach(function(ents){
       (ents||"").split(/[,\/]/).forEach(function(n){
         var nn = n.trim().toUpperCase();
-        if(nn && !/^ENTREN_|ENTRENADOR /i.test(nn) && _telPrefijo(entrenadoresTels[nn]||"")) entsKolbe.add(nn);
+        if(nn && !/^ENTREN_|ENTRENADOR /i.test(nn) && _telPrefijo(_telDe(nn))) entsKolbe.add(nn);
       });
     });
   });
@@ -2246,7 +2287,7 @@ function asistenteEnvios(){
     var ents = /KOLBE/i.test(p.eq1) ? p.ent1 : (/KOLBE/i.test(p.eq2) ? p.ent2 : "");
     (ents||"").split(/[,\/]/).forEach(function(n){
       var nn = n.trim().toUpperCase();
-      if(nn && !/^ENTREN_|ENTRENADOR /i.test(nn) && _telPrefijo(entrenadoresTels[nn]||"")) entsKolbeNuestros.add(nn);
+      if(nn && !/^ENTREN_|ENTRENADOR /i.test(nn) && _telPrefijo(_telDe(nn))) entsKolbeNuestros.add(nn);
     });
   });
 
@@ -3707,12 +3748,12 @@ function generarMensajesWhatsApp(){
       ents.forEach(function(n){
         var nn = n.trim().toUpperCase();
         if(!nn) return;
-        if(/^ENTREN_|ENTRENADOR \d|ENTRENADOR QUERCUS|EXTERN_/i.test(nn)) return;
+        if(/^ENTREN_|ENTRENADOR \d|ENTRENADOR QUERCUS|ENTRENADOR UNICO|EXTERN_/i.test(nn)) return;
         entsJornada.add(nn);
       });
     });
   });
-  var sinTelefono = Array.from(entsJornada).filter(function(n){ return !_telPrefijo(entrenadoresTels[n]||""); }).sort();
+  var sinTelefono = Array.from(entsJornada).filter(function(n){ return !_telPrefijo(_telDe(n)); }).sort();
 
   if(sinTelefono.length){
     var barraTels = document.createElement("div");
@@ -3737,7 +3778,7 @@ function generarMensajesWhatsApp(){
         var nom = this.dataset.nombre;
         var val = this.value.trim();
         if(!val){ return; }
-        entrenadoresTels[nom] = val;
+        _setTel(nom, val);
         saveEntrenadoresTels();
         // Re-abrir el modal para que aparezcan los botones de Enviar a X
         overlay.remove();
@@ -3825,8 +3866,8 @@ function generarMensajesWhatsApp(){
       // Un botón de WhatsApp por cada entrenador asignado a este equipo (puede haber varios)
       var entsEq = ((item.esLocal ? p.ent1 : p.ent2) || "").split(/[,\/]/).map(function(n){ return n.trim().toUpperCase(); }).filter(Boolean);
       entsEq.forEach(function(entName){
-        if(/^ENTREN_|ENTRENADOR \d|ENTRENADOR QUERCUS|EXTERN_/i.test(entName)) return; // placeholders, no mandar
-        var tel = _telPrefijo(entrenadoresTels[entName]||"");
+        if(/^ENTREN_|ENTRENADOR \d|ENTRENADOR QUERCUS|ENTRENADOR UNICO|EXTERN_/i.test(entName)) return; // placeholders, no mandar
+        var tel = _telPrefijo(_telDe(entName));
         var btnWA = document.createElement("button");
         if(tel){
           // Guardar este envio en la coleccion para el boton "Copiar todos para envío masivo"
