@@ -947,11 +947,11 @@ function ligaDeComp(comp){
 // Estructura: CLUB -> [ { ent:"NOMBRE", equipos:["CHUPETIN","PREB A","BENJ A",...] } ]
 // Cada "equipo" es CATEGORIA + letra opcional (A/B/C) o FEMENINO. Se rellena según llegan datos.
 const COINCIDENCIAS_BASE = {
-  // 26-27: generado desde las hojas de condicionantes que devolvieron los clubes
-  // (condicionantes_a_app_horarios.py -> COINCIDENCIAS_APP_HORARIOS_26-27.json). Solo F7.
+  // 26-27: generado desde las hojas de condicionantes (condicionantes_a_app_horarios.py ->
+  // COINCIDENCIAS_APP_HORARIOS_26-27.json). Solo F7. Letra/color = la del nombre del equipo EN CLUPIK.
   // Una fila por equipo con TODOS sus entrenadores: dos equipos que compartan un nombre no coinciden.
-  // Sin hoja, dato manual: Fresnedillas (un entrenador para los cuatro, David 16-10-2026) y Arenales
-  // (Preb y Benj Azul mismo entrenador, WhatsApp de Eduardo Musat 17-10-2026). ENTREN_ = marcador.
+  // Sin hoja, dato manual: Fresnedillas (David 16-10-2026) y Arenales (WhatsApp de Eduardo Musat
+  // 17-10-2026; Benj "A"/"B" llevan los dos entrenadores hasta saber cuál es el Azul). ENTREN_ = marcador.
   "NAVALAGAMELLA": [
     { ent:"MARCO FLORIAN FLORIAN", equipos:["ALEVIN"] },
     { ent:"ZAID EL BANNOUDI EL BANNOUDI", equipos:["INFANTIL"] }
@@ -960,12 +960,11 @@ const COINCIDENCIAS_BASE = {
     { ent:"ALEJANDRO JURADO, ABEL COLLAR", equipos:["INFANTIL"] }
   ],
   "NUEVO": [
-    { ent:"DAVID SERRANO GADEA", equipos:["PREB A"] },
+    { ent:"DAVID SERRANO GADEA", equipos:["PREB"] },
     { ent:"ALVARO GALINDO DOMINGUEZ", equipos:["CADETE"] }
   ],
   "QUERCUS": [
-    { ent:"ALVARO PARRAS REY", equipos:["BENJ AZUL"] },
-    { ent:"ALVARO PARRAS REY", equipos:["BENJ AMARILLO"] }
+    { ent:"ALVARO PARRAS REY", equipos:["BENJ"] }
   ],
   "QUIJORNA": [
     { ent:"JAIME SERRANO SANCHEZ, PEDRO MARTINEZ", equipos:["BENJ"] },
@@ -997,7 +996,6 @@ const COINCIDENCIAS_BASE = {
     { ent:"ADRIAN GARCIA, ALEJANDRO SORIANO", equipos:["PREB C"] }
   ],
   "HIGHLANDS": [
-    { ent:"ALEX DIAZ", equipos:["CHUPETIN"] },
     { ent:"JULIAN CARRETERO", equipos:["PREB A"] },
     { ent:"ALEX DIAZ", equipos:["PREB B"] },
     { ent:"ALEX DIAZ", equipos:["BENJ"] },
@@ -1012,7 +1010,7 @@ const COINCIDENCIAS_BASE = {
     { ent:"TOMAS", equipos:["BENJ B"] },
     { ent:"RODRIGO", equipos:["ALEVIN A"] },
     { ent:"ANDRES", equipos:["ALEVIN B"] },
-    { ent:"ANDRES", equipos:["JUVENIL A"] }
+    { ent:"ANDRES", equipos:["JUVENIL"] }
   ],
   "ZARZALEJO": [
     { ent:"PABLO HERNANDEZ SANCHEZ, JAIME SASTRE MARTIN", equipos:["ALEVIN"] }
@@ -1029,8 +1027,8 @@ const COINCIDENCIAS_BASE = {
   ],
   "ARENALES": [
     { ent:"ENTREN_ARENALES_PREB_Y_BENJ_AZUL", equipos:["PREB"] },
-    { ent:"ENTREN_ARENALES_PREB_Y_BENJ_AZUL", equipos:["BENJ AZUL"] },
-    { ent:"ENTREN_ARENALES_BENJ_AMARILLO", equipos:["BENJ AMARILLO"] }
+    { ent:"ENTREN_ARENALES_PREB_Y_BENJ_AZUL, ENTREN_ARENALES_BENJ_AMARILLO", equipos:["BENJ B"] },
+    { ent:"ENTREN_ARENALES_PREB_Y_BENJ_AZUL, ENTREN_ARENALES_BENJ_AMARILLO", equipos:["BENJ A"] }
   ]
 };
 function getCoincidencias(){
