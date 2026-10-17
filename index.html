@@ -947,10 +947,11 @@ function ligaDeComp(comp){
 // Estructura: CLUB -> [ { ent:"NOMBRE", equipos:["CHUPETIN","PREB A","BENJ A",...] } ]
 // Cada "equipo" es CATEGORIA + letra opcional (A/B/C) o FEMENINO. Se rellena según llegan datos.
 const COINCIDENCIAS_BASE = {
-  // 26-27: generado el 16-10-2026 desde las hojas de condicionantes que devolvieron los clubes
+  // 26-27: generado desde las hojas de condicionantes que devolvieron los clubes
   // (condicionantes_a_app_horarios.py -> COINCIDENCIAS_APP_HORARIOS_26-27.json). Solo F7.
   // Una fila por equipo con TODOS sus entrenadores: dos equipos que compartan un nombre no coinciden.
-  // Fresnedillas va sin hoja: un solo entrenador para sus cuatro equipos (David, 16-10-2026).
+  // Sin hoja, dato manual: Fresnedillas (un entrenador para los cuatro, David 16-10-2026) y Arenales
+  // (Preb y Benj Azul mismo entrenador, WhatsApp de Eduardo Musat 17-10-2026). ENTREN_ = marcador.
   "NAVALAGAMELLA": [
     { ent:"MARCO FLORIAN FLORIAN", equipos:["ALEVIN"] },
     { ent:"ZAID EL BANNOUDI EL BANNOUDI", equipos:["INFANTIL"] }
@@ -1025,8 +1026,12 @@ const COINCIDENCIAS_BASE = {
     { ent:"ENTRENADOR UNICO CD FRESNEDILLAS", equipos:["ALEVIN"] },
     { ent:"ENTRENADOR UNICO CD FRESNEDILLAS", equipos:["INFANTIL"] },
     { ent:"ENTRENADOR UNICO CD FRESNEDILLAS", equipos:["CADETE"] }
+  ],
+  "ARENALES": [
+    { ent:"ENTREN_ARENALES_PREB_Y_BENJ_AZUL", equipos:["PREB"] },
+    { ent:"ENTREN_ARENALES_PREB_Y_BENJ_AZUL", equipos:["BENJ AZUL"] },
+    { ent:"ENTREN_ARENALES_BENJ_AMARILLO", equipos:["BENJ AMARILLO"] }
   ]
-  // Arenales, sin hoja todavía: se carga con «Importar tabla» cuando llegue.
 };
 function getCoincidencias(){
   let user = {};
@@ -2552,6 +2557,7 @@ function toggleConf(seccion){
   caDiv.style.display = seccion==="campos"  ? "block" : "none";
   if(coDiv) coDiv.style.display = seccion==="coordinadores" ? "block" : "none";
   if(ciDiv) ciDiv.style.display = seccion==="coincidencias" ? "block" : "none";
+  if(seccion==="equipos") renderEntrenadoresTels(); // la lista sale de Coincidencias, que puede haber cambiado
   if(seccion==="campos") renderCamposConfig();
   if(seccion==="coordinadores") renderCoordinadoresConfig();
   if(seccion==="coincidencias") renderCoincidenciasConfig();
