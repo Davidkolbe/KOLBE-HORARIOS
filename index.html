@@ -398,7 +398,7 @@ details.card-collapsible:not([open]) > summary::after{transform:rotate(-90deg)}
           </div>
           <div class="card-body" style="padding:.75rem 1.25rem">
             <div style="margin-bottom:.6rem">
-              <label style="font-size:11px;font-weight:500;color:var(--verde);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px">Reglas fijas activas</label>
+              <label style="font-size:11px;font-weight:500;color:var(--verde);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px">Preferencias de los clubes · desmarca las que no quieras aplicar esta semana</label>
               <div style="font-size:12px;color:var(--gris5);display:flex;flex-wrap:wrap;gap:6px" id="reglas-fijas-display"></div>
             </div>
             <div>
@@ -2960,72 +2960,84 @@ function exportarPDF(){
 }
 
 // ============ AUTO ASIGNACIÓN ============
-const REGLAS_FIJAS = [
-  { id:"highlands_primero",     desc:"Highlands: sábado 09:00–11:00 (primero)" },
-  { id:"zola_vs_zola",          desc:"Zola vs Zola → viernes campo Zola" },
-  { id:"zola_alevin_no_coincidir", desc:"Zola Alevín A y Alevín B no coincidir — comparten jugadores" },
-  { id:"kolbe_alevin_viernes",  desc:"Kolbe Alevín → viernes 18:00" },
-  { id:"kolbe_alevin2_viernes", desc:"2× Kolbe Alevín → segundo va a las 19:00" },
-  { id:"fresnedillas_1entren",  desc:"Fresnedillas: 1 entrenador, ningún partido coincide. Fuera de casa → preferencia viernes 19:00" },
-  { id:"quercus_mismoentren",   desc:"Quercus: mismo entrenador ambos equipos, no coincidir" },
-  { id:"highlands_entren",      desc:"Highlands: Carlos(Alevín) / Julián(PrebB+BenjA+Chupetín) / Alejandro(PrebA+BenjB)" },
-  { id:"stmichael_no_preb_benj",desc:"St. Michael: Preb y Benjamín Green no coincidir" },
-  { id:"arenales_entren",       desc:"Arenales: Prebenjamín y Alevín mismo entrenador, no coincidir" },
-  { id:"everest_entren",        desc:"Everest: Prebenjamín B y Benjamín B no coincidir" },
-  { id:"zarzalejo_hora",        desc:"Rayo Zarzalejo: en casa → sábado 11:00" },
-  { id:"pardillo_benj_hora",    desc:"Unión Pardillo: Prebenjamín siempre a las 13:00" },
+// ============ PREFERENCIAS DE LOS CLUBES (26-27) ============
+// Sustituyen a las 13 «reglas fijas» del 25-26 que iban escritas en el código (quitadas el 18-10-2026:
+// los entrenadores ya salen de 🔁 Coincidencias y las franjas de 🏟 Campos).
+//   tipo "obligatoria" → la app nunca la incumple; si no hay hueco, el partido se queda sin hora y avisa.
+//   tipo "deseable"    → la app lo intenta primero; si no cabe, va a su día normal y lo dice.
+// Campos de cada preferencia:
+//   club        trozo del nombre del equipo en Clupik (sin tildes)      categorias  [] = todas
+//   cuando      "casa" (es el equipo local) · "fuera" · "siempre"       rival       solo si el otro equipo también lo lleva
+//   dia/horas   (deseables) día al que se intenta llevar y horas de inicio, en orden; sin horas = el primer hueco
+//   campo       (deseables) campo donde se intenta; si no, el del partido
+//   desde/hasta (obligatorias) el partido empieza no antes de / termina no después de
+//   noDia       (obligatorias) día prohibido;  excepto: {cuando, desde} cuándo sí se permite ese día
+const PREFERENCIAS_BASE = [
+  { id:"kolbe_viernes", tipo:"deseable", club:"KOLBE", categorias:["Alevín","Infantil"], cuando:"casa",
+    dia:"Viernes", horas:["18:00","19:00"], desc:"Kolbe Alevín e Infantil en casa → viernes 18:00 / 19:00", origen:"David, 18-10-2026" },
+  { id:"zola_vs_zola", tipo:"deseable", club:"ZOLA", rival:"ZOLA", cuando:"siempre",
+    dia:"Viernes", campo:"Zola", desc:"Zola contra Zola → viernes en su campo", origen:"David, 18-10-2026" },
+  { id:"fresnedillas_viernes", tipo:"deseable", club:"FRESNEDILLAS", cuando:"siempre",
+    dia:"Viernes", desc:"Fresnedillas → viernes siempre que se pueda (tiene un solo entrenador)", origen:"David, 18-10-2026" },
+  { id:"zarzalejo_no_viernes", tipo:"obligatoria", club:"ZARZALEJO", cuando:"siempre",
+    noDia:"Viernes", excepto:{ cuando:"casa", desde:"19:00" }, desc:"Rayo Zarzalejo: nunca viernes (en casa, solo de 19:00 a 20:00)", origen:"su hoja de condicionantes" },
+  { id:"union_preb_tarde", tipo:"obligatoria", club:"UNION", categorias:["Prebenjamín"], cuando:"siempre",
+    desde:"12:30", desc:"Unión Pardillo Prebenjamín: después de las 12:30", origen:"su hoja de condicionantes" },
+  { id:"mostoles_antes_19", tipo:"obligatoria", club:"ATHLETIC", cuando:"siempre",
+    hasta:"19:00", desc:"Athletic Móstoles: terminar antes de las 19:00", origen:"su hoja de condicionantes" },
 ];
-
-// Condicionantes detallados por equipo (para detección de conflictos)
-const CONDICIONANTES = {
-  // Fresnedillas: todos comparten entrenador
-  fresnedillas: {
-    entrenador: "ENTREN_FRESNEDILLAS",
-    equipos: ["FRESNEDILLAS"],
-    preferencia_fuera: {dia:"Viernes", hora:"19:00"},
-  },
-  // Quercus: mismo entrenador ambos equipos
-  quercus: {
-    entrenador: "ENTREN_QUERCUS",
-    equipos: ["QUERCUS"],
-  },
-  // Highlands: 3 entrenadores con equipos distintos
-  highlands: {
-    grupos: [
-      { entrenador:"CARLOS",    keywords:["ALEVÍN","ALEVIN"] },
-      { entrenador:"JULIÁN",    keywords:["PREB","PREB. B","BENJAMÍN A","BENJAMIN A","CHUPETÍN","CHUPETIN"] },
-      { entrenador:"ALEJANDRO", keywords:["PREB. A","PREBENJAMÍN A","BENJAMÍN B","BENJAMIN B"] },
-    ],
-  },
-  // St. Michael: Preb y Benjamín Green no coincidir
-  stmichael: {
-    no_coincidir: [["PREB","BENJAMIN GREEN","BENJAMIN GREEN"]],
-  },
-  // Arenales: Preb y Alevín mismo entrenador
-  arenales: {
-    entrenador: "ENTREN_ARENALES",
-    equipos: ["ARENALES"],
-  },
-  // Everest: Preb B y Benjamín B no coincidir
-  everest: {
-    no_coincidir: [["PREB","BENJAMIN B"]],
-  },
-  // Rayo Zarzalejo: en casa sábado 11:00
-  zarzalejo: {
-    en_casa: { dia:"Sabado", hora:"11:00" },
-  },
-  // Unión Pardillo: Benjamín a las 13:00
-  pardillo: {
-    benjamin_hora: "13:00",
-  },
-};
+function getPreferencias(){
+  try { const u = JSON.parse(localStorage.getItem("kolbe_preferencias")||"null"); if(Array.isArray(u) && u.length) return u; } catch(e){}
+  return PREFERENCIAS_BASE;
+}
+// Deseables desmarcadas para la semana que se está viendo (no cambia las semanas siguientes).
+function _clavePrefsOff(){ const l=document.getElementById("semana-label"); return "kolbe_prefs_off_" + ((l && l.textContent)||"").replace(/[^0-9]/g,"").slice(0,16); }
+function getPrefsOff(){ try { return JSON.parse(localStorage.getItem(_clavePrefsOff())||"[]")||[]; } catch(e){ return []; } }
+function togglePrefSemana(id, activa){
+  const off = getPrefsOff().filter(function(x){ return x!==id; });
+  if(!activa) off.push(id);
+  try { localStorage.setItem(_clavePrefsOff(), JSON.stringify(off)); } catch(e){}
+}
+function _norm(s){ return _sinTildes(String(s||"")).toUpperCase(); }
+// ¿Afecta la preferencia a este partido? Devuelve "eq1"/"eq2" (el equipo al que afecta) o "".
+function prefAfecta(pr, p){
+  const c = _norm(pr.club);
+  const cats = (pr.categorias||[]).map(_norm);
+  if(cats.length && !cats.some(function(x){ return _norm(p.categoria||"").indexOf(x.slice(0,4))===0; })) return "";
+  if(pr.rival && !(_norm(p.eq1).includes(c) && _norm(p.eq2).includes(_norm(pr.rival)))) return "";
+  if(_norm(p.eq1).includes(c) && pr.cuando!=="fuera") return "eq1";
+  if(_norm(p.eq2).includes(c) && pr.cuando!=="casa") return "eq2";
+  return "";
+}
+// Límites obligatorios de un partido en un día: {permitido, desde, hastaFin}
+function limitesObligatorios(p, dia){
+  let permitido = true, desde = null, hastaFin = null;
+  getPreferencias().filter(function(pr){ return pr.tipo==="obligatoria"; }).forEach(function(pr){
+    const lado = prefAfecta(pr, p);
+    if(!lado) return;
+    if(pr.noDia && pr.noDia===dia){
+      const ex = pr.excepto;
+      if(ex && (ex.cuando==="siempre" || (ex.cuando==="casa" && lado==="eq1") || (ex.cuando==="fuera" && lado==="eq2"))){
+        if(ex.desde && (!desde || toMins(ex.desde)>toMins(desde))) desde = ex.desde;
+      } else permitido = false;
+    }
+    if(pr.desde && (!desde || toMins(pr.desde)>toMins(desde))) desde = pr.desde;
+    if(pr.hasta && (!hastaFin || toMins(pr.hasta)<toMins(hastaFin))) hastaFin = pr.hasta;
+  });
+  return { permitido, desde, hastaFin };
+}
 
 function renderReglasFijas(){
   const box = document.getElementById("reglas-fijas-display");
   if(!box) return;
-  box.innerHTML = REGLAS_FIJAS.map(r =>
-    `<span style="background:var(--verde-b);color:var(--verde);padding:3px 9px;border-radius:99px;font-size:11px;font-weight:500">${r.desc}</span>`
-  ).join("");
+  const off = getPrefsOff();
+  box.innerHTML = getPreferencias().map(function(r){
+    if(r.tipo==="obligatoria")
+      return '<span title="Obligatoria · '+_atq(r.origen||"")+'" style="background:#fdecea;color:#a12;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:500">🔴 '+r.desc+'</span>';
+    const on = off.indexOf(r.id)===-1;
+    return '<label title="Deseable · '+_atq(r.origen||"")+'" style="background:var(--verde-b);color:var(--verde);padding:3px 9px;border-radius:99px;font-size:11px;font-weight:500;cursor:pointer">'
+      + '<input type="checkbox" '+(on?"checked":"")+' onchange="togglePrefSemana(\''+r.id+'\',this.checked)" style="margin:0 5px 0 0;vertical-align:-1px">🟡 '+r.desc+'</label>';
+  }).join("");
 }
 
 function parseReglasExtra(texto){
@@ -3153,139 +3165,90 @@ function autoAsignar(){
     asignados[p.id] = { dia, campo, hora };
   }
 
-  // ── REGLA 1: Zola vs Zola → viernes campo Zola ──
-  sinHora.forEach(p => {
-    const esZolaVsZola = equipoContiene(p.eq1,"ZOLA") && equipoContiene(p.eq2,"ZOLA");
-    if(esZolaVsZola){
-      const slot = nextSlot("Zola","Viernes","17:00",[p.id]);
-      if(slot) asignar(p,"Viernes","Zola",slot);
-    }
-  });
-
-  // ── REGLA 2: Kolbe Alevín → viernes 18:00, segundo a 19:00 ──
-  const alevinesKolbe = sinHora.filter(p =>
-    (equipoContiene(p.eq1,"KOLBE") || equipoContiene(p.eq2,"KOLBE")) &&
-    (equipoContiene(p.categoria || p.comp,"ALEVIN") || equipoContiene(p.eq1,"ALEVIN") || equipoContiene(p.eq2,"ALEVIN")) &&
-    !asignados[p.id]
-  );
-  alevinesKolbe.forEach((p, i) => {
-    const hora = i === 0 ? "18:00" : "19:00";
-    const dia = "Viernes";
-    const campo = p.campo && p.campo !== "Sin campo" ? p.campo : "Kolbe";
-    if(!hayConflictoEnt(p, dia, hora, p.id)){
-      asignar(p, dia, campo, hora);
-    }
-  });
-
-  // ── REGLA: Rayo Zarzalejo en casa → sábado 11:00 ──
-  sinHora.forEach(p => {
-    if(asignados[p.id]) return;
-    if(equipoContiene(p.eq1,"ZARZALEJO") && p.campo && equipoContiene(p.campo,"ZARZALEJO")){
-      if(!hayConflictoEnt(p,"Sabado","11:00",p.id)) asignar(p,"Sabado",p.campo,"11:00");
-    }
-  });
-
-  // ── REGLA: Unión Pardillo Prebenjamín → 13:00 ──
-  sinHora.forEach(p => {
-    if(asignados[p.id]) return;
-    const esPardiilloBenj = (equipoContiene(p.eq1,"PARDILLO") || equipoContiene(p.eq2,"PARDILLO")) &&
-      (equipoContiene(p.categoria||"","PREBENJAMIN") || equipoContiene(p.categoria||"","PREB"));
-    if(esPardiilloBenj){
-      const campo = p.campo && p.campo!=="Sin campo" ? p.campo : "Los Pinos";
-      const franja = getFranja(campo,"Sabado");
-      if(franja && toMins("13:00") + 60 <= toMins(franja.fin)){
-        if(!hayConflictoEnt(p,"Sabado","13:00",p.id)) asignar(p,"Sabado",campo,"13:00");
-      }
-    }
-  });
-
-  // ── REGLA: Fresnedillas fuera de casa → preferencia viernes 19:00 ──
-  sinHora.forEach(p => {
-    if(asignados[p.id]) return;
-    const esFresneVisitante = (equipoContiene(p.eq1,"FRESNEDILLAS") || equipoContiene(p.eq2,"FRESNEDILLAS")) &&
-      p.campo && !equipoContiene(p.campo,"FRESNE");
-    if(esFresneVisitante){
-      const franja = getFranja(p.campo,"Viernes");
-      if(franja && toMins("19:00")+60 <= toMins(franja.fin)){
-        if(!hayConflictoEnt(p,"Viernes","19:00",p.id)) asignar(p,"Viernes",p.campo,"19:00");
-      }
-    }
-  });
-
-  // ── REGLA 3: Highlands → sábado, primero en asignar ──
-  const highlandsPs = sinHora.filter(p => p.campo === "Highlands" && !asignados[p.id]);
-  highlandsPs.forEach(p => {
-    let minH = "09:00";
-    let horaExactaH = null;
+  // ── Límite de cada partido: su franja + las preferencias obligatorias + las reglas extra ──
+  function minHoraExtra(p, base){
+    let minH = base, exacta = null;
     reglasExtra.forEach(function(r){
       const res = aplicarReglaExtra(p, r);
       if(res && res.minHora){
-        if(res.exacta) horaExactaH = res.minHora;
-        else minH = toMins(res.minHora) > toMins(minH) ? res.minHora : minH;
+        if(res.exacta) exacta = res.minHora;
+        else if(toMins(res.minHora) > toMins(minH)) minH = res.minHora;
       }
     });
-    const slot = horaExactaH || nextSlot("Highlands","Sabado",minH,[p.id]);
-    if(slot) asignar(p,"Sabado","Highlands",slot);
-  });
+    return { minH, exacta };
+  }
+  // Primer hueco válido para p en campo/día desde una hora (o en la lista de horas dada). null si no hay.
+  function buscarHueco(p, campo, dia, horas){
+    const franja = getFranja(campo, dia);
+    if(!franja) return null;
+    const lim = limitesObligatorios(p, dia);
+    if(!lim.permitido) return null;
+    const ex = minHoraExtra(p, franja.ini);
+    let minH = ex.minH;
+    if(lim.desde && toMins(lim.desde) > toMins(minH)) minH = lim.desde;
+    const finMax = Math.min(toMins(franja.fin), lim.hastaFin ? toMins(lim.hastaFin) : 24*60);
+    const cabe = function(h){ return h && toMins(h) >= toMins(minH) && toMins(h)+60 <= finMax && !hayConflictoEnt(p, dia, h, p.id) && !campoOcupado(campo, dia, h, p.id); };
+    if(ex.exacta) return ex.exacta;   // regla extra con hora exacta: se respeta siempre (como antes)
+    if(horas && horas.length) return horas.find(cabe) || null;
+    // Los partidos empiezan en punto (David, 18-10-2026): de hora en hora desde el inicio de la franja.
+    // Con el margen de 30 min, un entrenador que cambia de campo queda con una hora libre entre partidos.
+    let t0 = toMins(minH);
+    const iniF = toMins(franja.ini);
+    if((t0 - iniF) % 60) t0 = iniF + Math.ceil((t0 - iniF) / 60) * 60;   // «desde 12:30» → 13:00
+    for(let t = t0; t + 60 <= finMax; t += 60){
+      const h = String(Math.floor(t/60)).padStart(2,"0") + ":" + String(t%60).padStart(2,"0");
+      if(cabe(h)) return h;
+    }
+    return null;
+  }
+  function campoOcupado(campo, dia, hora, idIgnorar){
+    const ini = toMins(hora);
+    return partidos.some(function(q){
+      if(q.id === idIgnorar) return false;
+      const a = asignados[q.id];
+      if(!a && (q.sinHora || q.hora === "00:00")) return false;
+      const qDia = a ? a.dia : q.dia, qCampo = a ? a.campo : q.campo, qHora = a ? a.hora : q.hora;
+      if(qDia !== dia || qCampo !== campo) return false;
+      return toMins(qHora) < ini + 60 && ini < toMins(qHora) + 60;
+    });
+  }
 
-  // ── RESTO: asignar campo a campo, repartiendo uniforme ──
-  // Incluir todos los campos configurados + extras dinámicamente
-  const camposOrden = [...Object.keys(CAMPOS_BASE), "Sin campo"];
-  const camposEnPartidos = partidos.map(function(p){ return p.campo||"Sin campo"; });
-  camposEnPartidos.forEach(function(c){ if(!camposOrden.includes(c)) camposOrden.push(c); });
-  const diasOrden = ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado","Domingo"];
+  const prefsActivas = getPreferencias();
+  const prefsOff = getPrefsOff();
+  const deseablesNoCumplidas = [];
 
-  camposOrden.forEach(campo => {
-    diasOrden.forEach(dia => {
-      const ps = sinHora.filter(p => {
-        if(asignados[p.id]) return false;
-        const c = p.campo && p.campo !== "Sin campo" ? p.campo : "Sin campo";
-        return c === campo;
-      });
-      if(!ps.length) return;
-      const franja = getFranja(campo, dia);
-      if(!franja) return;
-
-      // Repartir uniforme: calcular slot ideal
-      const ini = toMins(franja.ini);
-      const fin = toMins(franja.fin);
-      const slots = Math.floor((fin - ini) / 60);
-      if(slots <= 0) return;
-
-      ps.forEach((p, i) => {
-        // Hora mínima por reglas extra
-        let minH = franja.ini;
-        let horaExacta = null;
-        reglasExtra.forEach(function(r){
-          const res = aplicarReglaExtra(p, r);
-          if(res && res.minHora){
-            if(res.exacta) horaExacta = res.minHora;
-            else minH = toMins(res.minHora) > toMins(minH) ? res.minHora : minH;
-          }
-        });
-
-        // Si hay hora exacta por regla, usarla directamente sin buscar slot
-        // Si no, buscar el siguiente slot libre
-        let slot;
-        if(horaExacta){
-          slot = horaExacta; // regla exacta: respetar siempre
-        } else {
-          slot = nextSlot(campo, dia, minH, [p.id]);
-          let intentos2 = 0;
-          while(slot && hayConflictoEnt(p, dia, slot, p.id) && intentos2 < slots){
-            const next2 = toMins(slot) + 60;
-            slot = next2 + 60 <= fin ? String(Math.floor(next2/60)).padStart(2,"0")+":"+String(next2%60).padStart(2,"0") : null;
-            intentos2++;
-          }
-        }
-        let intentos = 0;
-        while(slot && false){ // placeholder to keep variable
-          intentos++;
-        }
-        if(slot) asignar(p, dia, campo, slot);
-      });
+  // ── 1) Preferencias DESEABLES (marcadas esta semana), en el orden de la lista ──
+  prefsActivas.filter(function(pr){ return pr.tipo==="deseable" && prefsOff.indexOf(pr.id)===-1; }).forEach(function(pr){
+    sinHora.forEach(function(p){
+      if(asignados[p.id] || !prefAfecta(pr, p)) return;
+      const campo = pr.campo || (p.campo && p.campo!=="Sin campo" ? p.campo : null);
+      if(!campo) return;
+      const hora = buscarHueco(p, campo, pr.dia, pr.horas);
+      if(hora) asignar(p, pr.dia, campo, hora);
+      else deseablesNoCumplidas.push(pr.desc + " — " + p.eq1 + " vs " + p.eq2 + (getFranja(campo, pr.dia) ? "" : " (el campo " + campo + " no tiene franja ese día)"));
     });
   });
+
+  // ── 2) El resto, en SU día (el del calendario), empezando por los más difíciles ──
+  // Difícil = entrenadores que ese día tienen más partidos, y campos con menos huecos.
+  const entsDe = function(p){ return [...(p.ent1||"").split(","), ...(p.ent2||"").split(",")].map(function(e){ return e.trim().toUpperCase(); }).filter(Boolean); };
+  const cuenta = {};
+  sinHora.forEach(function(p){ entsDe(p).forEach(function(e){ cuenta[e] = (cuenta[e]||0) + 1; }); });
+  const dificultad = function(p){
+    const carga = entsDe(p).reduce(function(m,e){ return Math.max(m, cuenta[e]||0); }, 0);
+    const f = getFranja(p.campo, p.dia || "Sabado");
+    const huecos = f ? (toMins(f.fin) - toMins(f.ini)) / 60 : 0;
+    return carga * 100 - huecos;
+  };
+  sinHora.filter(function(p){ return !asignados[p.id]; })
+    .sort(function(a,b){ return dificultad(b) - dificultad(a); })
+    .forEach(function(p){
+      const campo = p.campo && p.campo !== "Sin campo" ? p.campo : null;
+      if(!campo) return;
+      const dia = p.dia || "Sabado";
+      const hora = buscarHueco(p, campo, dia, null);
+      if(hora) asignar(p, dia, campo, hora);
+    });
 
   // ── APLICAR asignaciones y detectar sin slot ──
   let asignados_count = 0;
@@ -3339,6 +3302,10 @@ function autoAsignar(){
         </div>
       </div>`;
     });
+  }
+
+  if(deseablesNoCumplidas.length){
+    alertasHtml += `<div class="alert alert-warn"><span class="alert-icon">🟡</span><div><strong>Preferencias que no han cabido</strong> (esos partidos van en su día normal):<br>${deseablesNoCumplidas.map(function(t){ return "<em>"+t+"</em>"; }).join("<br>")}</div></div>`;
   }
 
   box.innerHTML = alertasHtml + box.innerHTML;
