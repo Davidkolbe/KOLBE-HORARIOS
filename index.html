@@ -595,14 +595,16 @@ const EQUIPOS_BASE = [
 ];
 
 // Franjas 26-27: Kolbe, St. Michael, Navalagamella, Quijorna (sábado) y Zarzalejo según las hojas de
-// condicionantes de cada club (18-10-2026). El resto, pendiente de decidir: ver
+// condicionantes de cada club (18-10-2026). Zola: el último partido TERMINA a las 20:00 (David, 18-10).
+// Highlands: sábados 9:00-13:00, «a esa hora tiene que estar libre» (Raquel a David por WhatsApp, 18-10).
+// El resto, pendiente de decidir: ver
 // CONDICIONANTES_APP_HORARIOS_26-27.xlsx, hoja INSTALACIONES.
 const CAMPOS_BASE = {
   "Kolbe":           {Viernes:{ini:"18:00",fin:"20:00",max:2}, Sabado:{ini:"09:00",fin:"15:00",max:5}, dir:"Av. de la Universidad, 4, Villanueva de la Cañada"},
-  "Zola":            {Viernes:{ini:"17:00",fin:"19:00",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Zola, Villafranca del Castillo"},
+  "Zola":            {Viernes:{ini:"17:00",fin:"20:00",max:3}, Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Zola, Villafranca del Castillo"},
   "Los Pinos":       {Viernes:{ini:"17:00",fin:"19:00",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Av. de los Estudiantes, Villanueva del Pardillo"},
   "St. Michael":     {Viernes:{ini:"17:30",fin:"20:00",max:2}, Sabado:{ini:"10:00",fin:"14:00",max:5}, dir:"C/ Río Guadiana, 2, Boadilla del Monte"},
-  "Highlands":       {Sabado:{ini:"09:00",fin:"11:00",max:2}, dir:"C/ de la Comunidad Canaria, 8, Boadilla del Monte"},
+  "Highlands":       {Sabado:{ini:"09:00",fin:"13:00",max:4}, dir:"C/ de la Comunidad Canaria, 8, Boadilla del Monte"},
   "Fresnedillas":    {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Fresnedillas de la Oliva, Madrid"},
   "Quijorna":        {Viernes:{ini:"17:00",fin:"19:00",max:2}, Sabado:{ini:"11:00",fin:"13:00",max:2}, dir:"C/ Del Pinar, 11, Quijorna"},
   "Zarzalejo":       {Sabado:{ini:"09:00",fin:"15:00",max:5}, dir:"Campo de Fútbol de Zarzalejo, Madrid"},
