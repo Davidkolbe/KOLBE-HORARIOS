@@ -2250,6 +2250,15 @@ function _entrenadoresUnicos(){
       });
     });
   });
+  // Entrenadores de los federados de Kolbe (no están en Coincidencias, que es solo la liga): salen de
+  // KOLBE_EQUIPOS, igual que en el Resumen Kolbe. Así Gonzalo y Pocho aparecen con los de Kolbe (David, 18-10-2026).
+  KOLBE_EQUIPOS.forEach(function(ke){
+    String(ke.entrenador||"").split(/[,\/]/).forEach(function(n){
+      const nn = n.trim().toUpperCase();
+      if(!nn || vistos.has(_normNombre(nn))) return;
+      vistos.add(_normNombre(nn)); out.push({nombre: nn, club: "KOLBE"});
+    });
+  });
   // Teléfonos ya guardados de personas que no están en la tabla: se enseñan aparte, no se pierden.
   Object.keys(entrenadoresTels).forEach(function(k){
     if(k && !vistos.has(_normNombre(k))){ vistos.add(_normNombre(k)); out.push({nombre: k, club: ""}); }
