@@ -3375,6 +3375,18 @@ function _idbSet(key, value){
   }).catch(function(){ return false; });
 }
 
+// Todas las claves de la app en el navegador, como texto crudo (no se reinterpreta nada).
+function _clavesKolbe(){
+  const out = {};
+  try {
+    for(let i=0; i<localStorage.length; i++){
+      const k = localStorage.key(i);
+      if(k && k.indexOf("kolbe_") === 0) out[k] = localStorage.getItem(k);
+    }
+  } catch(e){}
+  return out;
+}
+
 async function guardarCopia(){
   // Fix 16: trackear timestamp del último backup manual
   function _markBackupOk(){
@@ -3390,6 +3402,12 @@ async function guardarCopia(){
     coordinadores: coordinadores || {},
     entrenadoresTels: entrenadoresTels || {},
     gruposWA: gruposWA || {},
+    // Desde el 18-10-2026: además, TODO lo que la app guarda en el navegador (claves kolbe_*), tal cual.
+    // Antes la copia se dejaba fuera las coincidencias editadas a mano, el margen, los resultados de
+    // cada jornada… y nadie lo notaba. Los campos de arriba se quedan para que las copias viejas y la
+    // rutina de backup sigan entendiéndose con esta.
+    backupVersion: 2,
+    extras: _clavesKolbe(),
   };
   const json = JSON.stringify(backup, null, 2);
   const d = new Date();
@@ -3457,6 +3475,24 @@ function restaurarCopia(e){
         return;
       }
       const total = (backup.jornadas||[]).length;
+
+      // Copia nueva (backupVersion 2): trae el navegador entero. Se deja exactamente como estaba al
+      // hacer la copia —lo que no estaba entonces se quita— y se recarga la página. Así no se
+      // congelan en el navegador las franjas o los equipos que vienen del código (lo que hacía la
+      // restauración vieja, que llamaba a saveCampos() y saveEquipos()).
+      if(backup.extras && typeof backup.extras === "object" && Object.keys(backup.extras).length){
+        const claves = Object.keys(backup.extras).filter(function(k){ return k.indexOf("kolbe_") === 0; });
+        if(!confirm("Copia del " + String(backup.fecha||"").slice(0,10) + ": se va a dejar la app exactamente como estaba entonces (" +
+                    total + " jornada" + (total!==1?"s":"") + ", " + Object.keys(backup.coordinadores||{}).length + " coordinadores, " +
+                    claves.length + " datos guardados en total). Lo que hayas cambiado después se pierde. ¿Continuar?")) return;
+        const actuales = Object.keys(_clavesKolbe());
+        actuales.forEach(function(k){ if(claves.indexOf(k) === -1) localStorage.removeItem(k); });
+        claves.forEach(function(k){ localStorage.setItem(k, backup.extras[k]); });
+        alert("✓ Copia restaurada. La página se va a recargar.");
+        location.reload();
+        return;
+      }
+
       if(!confirm("Se van a restaurar " + total + " jornada" + (total!==1?"s":"") + " y la configuración de entrenadores y campos. ¿Continuar?")) return;
 
       // Restore jornadas
