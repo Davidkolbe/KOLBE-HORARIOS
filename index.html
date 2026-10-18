@@ -3759,7 +3759,7 @@ function mensajeUnicoKolbe(){
 
   var lastDisc = "";
   kolbePs.forEach(function(p){
-    var esLocal = esEquipoKolbe(p.eq1);
+    var esLocal = p.federado ? !p.fuera : esEquipoKolbe(p.eq1);
     var equipo  = esLocal ? p.eq1 : p.eq2;
     var rival   = esLocal ? p.eq2 : p.eq1;
     var condicion = esLocal ? "🏠 LOCAL" : "✈️ VISITANTE";
@@ -4422,30 +4422,37 @@ function copiarVistaEquipo(id, btn){
 }
 
 // ============ RESUMEN KOLBE PARTIDOS ============
-// Entrenadores Kolbe por equipo
+// Equipos de Kolbe 26-27 (David, 18-10-2026), con el nombre EXACTO de Clupik. El entrenador de los equipos
+// de liga NO va aquí: sale de 🔁 Coincidencias (getEntrenadores), para que no haya dos sitios que cambiar.
+// Los federados sí llevan el suyo (no están en Coincidencias) y se casan con los partidos federados que
+// mete la skill horarios-ligas desde el archivo de la jornada (nombres de jornada-cdk).
 const KOLBE_EQUIPOS = [
-  // FÚTBOL SALA
-  {equipo:"",                   cat:"",            label:"CD KOLBE CHUPETINES",categoria:"Chupetín",    entrenador:"CHECHU / ALBERTO", disc:"FS"},
-  {equipo:"CD KOLBE 1º BLANCO", cat:"PREBENJAMIN", label:"CD KOLBE 1º BLANCO", categoria:"Prebenjamín", entrenador:"FRANK / ESPI", disc:"FS"},
-  {equipo:"CD KOLBE 1º VERDE",  cat:"PREBENJAMIN", label:"CD KOLBE 1º VERDE",  categoria:"Prebenjamín", entrenador:"FRANK / ESPI", disc:"FS"},
-  {equipo:"CD KOLBE 2º",        cat:"PREBENJAMIN", label:"CD KOLBE 2º",        categoria:"Prebenjamín", entrenador:"SOLER",        disc:"FS"},
-  {equipo:"CD KOLBE 3º BLANCO", cat:"BENJAMIN",    label:"CD KOLBE 3º BLANCO", categoria:"Benjamín",    entrenador:"RODRI",        disc:"FS"},
-  {equipo:"CD KOLBE 3º VERDE",  cat:"BENJAMIN",    label:"CD KOLBE 3º VERDE",  categoria:"Benjamín",    entrenador:"FRANK",        disc:"FS"},
-  {equipo:"CD KOLBE 4º",        cat:"BENJAMIN",    label:"CD KOLBE 4º",        categoria:"Benjamín",    entrenador:"PABLO",        disc:"FS"},
-  {equipo:"CD KOLBE",           cat:"ALEVIN",      label:"CD KOLBE ALEVIN",    categoria:"Alevín",      entrenador:"RUIBI",        disc:"FS"},
-  // FÚTBOL SALA FEDERADO
-  {equipo:"",                   cat:"",            label:"CD KOLBE INFANTIL",  categoria:"Infantil",    entrenador:"RUIBI",        disc:"FS"},
-  {equipo:"",                   cat:"",            label:"CD KOLBE CADETE FS", categoria:"Cadete",      entrenador:"GONZALO",      disc:"FS"},
-  {equipo:"",                   cat:"",            label:"CD KOLBE JUVENIL FS",categoria:"Juvenil",     entrenador:"GONZALO",      disc:"FS"},
-  // FÚTBOL 7
-  {equipo:"CD KOLBE BLANCO",    cat:"ALEVIN",      label:"CD KOLBE BLANCO",    categoria:"Alevín",      entrenador:"RUIBI",        disc:"F7"},
-  {equipo:"CD KOLBE VERDE",     cat:"ALEVIN",      label:"CD KOLBE VERDE",     categoria:"Alevín",      entrenador:"SAMUEL",       disc:"F7"},
-  {equipo:"CD KOLBE MORADO",    cat:"ALEVIN",      label:"CD KOLBE MORADO",    categoria:"Alevín",      entrenador:"SAMUEL",       disc:"F7"},
-  {equipo:"CD KOLBE BLANCO",    cat:"INFANTIL",    label:"CD KOLBE BLANCO",    categoria:"Infantil",    entrenador:"RUBI",         disc:"F7"},
-  {equipo:"CD KOLBE VERDE",     cat:"INFANTIL",    label:"CD KOLBE VERDE",     categoria:"Infantil",    entrenador:"GÓMEZ",        disc:"F7"},
-  {equipo:"CD KOLBE CADETE",    cat:"CADETE",      label:"CD KOLBE CADETE",    categoria:"Cadete",      entrenador:"PABLO",        disc:"F7"},
-  {equipo:"CD KOLBE JUV.",      cat:"CADETE",      label:"CD KOLBE JUVENIL",   categoria:"Juvenil",     entrenador:"PABLO",        disc:"F7"},
+  // FÚTBOL SALA · LIGA MUNICIPAL
+  {equipo:"CD KOLBE 1º BLANCO", cat:"PREBENJAMIN", label:"CD KOLBE 1º BLANCO", categoria:"Prebenjamín", disc:"FS"},
+  {equipo:"CD KOLBE 1º VERDE",  cat:"PREBENJAMIN", label:"CD KOLBE 1º VERDE",  categoria:"Prebenjamín", disc:"FS"},
+  {equipo:"CD KOLBE 2º",        cat:"PREBENJAMIN", label:"CD KOLBE 2º",        categoria:"Prebenjamín", disc:"FS"},
+  {equipo:"CD KOLBE 3º BLANCO", cat:"BENJAMIN",    label:"CD KOLBE 3º BLANCO", categoria:"Benjamín",    disc:"FS"},
+  {equipo:"CD KOLBE 3º VERDE",  cat:"BENJAMIN",    label:"CD KOLBE 3º VERDE",  categoria:"Benjamín",    disc:"FS"},
+  {equipo:"CD KOLBE 4º",        cat:"BENJAMIN",    label:"CD KOLBE 4º",        categoria:"Benjamín",    disc:"FS"},
+  {equipo:"CD KOLBE",           cat:"ALEVIN",      label:"CD KOLBE ALEVÍN",    categoria:"Alevín",      disc:"FS"},
+  // FÚTBOL SALA · FEDERADOS
+  {equipo:"CD KOLBE INFANTIL PREFERENTE", cat:"", label:"CD KOLBE INFANTIL FED.", categoria:"Infantil", entrenador:"RUIBI / PEPE SOLER", disc:"FS"},
+  {equipo:"CD KOLBE CADETE",              cat:"", label:"CD KOLBE CADETE FED.",   categoria:"Cadete",   entrenador:"GONZALO / CHECHU",   disc:"FS"},
+  {equipo:"CD KOLBE JUVENIL PREFERENTE",  cat:"", label:"CD KOLBE JUVENIL FED.",  categoria:"Juvenil",  entrenador:"GONZALO / CHECHU",   disc:"FS"},
+  {equipo:"CD KOLBE SÉNIOR",              cat:"", label:"CD KOLBE SÉNIOR FED.",   categoria:"Sénior",   entrenador:"POCHO",              disc:"FS"},
+  // FÚTBOL 7 · LIGA MUNICIPAL
+  {equipo:"CD KOLBE BLANCO",    cat:"ALEVIN",      label:"CD KOLBE BLANCO",    categoria:"Alevín",          disc:"F7"},
+  {equipo:"CD KOLBE VERDE",     cat:"ALEVIN",      label:"CD KOLBE VERDE",     categoria:"Alevín",          disc:"F7"},
+  {equipo:"CD KOLBE BLANCO",    cat:"INFANTIL",    label:"CD KOLBE BLANCO",    categoria:"Infantil",        disc:"F7"},
+  {equipo:"CD KOLBE VERDE",     cat:"INFANTIL",    label:"CD KOLBE VERDE",     categoria:"Infantil",        disc:"F7"},
+  {equipo:"CD KOLBE",           cat:"CADETE",      label:"CD KOLBE",           categoria:"Cadete-Juvenil",  disc:"F7"},
 ];
+// Entrenador de una fila del resumen: el de la fila (federados) o el de 🔁 Coincidencias (liga).
+function _entKE(ke){
+  if(ke.entrenador) return ke.entrenador;
+  const e = getEntrenadores(ke.equipo, ke.categoria.replace("Cadete-Juvenil","CADETE/JUVENIL"), ke.disc === "FS" ? "sala" : "f7") || "";
+  return e.split(",").map(function(x){ return x.trim(); }).filter(Boolean).join(" / ") || "—";
+}
 
 function resumenKolbe(){
   if(!partidos || !partidos.length){ alert("No hay partidos cargados."); return; }
@@ -4557,12 +4564,12 @@ function resumenKolbe(){
       var eq2IsNan = !rival2 || rival2.toLowerCase()==="nan" || rival2==="";
       var isDescanso = rival2.toUpperCase().includes("DESCANSO") || (p.eq1||"").toUpperCase().includes("DESCANSO");
       if(isDescanso || eq2IsNan){
-        return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: ke.entrenador, disc: ke.disc, partido:"🟡 DESCANSO", horario:"—", campo:"—"};
+        return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: _entKE(ke), disc: ke.disc, partido:"🟡 DESCANSO", horario:"—", campo:"—"};
       }
     }
-    if(!p) return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: ke.entrenador, disc: ke.disc, partido:"🟡 DESCANSO", horario:"—", campo:"—"};
+    if(!p) return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: _entKE(ke), disc: ke.disc, partido:"🟡 DESCANSO", horario:"—", campo:"—"};
 
-    var esLocal = (p.eq1||"").toUpperCase().includes("KOLBE");
+    var esLocal = p.federado ? !p.fuera : (p.eq1||"").toUpperCase().includes("KOLBE");
     var rival = esLocal ? p.eq2 : p.eq1;
     var condicion = esLocal ? "🏠" : "✈️";
     var hora = p.aplazado ? "📌 APLAZADO" : p.sinHora ? "Sin hora" : p.hora+"h";
@@ -4573,7 +4580,7 @@ function resumenKolbe(){
     return {
       equipo: displayLabel,
       categoria: ke.categoria||"",
-      entrenador: ke.entrenador,
+      entrenador: _entKE(ke),
       disc: ke.disc,
       partido: condicion + " vs " + (rival||"—"),
       horario: dia + " " + hora,
@@ -5271,7 +5278,7 @@ function _autoIcono(p, resultado){
   var local = parseInt(m[1],10), visit = parseInt(m[2],10);
   if(isNaN(local) || isNaN(visit)) return "";
   // ¿Kolbe es local en este partido?
-  var esLocal = p && (p.eq1||"").toUpperCase().includes("KOLBE");
+  var esLocal = p && (p.federado ? !p.fuera : (p.eq1||"").toUpperCase().includes("KOLBE"));
   var kolbe   = esLocal ? local : visit;
   var rival   = esLocal ? visit : local;
   if(kolbe > rival) return "✅";
@@ -5367,7 +5374,7 @@ function resumenKolbeResultados(){
       return {
         equipo: displayLabel,
         categoria: ke.categoria||"",
-        entrenador: ed.entrenador || ke.entrenador,
+        entrenador: ed.entrenador || _entKE(ke),
         disc: ke.disc,
         partido: partidoTxt,
         resultado: "—",
@@ -5385,23 +5392,23 @@ function resumenKolbeResultados(){
         // Si está marcado como descanso por la API pero hay edición manual del horario, prefiérela
         var fromHor = rowDesdeHorarioEdit();
         if(fromHor) return fromHor;
-        return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: ke.entrenador, disc: ke.disc, partido:"🟡 DESCANSO", resultado:"—", icono:"", _p: null};
+        return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: _entKE(ke), disc: ke.disc, partido:"🟡 DESCANSO", resultado:"—", icono:"", _p: null};
       }
     }
     if(!p){
       // Federados FS / equipos sin partido en partidos[]: comprobar si hay edición manual del horario
       var fromHor2 = rowDesdeHorarioEdit();
       if(fromHor2) return fromHor2;
-      return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: ke.entrenador, disc: ke.disc, partido:"🟡 DESCANSO", resultado:"—", icono:"", _p: null};
+      return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: _entKE(ke), disc: ke.disc, partido:"🟡 DESCANSO", resultado:"—", icono:"", _p: null};
     }
 
-    var esLocal = (p.eq1||"").toUpperCase().includes("KOLBE");
+    var esLocal = p.federado ? !p.fuera : (p.eq1||"").toUpperCase().includes("KOLBE");
     var rival = esLocal ? p.eq2 : p.eq1;
     var condicion = esLocal ? "🏠" : "✈️";
     return {
       equipo: displayLabel,
       categoria: ke.categoria||"",
-      entrenador: ke.entrenador,
+      entrenador: _entKE(ke),
       disc: ke.disc,
       partido: condicion + " vs " + (rival||"—"),
       resultado: "—",   // por defecto sin marcador; el usuario lo rellena
