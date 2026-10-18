@@ -739,6 +739,7 @@ function recalcularEntrenadores(){
   if(!partidos.length) return;
   let cambios = 0;
   partidos.forEach(function(p){
+    if(p.federado) return;   // los federados traen sus entrenadores (tabla de la skill horarios-ligas)
     const lg = ligaDeComp(p.comp);
     const e1 = getEntrenadores(p.eq1, p.categoria, lg);
     const e2 = getEntrenadores(p.eq2, p.categoria, lg);
@@ -1441,6 +1442,14 @@ let MARGEN_DESPLAZAMIENTO_MIN = (function(){
   const v = parseInt(localStorage.getItem('kolbe_margen_desplaz')||'',10);
   return (Number.isFinite(v) && v>=0) ? v : 30;
 })();
+// Margen entre dos partidos del mismo entrenador. Mismo campo: 0 (basta no solapar). Campos distintos:
+// MARGEN_DESPLAZAMIENTO_MIN. Si uno es un FEDERADO que se juega fuera: 60 min antes y 60 después
+// (viaje, David 18-10-2026).
+function margenEntre(p, q){
+  if((p.federado && p.fuera) || (q.federado && q.fuera)) return Math.max(60, MARGEN_DESPLAZAMIENTO_MIN);
+  return (p.campo||"") === (q.campo||"") ? 0 : MARGEN_DESPLAZAMIENTO_MIN;
+}
+
 function calcConflictos(){
   partidos.forEach(p=>p.conflicto=null);
   for(let i=0;i<partidos.length;i++){
@@ -1466,7 +1475,7 @@ function calcConflictos(){
       if(shared.length){
         // Mismo campo → basta con que no se solapen. Campos distintos → hace falta margen de desplazamiento.
         const mismoCampo = (a.campo||"") === (b.campo||"");
-        const margen = mismoCampo ? 0 : MARGEN_DESPLAZAMIENTO_MIN;
+        const margen = margenEntre(a, b);
         if(aIni < bFin + margen && bIni < aFin + margen){
           const extra = mismoCampo ? "" : ` (necesita ${margen} min para desplazarse a otro campo)`;
           a.conflicto = (a.conflicto||"") + `Conflicto con "${b.eq1}" — entrenador: ${shared.join(", ")}${extra}. `;
@@ -1559,7 +1568,7 @@ function renderPartidoRow(p){
   const entDisplay = [p.ent1,p.ent2].filter(Boolean).join(" / ") || `<span style="color:var(--gris4);font-size:11px">—</span>`;
   return `<tr class="${rowClass}" data-id="${p.id}">
     <td>
-      <div class="equipo-nombre">${p.eq1} <span class="equipo-vs">vs</span> ${p.eq2}</div>
+      <div class="equipo-nombre">${p.federado ? '<span title="Partido federado: hora fija de la federación. No se mueve ni se manda a Clupik." style="font-size:10px;font-weight:600;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:4px;padding:1px 5px;margin-right:4px">🏅 FEDERADO</span>' : ''}${p.eq1} <span class="equipo-vs">vs</span> ${p.eq2}</div>
       ${p.conflicto ? `<span class="conf-msg">${p.conflicto}</span>` : ""}
     </td>
     <td>
@@ -3192,7 +3201,7 @@ function autoAsignar(){
       const qIni = toMins(qHora), qFin = qIni+60;
       // Campos distintos del mismo entrenador → exigir margen de desplazamiento; mismo campo → solo no solapar.
       const qCampo = asignados[q.id]?.campo || q.campo || "";
-      const margen = ((p.campo||"") === qCampo) ? 0 : MARGEN_DESPLAZAMIENTO_MIN;
+      const margen = margenEntre(p, Object.assign({}, q, { campo: qCampo }));
       if(pIni >= qFin + margen || qIni >= pFin + margen) return false;
       const entsQ = [...(q.ent1||"").split(","), ...(q.ent2||"").split(",")].map(e=>e.trim().toUpperCase()).filter(Boolean);
       return entsP.some(e => e && entsQ.includes(e));
@@ -3305,7 +3314,7 @@ function autoAsignar(){
     }).sort(function(a,b){ return b.peso - a.peso; });
     if(!lista.length) return;
 
-    let nodos = 0; const LIMITE = 150000;
+    let nodos = 0; const LIMITE = 40000;   // tope de combinaciones por intento (para que no tarde)
     let tope = 24*60;   // hora máxima de fin para todos (se baja para que la jornada acabe lo antes posible)
     const valido = function(p, g, t){
       if(t + 60 > tope) return false;
@@ -3319,6 +3328,16 @@ function autoAsignar(){
       const h = hhmm(t);
       return !campoOcupado(g.campo, g.dia, h, p.id) && !hayConflictoEnt(p, g.dia, h, p.id);
     };
+    // Orden: primero los campos más «estrechos» — pocas horas válidas por partido (por entrenadores
+    // ocupados en partidos fijos o federados, franjas, peticiones). Así no se gastan las combinaciones
+    // en campos fáciles antes de llegar al difícil.
+    lista.forEach(function(g){
+      g.libres = g.ps.reduce(function(m, p){
+        const n = g.slots.filter(function(t){ return valido(p, g, t); }).length;
+        return Math.min(m, n);
+      }, 99);
+    });
+
     // Coloca los partidos del grupo en las posiciones dadas (todas las permutaciones, con poda).
     const colocar = function(g, pos, i, usados, sigue){
       if(i === pos.length) return sigue();
@@ -3346,7 +3365,7 @@ function autoAsignar(){
     const dfs = function(gi, huecosLibres){
       if(gi === lista.length) return true;
       const g = lista[gi], k = g.ps.length;
-      for(let h = 0; h <= huecosLibres; h++){
+      for(let h = 0; h <= huecosLibres && k + h <= g.slots.length; h++){
         const w = k + h;
         for(let a = 0; a + w <= g.slots.length; a++){          // empezar lo antes posible
           const ventana = g.slots.slice(a, a + w);
@@ -3363,21 +3382,47 @@ function autoAsignar(){
       lista.forEach(function(g){ g.ps.forEach(function(p){ delete asignados[p.id]; }); });
       Object.keys(huecosPorCampo).forEach(function(k){ delete huecosPorCampo[k]; });
     };
-    // 1º: el menor número de huecos posible.  2º: con esos huecos, que la jornada acabe lo antes posible.
-    let Hmin = -1;
-    for(let H = 0; H <= maxHuecos; H++){
-      nodos = 0; tope = 24*60; limpiar();
-      if(dfs(0, H)){ Hmin = H; break; }
-      if(nodos > LIMITE) break;   // demasiadas combinaciones: lo hace el reparto de uno en uno
-    }
-    if(Hmin < 0){ limpiar(); return; }
-    const finMasTemprano = lista.reduce(function(m,g){ return Math.max(m, g.slots[0] + 60 * g.ps.length); }, 0);
-    const finMasTarde = lista.reduce(function(m,g){ return Math.max(m, g.slots[g.slots.length-1] + 60); }, 0);
-    for(let T = finMasTemprano; T <= finMasTarde; T += 60){
-      nodos = 0; tope = T; limpiar();
-      if(dfs(0, Hmin)) return;
-    }
-    nodos = 0; tope = 24*60; limpiar(); dfs(0, Hmin);   // por si acaso: la primera que se encontró
+    // Una búsqueda: 1º el menor número de huecos; 2º con esos huecos, la jornada que acaba antes.
+    // Si hay demasiadas combinaciones, cada campo coge los mínimos huecos que pueda en orden.
+    const buscar = function(){
+      let Hmin = -1;
+      for(let H = 0; H <= maxHuecos; H++){
+        nodos = 0; tope = 24*60; limpiar();
+        if(dfs(0, H)){ Hmin = H; break; }
+        if(nodos > LIMITE) break;
+      }
+      if(Hmin < 0){ nodos = 0; tope = 24*60; limpiar(); return dfs(0, Infinity); }
+      const finMasTemprano = lista.reduce(function(m,g){ return Math.max(m, g.slots[0] + 60 * g.ps.length); }, 0);
+      const finMasTarde = lista.reduce(function(m,g){ return Math.max(m, g.slots[g.slots.length-1] + 60); }, 0);
+      for(let T = finMasTemprano; T <= finMasTarde; T += 60){
+        nodos = 0; tope = T; limpiar();
+        if(dfs(0, Hmin)) return true;
+      }
+      nodos = 0; tope = 24*60; limpiar(); return dfs(0, Hmin);
+    };
+    // Valor de un reparto: huecos totales y hora a la que acaba el último partido.
+    const foto = function(){
+      const f = {}, porCampo = {};
+      lista.forEach(function(g){ g.ps.forEach(function(p){ if(asignados[p.id]){ f[p.id] = asignados[p.id]; (porCampo[g.campo+"|"+g.dia] = porCampo[g.campo+"|"+g.dia] || []).push(toMins(asignados[p.id].hora)); } }); });
+      let huecos = 0, fin = 0, n = 0;
+      Object.values(porCampo).forEach(function(hs){ hs.sort(function(a,b){ return a-b; }); n += hs.length; for(let i = 1; i < hs.length; i++) huecos += Math.max(0, hs[i]-hs[i-1]-60)/60; fin = Math.max(fin, hs[hs.length-1] + 60); });
+      return { f: f, huecos: huecos, fin: fin, n: n };
+    };
+    // Se prueban dos órdenes de campos (por estrechez y por dificultad) y se queda el mejor reparto:
+    // más partidos colocados, luego menos huecos, luego el que acaba antes.
+    const ordenes = [
+      function(a, b){ const ea = a.ps.length/Math.max(1,a.libres), eb = b.ps.length/Math.max(1,b.libres); return (eb-ea) || (b.peso-a.peso); },
+      function(a, b){ return b.peso - a.peso; },
+    ];
+    let mejor = null;
+    ordenes.forEach(function(orden){
+      lista.sort(orden);
+      const ok = buscar();
+      const r = ok ? foto() : null;
+      if(r && (!mejor || r.n > mejor.n || (r.n === mejor.n && (r.huecos < mejor.huecos || (r.huecos === mejor.huecos && r.fin < mejor.fin))))) mejor = r;
+      limpiar();
+    });
+    if(mejor) Object.keys(mejor.f).forEach(function(id){ asignados[id] = mejor.f[id]; });
   })();
 
   // ── 2b) Lo que quede, de uno en uno ──
@@ -3445,9 +3490,19 @@ function autoAsignar(){
     });
   }
 
-  const conHueco = Object.entries(huecosPorCampo).filter(function(e){ return e[1] > 0; });
+  // Huecos contados sobre el resultado final (partidos de liga con hora; los federados no cuentan)
+  const _porCampo = {};
+  partidos.forEach(function(p){
+    if(p.federado || p.sinHora || !p.hora || p.hora === "00:00" || !getFranja(p.campo, p.dia)) return;
+    (_porCampo[p.campo+"|"+p.dia] = _porCampo[p.campo+"|"+p.dia] || []).push(toMins(p.hora));
+  });
+  const conHueco = Object.entries(_porCampo).map(function(e){
+    const hs = e[1].sort(function(a,b){ return a-b; });
+    let h = 0; for(let i = 1; i < hs.length; i++) h += Math.max(0, hs[i] - hs[i-1] - 60) / 60;
+    return [e[0], h];
+  }).filter(function(e){ return e[1] > 0; });
   if(conHueco.length){
-    alertasHtml += `<div class="alert alert-warn"><span class="alert-icon">⏸</span><div><strong>Huecos en los campos</strong> (no se pudieron evitar sin romper un entrenador o una petición obligatoria):<br>${conHueco.map(function(e){ const kk=e[0].split("|"); return "<em>"+kk[0]+" ("+(kk[1]==="Viernes"?"viernes":"sábado")+"): "+e[1]+" hora"+(e[1]>1?"s":"")+" sin partido</em>"; }).join("<br>")}</div></div>`;
+    alertasHtml += `<div class="alert alert-warn"><span class="alert-icon">⏸</span><div><strong>Huecos en los campos</strong> (no se pudieron evitar sin romper un entrenador, un federado o una petición obligatoria):<br>${conHueco.map(function(e){ const kk=e[0].split("|"); return "<em>"+kk[0]+" ("+(kk[1]==="Viernes"?"viernes":"sábado")+"): "+e[1]+" hora"+(e[1]>1?"s":"")+" sin partido</em>"; }).join("<br>")}</div></div>`;
   }
   if(pendientesAyto.length){
     alertasHtml += `<div class="alert alert-warn"><span class="alert-icon">🏛</span><div><strong>${pendientesAyto.length} partido(s) de sala sin hora que pone el Ayuntamiento del Pardillo</strong> (no se han tocado): mete sus horas en Clupik y vuelve a importar.<br>${pendientesAyto.map(function(p){ return "<em>"+p.eq1+" – "+p.eq2+" ("+p.campo+")</em>"; }).join("<br>")}</div></div>`;
