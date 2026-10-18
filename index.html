@@ -1413,10 +1413,14 @@ function procesarCSV(text){
 
 // ============ CONFLICTOS ============
 // Margen mínimo (min) que necesita un entrenador entre dos partidos suyos en CAMPOS DISTINTOS
-// para poder desplazarse y llegar 15-20 min antes del segundo. Editable.
+// para poder desplazarse y llegar 15-20 min antes del segundo. Editable desde Coincidencias.
+// Por defecto 30, que es lo que decidió David (18-10-2026). Antes era 20, y eso dejaba un hueco
+// silencioso: el 30 vivía SOLO en el localStorage de su navegador, así que al limpiar los datos de
+// navegación el margen habría vuelto a 20 sin avisar y los horarios se habrían validado con diez
+// minutos menos de los acordados. El valor guardado sigue mandando sobre este por defecto.
 let MARGEN_DESPLAZAMIENTO_MIN = (function(){
   const v = parseInt(localStorage.getItem('kolbe_margen_desplaz')||'',10);
-  return (Number.isFinite(v) && v>=0) ? v : 20;
+  return (Number.isFinite(v) && v>=0) ? v : 30;
 })();
 function calcConflictos(){
   partidos.forEach(p=>p.conflicto=null);
