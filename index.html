@@ -3240,6 +3240,109 @@ function autoAsignar(){
     const huecos = f ? (toMins(f.fin) - toMins(f.ini)) / 60 : 0;
     return carga * 100 - huecos;
   };
+  // ── 2a) SIN HUECOS EN LOS CAMPOS (criterio importante, David 18-10-2026): que los árbitros no
+  //        estén parados. Para cada campo y día se buscan horas SEGUIDAS para todos sus partidos que
+  //        encajen con todos los entrenadores y las preferencias obligatorias. Primero sin ningún hueco
+  //        en ningún campo; si es imposible, con 1, luego 2… Lo que no se resuelva así, va al reparto
+  //        de uno en uno de abajo.
+  const huecosPorCampo = {};
+  (function repartirSinHuecos(){
+    const hhmm = function(t){ return String(Math.floor(t/60)).padStart(2,"0") + ":" + String(t%60).padStart(2,"0"); };
+    const grupos = {};
+    sinHora.forEach(function(p){
+      if(asignados[p.id] || !p.campo || p.campo === "Sin campo") return;
+      const dia = p.dia || "Sabado";
+      if(!getFranja(p.campo, dia)) return;
+      const k = p.campo + "|" + dia;
+      (grupos[k] = grupos[k] || { campo:p.campo, dia:dia, ps:[] }).ps.push(p);
+    });
+    const lista = Object.values(grupos).map(function(g){
+      const f = getFranja(g.campo, g.dia);
+      const slots = [];
+      for(let t = toMins(f.ini); t + 60 <= toMins(f.fin); t += 60) slots.push(t);
+      g.slots = slots;
+      g.ps.sort(function(a,b){ return dificultad(b) - dificultad(a); });
+      g.peso = g.ps.reduce(function(m,p){ return Math.max(m, dificultad(p)); }, 0) + 1000 * (g.ps.length / Math.max(1, slots.length));
+      return g;
+    }).sort(function(a,b){ return b.peso - a.peso; });
+    if(!lista.length) return;
+
+    let nodos = 0; const LIMITE = 150000;
+    let tope = 24*60;   // hora máxima de fin para todos (se baja para que la jornada acabe lo antes posible)
+    const valido = function(p, g, t){
+      if(t + 60 > tope) return false;
+      const lim = limitesObligatorios(p, g.dia);
+      if(!lim.permitido) return false;
+      if(lim.desde && t < toMins(lim.desde)) return false;
+      if(lim.hastaFin && t + 60 > toMins(lim.hastaFin)) return false;
+      const ex = minHoraExtra(p, hhmm(g.slots[0]));
+      if(ex.exacta && toMins(ex.exacta) !== t) return false;
+      if(t < toMins(ex.minH)) return false;
+      const h = hhmm(t);
+      return !campoOcupado(g.campo, g.dia, h, p.id) && !hayConflictoEnt(p, g.dia, h, p.id);
+    };
+    // Coloca los partidos del grupo en las posiciones dadas (todas las permutaciones, con poda).
+    const colocar = function(g, pos, i, usados, sigue){
+      if(i === pos.length) return sigue();
+      for(let j = 0; j < g.ps.length; j++){
+        if(usados[j]) continue;
+        if(++nodos > LIMITE) return false;
+        const p = g.ps[j];
+        if(!valido(p, g, pos[i])) continue;
+        usados[j] = true; asignar(p, g.dia, g.campo, hhmm(pos[i]));
+        if(colocar(g, pos, i+1, usados, sigue)) return true;
+        delete asignados[p.id]; usados[j] = false;
+      }
+      return false;
+    };
+    // Posiciones: k horas dentro de una ventana de k+huecos horas seguidas, con la primera y la última ocupadas.
+    const combinaciones = function(ventana, k){
+      if(k === 1) return ventana.length === 1 ? [[ventana[0]]] : [];
+      const medio = ventana.slice(1, -1), res = [];
+      (function rec(ini, acc){
+        if(acc.length === k - 2){ res.push([ventana[0]].concat(acc, [ventana[ventana.length-1]])); return; }
+        for(let x = ini; x < medio.length; x++) rec(x + 1, acc.concat([medio[x]]));
+      })(0, []);
+      return res;
+    };
+    const dfs = function(gi, huecosLibres){
+      if(gi === lista.length) return true;
+      const g = lista[gi], k = g.ps.length;
+      for(let h = 0; h <= huecosLibres; h++){
+        const w = k + h;
+        for(let a = 0; a + w <= g.slots.length; a++){          // empezar lo antes posible
+          const ventana = g.slots.slice(a, a + w);
+          for(const pos of combinaciones(ventana, k)){
+            if(nodos > LIMITE) return false;
+            if(colocar(g, pos, 0, [], function(){ huecosPorCampo[g.campo+"|"+g.dia] = h; return dfs(gi + 1, huecosLibres - h); })) return true;
+          }
+        }
+      }
+      return false;
+    };
+    const maxHuecos = lista.reduce(function(s,g){ return s + Math.max(0, g.slots.length - g.ps.length); }, 0);
+    const limpiar = function(){
+      lista.forEach(function(g){ g.ps.forEach(function(p){ delete asignados[p.id]; }); });
+      Object.keys(huecosPorCampo).forEach(function(k){ delete huecosPorCampo[k]; });
+    };
+    // 1º: el menor número de huecos posible.  2º: con esos huecos, que la jornada acabe lo antes posible.
+    let Hmin = -1;
+    for(let H = 0; H <= maxHuecos; H++){
+      nodos = 0; tope = 24*60; limpiar();
+      if(dfs(0, H)){ Hmin = H; break; }
+      if(nodos > LIMITE) break;   // demasiadas combinaciones: lo hace el reparto de uno en uno
+    }
+    if(Hmin < 0){ limpiar(); return; }
+    const finMasTemprano = lista.reduce(function(m,g){ return Math.max(m, g.slots[0] + 60 * g.ps.length); }, 0);
+    const finMasTarde = lista.reduce(function(m,g){ return Math.max(m, g.slots[g.slots.length-1] + 60); }, 0);
+    for(let T = finMasTemprano; T <= finMasTarde; T += 60){
+      nodos = 0; tope = T; limpiar();
+      if(dfs(0, Hmin)) return;
+    }
+    nodos = 0; tope = 24*60; limpiar(); dfs(0, Hmin);   // por si acaso: la primera que se encontró
+  })();
+
+  // ── 2b) Lo que quede, de uno en uno ──
   sinHora.filter(function(p){ return !asignados[p.id]; })
     .sort(function(a,b){ return dificultad(b) - dificultad(a); })
     .forEach(function(p){
@@ -3304,6 +3407,10 @@ function autoAsignar(){
     });
   }
 
+  const conHueco = Object.entries(huecosPorCampo).filter(function(e){ return e[1] > 0; });
+  if(conHueco.length){
+    alertasHtml += `<div class="alert alert-warn"><span class="alert-icon">⏸</span><div><strong>Huecos en los campos</strong> (no se pudieron evitar sin romper un entrenador o una petición obligatoria):<br>${conHueco.map(function(e){ const kk=e[0].split("|"); return "<em>"+kk[0]+" ("+(kk[1]==="Viernes"?"viernes":"sábado")+"): "+e[1]+" hora"+(e[1]>1?"s":"")+" sin partido</em>"; }).join("<br>")}</div></div>`;
+  }
   if(deseablesNoCumplidas.length){
     alertasHtml += `<div class="alert alert-warn"><span class="alert-icon">🟡</span><div><strong>Preferencias que no han cabido</strong> (esos partidos van en su día normal):<br>${deseablesNoCumplidas.map(function(t){ return "<em>"+t+"</em>"; }).join("<br>")}</div></div>`;
   }
