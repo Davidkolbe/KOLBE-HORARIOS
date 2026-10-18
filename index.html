@@ -635,6 +635,10 @@ const CAMPOS_BASE = {
 
 const LUGAR_MAP = [
   // ── FÚTBOL SALA (más específicos primero) ──
+  ["fútbol 7 del colegio vallmont", "Vallmont"],             // si no, «colegio vallmont» lo manda al pabellón
+  ["futbol 7 del colegio vallmont", "Vallmont"],
+  ["pabellón c.i. kolbe",           "Pabellón Kolbe"],       // si no, «kolbe» lo manda al campo de F7
+  ["pabellon c.i. kolbe",           "Pabellón Kolbe"],
   ["pista secundaria",              "Pista Kolbe Secundaria"],
   ["pista semicubierta",            "Pista Exterior Infanta Cristina"],
   ["pabellón infanta cristina",     "Pabellón Infanta Cristina"],
@@ -961,10 +965,9 @@ function ligaDeComp(comp){
 // Cada "equipo" es CATEGORIA + letra opcional (A/B/C) o FEMENINO. Se rellena según llegan datos.
 const COINCIDENCIAS_BASE = {
   // 26-27: generado desde las hojas de condicionantes (condicionantes_a_app_horarios.py ->
-  // COINCIDENCIAS_APP_HORARIOS_26-27.json). Solo F7. Letra/color = la del nombre del equipo EN CLUPIK.
-  // Una fila por equipo con TODOS sus entrenadores: dos equipos que compartan un nombre no coinciden.
-  // Sin hoja, dato manual: Fresnedillas (David 16-10-2026) y Arenales (WhatsApp de Eduardo Musat
-  // 17-10-2026; en Clupik sus benjamines se llaman AZUL y AMARILLO desde el 18-10). ENTREN_ = marcador.
+  // COINCIDENCIAS_APP_HORARIOS_26-27.json). F7 y sala: las filas con deporte:"sala" solo valen para sala.
+  // Letra/color = la del nombre del equipo EN CLUPIK. Una fila por equipo con TODOS sus entrenadores.
+  // Sin hoja, dato manual: Fresnedillas (David 16-10), Arenales (Eduardo Musat 17-10), sala de Kolbe (David 18-10).
   "NAVALAGAMELLA": [
     { ent:"MARCO FLORIAN FLORIAN", equipos:["ALEVIN"] },
     { ent:"ZAID EL BANNOUDI EL BANNOUDI", equipos:["INFANTIL"] }
@@ -988,7 +991,13 @@ const COINCIDENCIAS_BASE = {
     { ent:"PABLO ORDONEZ", equipos:["ALEVIN VERDE"] },
     { ent:"RUIBI", equipos:["INFANTIL BLANCO"] },
     { ent:"PABLO GOMEZ", equipos:["INFANTIL VERDE"] },
-    { ent:"CHECHU", equipos:["CADETE"] }
+    { ent:"CHECHU", equipos:["CADETE"] },
+    { ent:"PEPE SOLER", equipos:["PREB BLANCO"], deporte:"sala" },
+    { ent:"PEPE SOLER", equipos:["PREB VERDE"], deporte:"sala" },
+    { ent:"PEPE SOLER", equipos:["BENJ BLANCO"], deporte:"sala" },
+    { ent:"PEPE SOLER", equipos:["BENJ VERDE"], deporte:"sala" },
+    { ent:"PABLO GOMEZ, ESPI", equipos:["PREB"], deporte:"sala" },
+    { ent:"PABLO TORRES, RODRIGO TEJERO", equipos:["BENJ"], deporte:"sala" }
   ],
   "VALLMONT": [
     { ent:"JAVIER HELLIN, ALEJANDRO PUERTO", equipos:["BENJ"] },
@@ -1023,7 +1032,9 @@ const COINCIDENCIAS_BASE = {
     { ent:"TOMAS", equipos:["BENJ B"] },
     { ent:"RODRIGO", equipos:["ALEVIN A"] },
     { ent:"ANDRES", equipos:["ALEVIN B"] },
-    { ent:"ANDRES", equipos:["JUVENIL"] }
+    { ent:"ANDRES", equipos:["JUVENIL"] },
+    { ent:"TOMAS", equipos:["PREB A"], deporte:"sala" },
+    { ent:"DANIEL", equipos:["PREB B"], deporte:"sala" }
   ],
   "ZARZALEJO": [
     { ent:"PABLO HERNANDEZ SANCHEZ, JAIME SASTRE MARTIN", equipos:["ALEVIN"] }
@@ -1039,9 +1050,9 @@ const COINCIDENCIAS_BASE = {
     { ent:"ENTRENADOR UNICO CD FRESNEDILLAS", equipos:["CADETE"] }
   ],
   "ARENALES": [
-    { ent:"ENTREN_ARENALES_PREB_Y_BENJ_AZUL", equipos:["PREB"] },
     { ent:"ENTREN_ARENALES_PREB_Y_BENJ_AZUL", equipos:["BENJ AZUL"] },
-    { ent:"ENTREN_ARENALES_BENJ_AMARILLO", equipos:["BENJ AMARILLO"] }
+    { ent:"ENTREN_ARENALES_BENJ_AMARILLO", equipos:["BENJ AMARILLO"] },
+    { ent:"ENTREN_ARENALES_PREB_Y_BENJ_AZUL", equipos:["PREB"] }
   ]
 };
 function getCoincidencias(){
@@ -1078,17 +1089,26 @@ function _letraKey(s){
   return "";
 }
 // Devuelve el nombre del entrenador según la tabla de coincidencias, o "" si no hay dato.
-function entrenadorPorCoincidencias(nombreEquipo, categoria){
+// Deporte de una fila de la tabla: "sala" o "f7" (las filas sin deporte son de F7, como antes del 18-10-2026).
+function _deporteFila(fila){ return /sala|fs/i.test(String(fila.deporte||"")) ? "sala" : "f7"; }
+function _deporteLiga(liga){ return /sala|^fs$|\bfs\b/i.test(String(liga||"")) ? "sala" : "f7"; }
+// Devuelve el entrenador según la tabla de coincidencias. null = la tabla no sabe nada de este club en
+// este deporte (se sigue con las reglas viejas); "" = el club SÍ está en la tabla para este deporte pero
+// ningún equipo encaja (la tabla manda: sin entrenador antes que uno del curso pasado).
+function entrenadorPorCoincidencias(nombreEquipo, categoria, liga){
   const n=(nombreEquipo||"").toUpperCase();
   const CO=getCoincidencias();
+  const dep=_deporteLiga(liga);
   // Sin tildes en los dos lados: Clupik puede traer «UNIÓN» o «HELADE» y la tabla al revés.
   const nPlano=_sinTildes(n);
   const clubKey=Object.keys(CO).find(k=>nPlano.includes(_sinTildes(k).toUpperCase()));
-  if(!clubKey) return "";
+  if(!clubKey) return null;
+  const filas=(CO[clubKey]||[]).filter(function(f){ return _deporteFila(f)===dep; });
+  if(!filas.length) return null;
   const catT=_catKey(categoria)||_catKey(n);
   const femT=n.includes("FEMEN");
   const letraT=_letraKey(n);
-  for(const fila of CO[clubKey]){
+  for(const fila of filas){
     for(const slot of fila.equipos){
       const catS=_catKey(slot), letraS=_letraKey(slot), femS=/FEMEN/.test(slot.toUpperCase());
       if(femS){ if(femT) return fila.ent; else continue; }
@@ -1109,13 +1129,11 @@ function getEntrenadores(nombreEquipo, categoria, liga){
   if(!nombreEquipo) return "";
   const n = nombreEquipo.toUpperCase().replace(/["“”]/g,"").trim();
 
-  // 0) 26-27: si el club está en la tabla de coincidencias (sale de las hojas de condicionantes de
-  //    este curso), manda sobre los equipos guardados del 25-26 y sobre el código a fuego de abajo.
-  //    La tabla es solo de F7: en Fútbol Sala no se consulta.
-  if(!/SALA/i.test(String(liga||""))){
-    const _entCo0 = entrenadorPorCoincidencias(n, categoria);
-    if(_entCo0) return _entCo0;
-  }
+  // 0) 26-27: si el club está en la tabla de coincidencias PARA ESTE DEPORTE (F7 o sala), la tabla manda
+  //    sobre los equipos guardados del 25-26 y sobre el código a fuego de abajo. Los nombres de entrenador
+  //    son los mismos en los dos deportes, así que quien lleva equipos de F7 y de sala no coincide.
+  const _entCo0 = entrenadorPorCoincidencias(n, categoria, liga);
+  if(_entCo0 !== null) return _entCo0;
 
   // 1) PRIORIDAD MAXIMA: match exacto (name+categoria+liga) en equipos configurados.
   //    Si el usuario configuro entrenadores para este equipo concreto en esa categoria,
@@ -1183,7 +1201,7 @@ function getEntrenadores(nombreEquipo, categoria, liga){
   }
 
   // 3) COINCIDENCIAS por datos (editable): si hay tabla para este club, manda sobre el código a fuego.
-  const _entCo = entrenadorPorCoincidencias(n, categoria);
+  const _entCo = entrenadorPorCoincidencias(n, categoria, liga);
   if(_entCo) return _entCo;
 
   // Highlands: asignar entrenador según categoría detectada en el nombre del equipo
@@ -2966,6 +2984,7 @@ function exportarPDF(){
 //   tipo "obligatoria" → la app nunca la incumple; si no hay hueco, el partido se queda sin hora y avisa.
 //   tipo "deseable"    → la app lo intenta primero; si no cabe, va a su día normal y lo dice.
 // Campos de cada preferencia:
+//   deporte     "f7" o "sala" (sin poner = los dos). Las de las hojas de condicionantes son de F7.
 //   club        trozo del nombre del equipo en Clupik (sin tildes)      categorias  [] = todas
 //   cuando      "casa" (es el equipo local) · "fuera" · "siempre"       rival       solo si el otro equipo también lo lleva
 //   dia/horas   (deseables) día al que se intenta llevar y horas de inicio, en orden; sin horas = el primer hueco
@@ -2973,17 +2992,17 @@ function exportarPDF(){
 //   desde/hasta (obligatorias) el partido empieza no antes de / termina no después de
 //   noDia       (obligatorias) día prohibido;  excepto: {cuando, desde} cuándo sí se permite ese día
 const PREFERENCIAS_BASE = [
-  { id:"kolbe_viernes", tipo:"deseable", club:"KOLBE", categorias:["Alevín","Infantil"], cuando:"casa",
+  { id:"kolbe_viernes", deporte:"f7", tipo:"deseable", club:"KOLBE", categorias:["Alevín","Infantil"], cuando:"casa",
     dia:"Viernes", horas:["18:00","19:00"], desc:"Kolbe Alevín e Infantil en casa → viernes 18:00 / 19:00", origen:"David, 18-10-2026" },
-  { id:"zola_vs_zola", tipo:"deseable", club:"ZOLA", rival:"ZOLA", cuando:"siempre",
+  { id:"zola_vs_zola", deporte:"f7", tipo:"deseable", club:"ZOLA", rival:"ZOLA", cuando:"siempre",
     dia:"Viernes", campo:"Zola", desc:"Zola contra Zola → viernes en su campo", origen:"David, 18-10-2026" },
-  { id:"fresnedillas_viernes", tipo:"deseable", club:"FRESNEDILLAS", cuando:"siempre",
+  { id:"fresnedillas_viernes", deporte:"f7", tipo:"deseable", club:"FRESNEDILLAS", cuando:"siempre",
     dia:"Viernes", desc:"Fresnedillas → viernes siempre que se pueda (tiene un solo entrenador)", origen:"David, 18-10-2026" },
-  { id:"zarzalejo_no_viernes", tipo:"obligatoria", club:"ZARZALEJO", cuando:"siempre",
+  { id:"zarzalejo_no_viernes", deporte:"f7", tipo:"obligatoria", club:"ZARZALEJO", cuando:"siempre",
     noDia:"Viernes", excepto:{ cuando:"casa", desde:"19:00" }, desc:"Rayo Zarzalejo: nunca viernes (en casa, solo de 19:00 a 20:00)", origen:"su hoja de condicionantes" },
-  { id:"union_preb_tarde", tipo:"obligatoria", club:"UNION", categorias:["Prebenjamín"], cuando:"siempre",
+  { id:"union_preb_tarde", deporte:"f7", tipo:"obligatoria", club:"UNION", categorias:["Prebenjamín"], cuando:"siempre",
     desde:"12:30", desc:"Unión Pardillo Prebenjamín: después de las 12:30", origen:"su hoja de condicionantes" },
-  { id:"mostoles_antes_19", tipo:"obligatoria", club:"ATHLETIC", cuando:"siempre",
+  { id:"mostoles_antes_19", deporte:"f7", tipo:"obligatoria", club:"ATHLETIC", cuando:"siempre",
     hasta:"19:00", desc:"Athletic Móstoles: terminar antes de las 19:00", origen:"su hoja de condicionantes" },
 ];
 function getPreferencias(){
@@ -3001,6 +3020,7 @@ function togglePrefSemana(id, activa){
 function _norm(s){ return _sinTildes(String(s||"")).toUpperCase(); }
 // ¿Afecta la preferencia a este partido? Devuelve "eq1"/"eq2" (el equipo al que afecta) o "".
 function prefAfecta(pr, p){
+  if(pr.deporte && pr.deporte !== (ligaDeComp(p.comp) || "f7")) return "";
   const c = _norm(pr.club);
   const cats = (pr.categorias||[]).map(_norm);
   if(cats.length && !cats.some(function(x){ return _norm(p.categoria||"").indexOf(x.slice(0,4))===0; })) return "";
@@ -3103,9 +3123,26 @@ function aplicarReglaExtra(p, regla){
   return { minHora: hora, exacta: esExacta };
 }
 
+// ¿Quién pone la hora? (David, 18-10-2026) En FÚTBOL SALA, Prebenjamín y Benjamín los pone Nacho
+// (Ayuntamiento de Villanueva del Pardillo) y el CDK los mete en Clupik — salvo los partidos en casa de
+// Kolbe y Zola, que los pone el CDK. El Alevín de sala y todo el F7 los pone el CDK.
+const CAMPOS_HORA_CDK_SALA = ["Pista Kolbe Secundaria", "Pabellón Kolbe", "Pabellón Zola"];
+function horaLaPoneAyuntamiento(p){
+  if(ligaDeComp(p.comp) !== "sala") return false;
+  const cat = _catKey(p.categoria || p.comp || "");
+  if(cat !== "PREB" && cat !== "BENJ") return false;
+  return CAMPOS_HORA_CDK_SALA.indexOf(p.campo) === -1;
+}
+
 function autoAsignar(){
-  const sinHora = partidos.filter(p => p.sinHora);
-  if(!sinHora.length){ alert("Todos los partidos ya tienen hora asignada."); return; }
+  const pendientesAyto = partidos.filter(p => p.sinHora && horaLaPoneAyuntamiento(p));
+  const sinHora = partidos.filter(p => p.sinHora && !horaLaPoneAyuntamiento(p));
+  if(!sinHora.length){
+    alert(pendientesAyto.length
+      ? pendientesAyto.length + " partido(s) de sala sin hora son del Ayuntamiento del Pardillo: mete sus horas en Clupik y vuelve a importar."
+      : "Todos los partidos ya tienen hora asignada.");
+    return;
+  }
 
   const reglasExtra = parseReglasExtra(document.getElementById("reglas-extra").value || "");
 
@@ -3410,6 +3447,9 @@ function autoAsignar(){
   const conHueco = Object.entries(huecosPorCampo).filter(function(e){ return e[1] > 0; });
   if(conHueco.length){
     alertasHtml += `<div class="alert alert-warn"><span class="alert-icon">⏸</span><div><strong>Huecos en los campos</strong> (no se pudieron evitar sin romper un entrenador o una petición obligatoria):<br>${conHueco.map(function(e){ const kk=e[0].split("|"); return "<em>"+kk[0]+" ("+(kk[1]==="Viernes"?"viernes":"sábado")+"): "+e[1]+" hora"+(e[1]>1?"s":"")+" sin partido</em>"; }).join("<br>")}</div></div>`;
+  }
+  if(pendientesAyto.length){
+    alertasHtml += `<div class="alert alert-warn"><span class="alert-icon">🏛</span><div><strong>${pendientesAyto.length} partido(s) de sala sin hora que pone el Ayuntamiento del Pardillo</strong> (no se han tocado): mete sus horas en Clupik y vuelve a importar.<br>${pendientesAyto.map(function(p){ return "<em>"+p.eq1+" – "+p.eq2+" ("+p.campo+")</em>"; }).join("<br>")}</div></div>`;
   }
   if(deseablesNoCumplidas.length){
     alertasHtml += `<div class="alert alert-warn"><span class="alert-icon">🟡</span><div><strong>Preferencias que no han cabido</strong> (esos partidos van en su día normal):<br>${deseablesNoCumplidas.map(function(t){ return "<em>"+t+"</em>"; }).join("<br>")}</div></div>`;
