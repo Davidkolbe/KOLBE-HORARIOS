@@ -993,12 +993,11 @@ const COINCIDENCIAS_BASE = {
     { ent:"RUIBI", equipos:["INFANTIL BLANCO"] },
     { ent:"PABLO GOMEZ", equipos:["INFANTIL VERDE"] },
     { ent:"CHECHU", equipos:["CADETE"] },
-    { ent:"PEPE SOLER", equipos:["PREB BLANCO"], deporte:"sala" },
-    { ent:"PEPE SOLER", equipos:["PREB VERDE"], deporte:"sala" },
-    { ent:"PEPE SOLER", equipos:["BENJ BLANCO"], deporte:"sala" },
-    { ent:"PEPE SOLER", equipos:["BENJ VERDE"], deporte:"sala" },
-    { ent:"PABLO GOMEZ, ESPI", equipos:["PREB"], deporte:"sala" },
-    { ent:"PABLO TORRES, RODRIGO TEJERO", equipos:["BENJ"], deporte:"sala" },
+    { ent:"PEPE SOLER", equipos:["PREB A"], deporte:"sala" },
+    { ent:"PABLO GOMEZ, ESPI", equipos:["PREB B"], deporte:"sala" },
+    { ent:"RODRIGO TEJERO", equipos:["BENJ BLANCO"], deporte:"sala" },
+    { ent:"PABLO TORRES", equipos:["BENJ VERDE"], deporte:"sala" },
+    { ent:"PEPE SOLER", equipos:["BENJ C"], deporte:"sala" },
     { ent:"RUIBI", equipos:["ALEVIN"], deporte:"sala" }
   ],
   "VALLMONT": [
@@ -4427,13 +4426,12 @@ function copiarVistaEquipo(id, btn){
 // Los federados sí llevan el suyo (no están en Coincidencias) y se casan con los partidos federados que
 // mete la skill horarios-ligas desde el archivo de la jornada (nombres de jornada-cdk).
 const KOLBE_EQUIPOS = [
-  // FÚTBOL SALA · LIGA MUNICIPAL
-  {equipo:"CD KOLBE 1º BLANCO", cat:"PREBENJAMIN", label:"CD KOLBE 1º BLANCO", categoria:"Prebenjamín", disc:"FS"},
-  {equipo:"CD KOLBE 1º VERDE",  cat:"PREBENJAMIN", label:"CD KOLBE 1º VERDE",  categoria:"Prebenjamín", disc:"FS"},
+  // FÚTBOL SALA · LIGA MUNICIPAL (nombres que se usarán al darlos de alta en Clupik — David, 18-10-2026)
+  {equipo:"CD KOLBE 1º",        cat:"PREBENJAMIN", label:"CD KOLBE 1º",        categoria:"Prebenjamín", disc:"FS"},
   {equipo:"CD KOLBE 2º",        cat:"PREBENJAMIN", label:"CD KOLBE 2º",        categoria:"Prebenjamín", disc:"FS"},
-  {equipo:"CD KOLBE 3º BLANCO", cat:"BENJAMIN",    label:"CD KOLBE 3º BLANCO", categoria:"Benjamín",    disc:"FS"},
-  {equipo:"CD KOLBE 3º VERDE",  cat:"BENJAMIN",    label:"CD KOLBE 3º VERDE",  categoria:"Benjamín",    disc:"FS"},
-  {equipo:"CD KOLBE 4º",        cat:"BENJAMIN",    label:"CD KOLBE 4º",        categoria:"Benjamín",    disc:"FS"},
+  {equipo:"CD KOLBE 3º",        cat:"BENJAMIN",    label:"CD KOLBE 3º",        categoria:"Benjamín",    disc:"FS"},
+  {equipo:"CD KOLBE 4º BLANCO", cat:"BENJAMIN",    label:"CD KOLBE 4º BLANCO", categoria:"Benjamín",    disc:"FS"},
+  {equipo:"CD KOLBE 4º VERDE",  cat:"BENJAMIN",    label:"CD KOLBE 4º VERDE",  categoria:"Benjamín",    disc:"FS"},
   {equipo:"CD KOLBE",           cat:"ALEVIN",      label:"CD KOLBE ALEVÍN",    categoria:"Alevín",      disc:"FS"},
   // FÚTBOL SALA · FEDERADOS
   {equipo:"CD KOLBE INFANTIL PREFERENTE", cat:"", label:"CD KOLBE INFANTIL FED.", categoria:"Infantil", entrenador:"RUIBI / PEPE SOLER", disc:"FS"},
