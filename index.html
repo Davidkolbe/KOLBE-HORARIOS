@@ -6273,6 +6273,9 @@ function guardarNuevoPartido(){
 
   const nuevoId = Math.max(0, ...partidos.map(function(p){ return p.id; })) + 1;
   const hora = horaRaw || "00:00";
+  // La liga va sin tilde, como en Clupik («LIGA FS PREBENJAMIN»): con tilde, el resumen de Kolbe no
+  // encuentra el partido y da al equipo como DESCANSO (amistosos con el Zola, 19-10-2026).
+  const catLiga = (cat||"").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
   const nuevo = {
     id: nuevoId,
@@ -6286,7 +6289,7 @@ function guardarNuevoPartido(){
     campo: campo,
     campoOriginal: campo,
     jornada: "",
-    comp: disc === "Fútbol Sala" ? "LIGA FS " + (cat||"").toUpperCase() : "LIGA F-7 " + (cat||"").toUpperCase(),
+    comp: disc === "Fútbol Sala" ? "LIGA FS " + catLiga : "LIGA F-7 " + catLiga,
     categoria: cat,
     grupo: grupo,
     ent1: getEntrenadores(eq1, cat, disc === "Fútbol Sala" ? "sala" : "f7"),
