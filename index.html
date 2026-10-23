@@ -3009,6 +3009,7 @@ function exportarPDF(){
 //   campo       (deseables) campo donde se intenta; si no, el del partido
 //   desde/hasta (obligatorias) el partido empieza no antes de / termina no después de
 //   noDia       (obligatorias) día prohibido;  excepto: {cuando, desde} cuándo sí se permite ese día
+//   fechas      ["dd/mm/aaaa", …] solo esos días (sin poner = todas las jornadas)
 const PREFERENCIAS_BASE = [
   { id:"kolbe_viernes", deporte:"f7", tipo:"deseable", club:"KOLBE", categorias:["Alevín","Infantil"], cuando:"casa",
     dia:"Viernes", horas:["18:00","19:00"], desc:"Kolbe Alevín e Infantil en casa → viernes 18:00 / 19:00", origen:"David, 18-10-2026" },
@@ -3022,6 +3023,10 @@ const PREFERENCIAS_BASE = [
     desde:"12:30", desc:"Unión Pardillo Prebenjamín: después de las 12:30", origen:"su hoja de condicionantes" },
   { id:"mostoles_antes_19", deporte:"f7", tipo:"obligatoria", club:"ATHLETIC", cuando:"siempre",
     hasta:"19:00", desc:"Athletic Móstoles: terminar antes de las 19:00", origen:"su hoja de condicionantes" },
+  { id:"vallmont_benj_0711", deporte:"f7", tipo:"obligatoria", club:"VALLMONT", categorias:["Benjamín"], cuando:"siempre",
+    desde:"10:30", fechas:["07/11/2026"], desc:"Vallmont Benjamín, 7-11: a partir de las 10:30 (en punto → 11:00)", origen:"WhatsApp de Vallmont a David, 20-10-2026 13:50" },
+  { id:"highlands_inf_casa_tarde", deporte:"f7", tipo:"deseable", club:"HIGHLANDS", categorias:["Infantil"], cuando:"casa",
+    dia:"Sabado", horas:["12:00"], desc:"Highlands Infantil en casa → sábado a las 12:00 (su entrenador sale del cole a las 12)", origen:"hoja de condicionantes de Highlands («infantil B»; en Clupik solo hay un Infantil de Highlands)" },
 ];
 function getPreferencias(){
   try { const u = JSON.parse(localStorage.getItem("kolbe_preferencias")||"null"); if(Array.isArray(u) && u.length) return u; } catch(e){}
@@ -3039,6 +3044,7 @@ function _norm(s){ return _sinTildes(String(s||"")).toUpperCase(); }
 // ¿Afecta la preferencia a este partido? Devuelve "eq1"/"eq2" (el equipo al que afecta) o "".
 function prefAfecta(pr, p){
   if(pr.deporte && pr.deporte !== (ligaDeComp(p.comp) || "f7")) return "";
+  if(pr.fechas && pr.fechas.length && pr.fechas.indexOf(p.fecha)===-1) return "";
   const c = _norm(pr.club);
   const cats = (pr.categorias||[]).map(_norm);
   if(cats.length && !cats.some(function(x){ return _norm(p.categoria||"").indexOf(x.slice(0,4))===0; })) return "";
