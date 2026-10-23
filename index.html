@@ -3010,6 +3010,7 @@ function exportarPDF(){
 //   desde/hasta (obligatorias) el partido empieza no antes de / termina no después de
 //   noDia       (obligatorias) día prohibido;  excepto: {cuando, desde} cuándo sí se permite ese día
 //   fechas      ["dd/mm/aaaa", …] solo esos días (sin poner = todas las jornadas)
+//   enDia       (obligatorias) desde/hasta solo cuentan ese día de la semana (sin poner = todos)
 const PREFERENCIAS_BASE = [
   { id:"kolbe_viernes", deporte:"f7", tipo:"deseable", club:"KOLBE", categorias:["Alevín","Infantil"], cuando:"casa",
     dia:"Viernes", horas:["18:00","19:00"], desc:"Kolbe Alevín e Infantil en casa → viernes 18:00 / 19:00", origen:"David, 18-10-2026" },
@@ -3023,6 +3024,8 @@ const PREFERENCIAS_BASE = [
     desde:"12:30", desc:"Unión Pardillo Prebenjamín: después de las 12:30", origen:"su hoja de condicionantes" },
   { id:"mostoles_antes_19", deporte:"f7", tipo:"obligatoria", club:"ATHLETIC", cuando:"siempre",
     hasta:"19:00", desc:"Athletic Móstoles: terminar antes de las 19:00", origen:"su hoja de condicionantes" },
+  { id:"fresnedillas_viernes_tarde", deporte:"f7", tipo:"obligatoria", club:"FRESNEDILLAS", cuando:"siempre",
+    enDia:"Viernes", desde:"18:30", desc:"Fresnedillas: los viernes, no antes de las 18:30 (en punto → 19:00)", origen:"David, 23-10-2026 («no llega antes de las 19h los viernes»)" },
   { id:"vallmont_benj_0711", deporte:"f7", tipo:"obligatoria", club:"VALLMONT", categorias:["Benjamín"], cuando:"siempre",
     desde:"10:30", fechas:["07/11/2026"], desc:"Vallmont Benjamín, 7-11: a partir de las 10:30 (en punto → 11:00)", origen:"WhatsApp de Vallmont a David, 20-10-2026 13:50" },
   { id:"highlands_inf_casa_tarde", deporte:"f7", tipo:"deseable", club:"HIGHLANDS", categorias:["Infantil"], cuando:"casa",
@@ -3059,6 +3062,7 @@ function limitesObligatorios(p, dia){
   getPreferencias().filter(function(pr){ return pr.tipo==="obligatoria"; }).forEach(function(pr){
     const lado = prefAfecta(pr, p);
     if(!lado) return;
+    if(pr.enDia && pr.enDia!==dia) return;
     if(pr.noDia && pr.noDia===dia){
       const ex = pr.excepto;
       if(ex && (ex.cuando==="siempre" || (ex.cuando==="casa" && lado==="eq1") || (ex.cuando==="fuera" && lado==="eq2"))){
