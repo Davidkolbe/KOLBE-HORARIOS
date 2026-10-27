@@ -880,6 +880,32 @@ function lugarACampo(lugar){
 //   2) Match por nombre (fallback): si no hay histórico y el nombre del
 //      equipo contiene el nombre de un campo configurado, usamos ese campo
 //      (ej. 'CD FRESNEDILLAS' -> 'Fresnedillas'). Solo aplica a equipos nuevos.
+// Liga municipal de SALA 26-27 (prebenjamín, benjamín, alevín): en Clupik los partidos van sin pabellón,
+// así que el campo sale de estas reglas, dictadas por David el 27-10-2026. Lo del Pardillo «depende del
+// partido» (lo pone Nacho, del Ayto. de Vva. del Pardillo, con la hora): se deja «Sin campo» a propósito,
+// sin adivinar. En cuanto Clupik traiga pabellón, manda Clupik y esto no se usa.
+//   Prebenjamín: si juega Vallmont (de local o de visitante) → Pabellón Vallmont; el resto → Pardillo.
+//   Benjamín: todos en el Pardillo.
+//   Alevín: Kolbe o Los Boliches de local → Pista Kolbe Secundaria (la semicubierta); Arcadia de local →
+//           Colegio Arcadia; el resto → Pardillo.
+function campoSalaPorRegla(p){
+  if(!p || ligaDeComp(p.comp) !== "sala") return undefined;
+  const n = function(x){ return (x||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase(); };
+  const e1 = n(p.eq1), e2 = n(p.eq2), cat = _catKey(p.categoria || p.comp || "");
+  if(cat === "PREB") return (e1.includes("VALLMONT") || e2.includes("VALLMONT")) ? "Pabellón Vallmont" : "Sin campo";
+  if(cat === "BENJ") return "Sin campo";
+  if(cat === "ALEV"){
+    if(e1.includes("KOLBE") || e1.includes("BOLICHES")) return "Pista Kolbe Secundaria";
+    if(e1.includes("ARCADIA")) return "Colegio Arcadia";
+    return "Sin campo";
+  }
+  return undefined;
+}
+// Campo cuando Clupik no trae ninguno: primero las reglas de sala; si no aplican, el histórico del local.
+function campoSinClupik(p){
+  const r = campoSalaPorRegla(p);
+  return r !== undefined ? r : inferirCampoPorEquipoLocal(p && p.eq1);
+}
 function inferirCampoPorEquipoLocal(eq1){
   if(!eq1) return null;
   var normalizar = function(s){
@@ -2126,7 +2152,7 @@ function repararCamposSinCampo(lista){
       // 3) inferir por equipo local — SOLO si Clupik no asignó campo (sin facility_id).
       //    Con facility_id presente, adivinar por el equipo local falla en
       //    eliminatorias (se juega en casa del peor clasificado).
-      if(!nuevo && p && !_fid) nuevo = inferirCampoPorEquipoLocal(p.eq1);
+      if(!nuevo && p && !_fid) nuevo = campoSinClupik(p);
       if(nuevo && nuevo !== p.campo){
         p.campo = nuevo;
         if(!p.campoOriginal || p.campoOriginal === "Sin campo") p.campoOriginal = nuevo;
@@ -6492,7 +6518,7 @@ async function importarSemanaClupik(){
       // Si Clupik SÍ asignó un campo (hay facility_id) pero no se ha podido
       // resolver, dejar "Sin campo" en vez de adivinar: la inferencia por
       // equipo local falla en eliminatorias (se juega en casa del peor clasificado).
-      if(!campo && !p.facility_id) campo = inferirCampoPorEquipoLocal(p.eq1);
+      if(!campo && !p.facility_id) campo = campoSinClupik(p);
       if(!campo) campo = "Sin campo";
       if(campo === "Sin campo"){
         console.warn("[Clupik] Partido sin campo tras import:", {
@@ -6626,7 +6652,7 @@ async function importarTorneoClupik(tournamentId){
       // Si Clupik SÍ asignó un campo (hay facility_id) pero no se ha podido
       // resolver, dejar "Sin campo" en vez de adivinar: la inferencia por
       // equipo local falla en eliminatorias (se juega en casa del peor clasificado).
-      if(!campo && !p.facility_id) campo = inferirCampoPorEquipoLocal(p.eq1);
+      if(!campo && !p.facility_id) campo = campoSinClupik(p);
       if(!campo) campo = "Sin campo";
       if(campo === "Sin campo"){
         console.warn("[Clupik] Partido sin campo tras import:", {
