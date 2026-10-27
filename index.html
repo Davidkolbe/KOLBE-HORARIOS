@@ -3179,11 +3179,14 @@ function aplicarReglaExtra(p, regla){
 
 // ¿Quién pone la hora? (David, 18-10-2026) En FÚTBOL SALA, Prebenjamín y Benjamín los pone Nacho
 // (Ayuntamiento de Villanueva del Pardillo) y el CDK los mete en Clupik — salvo los partidos en casa de
-// Kolbe y Zola, que los pone el CDK. El Alevín de sala y todo el F7 los pone el CDK.
+// Kolbe y Zola, que los pone el CDK. Todo el F7 lo pone el CDK.
+// Alevín de sala (David, 27-10-2026): los del Pardillo también los pone Nacho; los de la Pista Kolbe
+// Secundaria, el Pabellón Kolbe, el Pabellón Zola y el Colegio Arcadia, el CDK.
 const CAMPOS_HORA_CDK_SALA = ["Pista Kolbe Secundaria", "Pabellón Kolbe", "Pabellón Zola"];
 function horaLaPoneAyuntamiento(p){
   if(ligaDeComp(p.comp) !== "sala") return false;
   const cat = _catKey(p.categoria || p.comp || "");
+  if(cat === "ALEV") return CAMPOS_HORA_CDK_SALA.indexOf(p.campo) === -1 && p.campo !== "Colegio Arcadia";
   if(cat !== "PREB" && cat !== "BENJ") return false;
   return CAMPOS_HORA_CDK_SALA.indexOf(p.campo) === -1;
 }
