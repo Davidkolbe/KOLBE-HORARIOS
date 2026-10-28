@@ -3055,15 +3055,17 @@ const PREFERENCIAS_BASE = [
   { id:"fresnedillas_viernes_tarde", deporte:"f7", tipo:"obligatoria", club:"FRESNEDILLAS", cuando:"siempre",
     enDia:"Viernes", desde:"18:30", desc:"Fresnedillas: los viernes, no antes de las 18:30 (en punto → 19:00)", origen:"David, 23-10-2026 («no llega antes de las 19h los viernes»)" },
   // Zola juega el femenino federado de Andrés a las 9:00 en su campo el 21-11 y el 12-12 (Tomás, de Zola, por WhatsApp
-  // a David, 28-10-2026; comprobado en rffm.es). El campo queda ocupado hasta las 10:30 (David, 28-10-2026): esos sábados
+  // a David, 28-10-2026) y, según rffm.es, también el 16-01 y el 30-01-2027 (equipo «C.D. VILLANUEVA DE LA CAÑADA - ZOLA
+  // VILLAFRANCA 'B'», Preferente Femenino Infantil F-7, Grupo 8). Si la federación añade o mueve fechas, actualizar aquí.
+  // El campo queda ocupado hasta las 10:30 (David, 28-10-2026): esos sábados
   // nada en su campo antes de las 10:30 (en punto → 11:00), y los equipos de Andrés (Alevín «B» y Cadete/Juvenil) que
   // jueguen fuera, no antes de las 11:00 (10:30 + 30 min de margen entre campos).
   { id:"zola_campo_fem_2111_1212", deporte:"f7", tipo:"obligatoria", club:"ZOLA", cuando:"casa", enDia:"Sabado",
-    desde:"10:30", fechas:["21/11/2026","12/12/2026"], desc:"Zola en casa, 21-11 y 12-12: desde las 10:30 (su femenino ocupa el campo de 9:00 a 10:30)", origen:"Tomás (Zola), WhatsApp a David, 28-10-2026; rffm.es; hasta las 10:30, David" },
+    desde:"10:30", fechas:["21/11/2026","12/12/2026","16/01/2027","30/01/2027"], desc:"Zola en casa, 21-11, 12-12, 16-01 y 30-01: desde las 10:30 (su femenino ocupa el campo de 9:00 a 10:30)", origen:"Tomás (Zola), WhatsApp a David, 28-10-2026; rffm.es; hasta las 10:30, David" },
   { id:"andres_alevb_fem_2111_1212", deporte:"f7", tipo:"obligatoria", club:'ZOLA "B"', categorias:["Alevín"], cuando:"fuera", enDia:"Sabado",
-    desde:"11:00", fechas:["21/11/2026","12/12/2026"], desc:"Zola «B» Alevín fuera, 21-11 y 12-12: no antes de las 11:00 (Andrés tiene el femenino de 9:00 a 10:30 en Zola)", origen:"Tomás (Zola), WhatsApp a David, 28-10-2026; rffm.es" },
+    desde:"11:00", fechas:["21/11/2026","12/12/2026","16/01/2027","30/01/2027"], desc:"Zola «B» Alevín fuera, 21-11, 12-12, 16-01 y 30-01: no antes de las 11:00 (Andrés tiene el femenino de 9:00 a 10:30 en Zola)", origen:"Tomás (Zola), WhatsApp a David, 28-10-2026; rffm.es" },
   { id:"andres_cadete_fem_2111_1212", deporte:"f7", tipo:"obligatoria", club:"ZOLA", categorias:["Cadete"], cuando:"fuera", enDia:"Sabado",
-    desde:"11:00", fechas:["21/11/2026","12/12/2026"], desc:"Zola Cadete/Juvenil fuera, 21-11 y 12-12: no antes de las 11:00 (Andrés tiene el femenino de 9:00 a 10:30 en Zola)", origen:"Tomás (Zola), WhatsApp a David, 28-10-2026; rffm.es" },
+    desde:"11:00", fechas:["21/11/2026","12/12/2026","16/01/2027","30/01/2027"], desc:"Zola Cadete/Juvenil fuera, 21-11, 12-12, 16-01 y 30-01: no antes de las 11:00 (Andrés tiene el femenino de 9:00 a 10:30 en Zola)", origen:"Tomás (Zola), WhatsApp a David, 28-10-2026; rffm.es" },
   { id:"vallmont_benj_0711", deporte:"f7", tipo:"obligatoria", club:"VALLMONT", categorias:["Benjamín"], cuando:"siempre",
     desde:"10:30", fechas:["07/11/2026"], desc:"Vallmont Benjamín, 7-11: a partir de las 10:30 (en punto → 11:00)", origen:"WhatsApp de Vallmont a David, 20-10-2026 13:50" },
   { id:"highlands_inf_casa_tarde", deporte:"f7", tipo:"deseable", club:"HIGHLANDS", categorias:["Infantil"], cuando:"casa",
