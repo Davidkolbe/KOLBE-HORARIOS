@@ -7055,7 +7055,7 @@ function abrirModalSyncClupik(payloads, sinDatos){
     + "for(var i=0;i<CHANGES.length;i++){var c=CHANGES[i];var attempt=0;var success=false;while(attempt<3&&!success){attempt++;try{var fd=new FormData();fd.append('csrf_token',csrf);for(var k in c.fields)fd.append(k,c.fields[k]);var r2=await fetch(c.url_path,{method:'POST',body:fd,credentials:'include'});if(r2.ok){ok++;success=true;c._syncedOk=true}else if(r2.status===503&&attempt<3){await sleep(attempt*800)}else{fail++;errs.push((c.label||'?')+': HTTP '+r2.status);break}}catch(e){if(attempt<3){await sleep(attempt*800)}else{fail++;errs.push((c.label||'?')+': '+e.message)}}}if(i<CHANGES.length-1)await sleep(400);}"
     + "var applied=[];for(var ii=0;ii<CHANGES.length;ii++){var cc=CHANGES[ii];if(cc._syncedOk){applied.push({match_id:cc.match_id,fecha:cc.local&&cc.local.fecha,hora:cc.local&&cc.local.hora,campo:cc.local&&cc.local.campo,aplazado:cc.local&&cc.local.aplazado,place:cc.local&&cc.local.place})}}"
     + "if(applied.length){try{window.open('" + location.origin + "/#sync_apply='+encodeURIComponent(JSON.stringify(applied)),'_blank')}catch(e){}}"
-    + "alert('Sync Clupik: '+ok+' OK, '+fail+' fallos'+(errs.length?'\n\n'+errs.slice(0,10).join('\n'):''));"
+    + "alert('Sync Clupik: '+ok+' OK, '+fail+' fallos'+(errs.length?'\\n\\n'+errs.slice(0,10).join('\\n'):''));"
     + "})();";
 
   var overlay = document.createElement("div");
