@@ -624,7 +624,7 @@ const CAMPOS_BASE = {
   "Brunete":         {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Campo Municipal de Brunete"},
   "Vallmont":        {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Vallmont, Madrid"},
   // ── FÚTBOL SALA ──
-  "Pabellón Vallmont":          {Sabado:{ini:"09:00",fin:"14:00",max:4}, dir:"Colegio Vallmont, Villanueva de la Cañada"},
+  "Pabellón Vallmont":          {Sabado:{ini:"09:00",fin:"14:00",max:4}, dir:"Pabellón Colegio Vallmont, C/ Mallorca, Vva. del Pardillo"},
   "Pabellón Kolbe":             {Viernes:{ini:"17:00",fin:"20:00",max:3}, Sabado:{ini:"09:00",fin:"14:00",max:4}, dir:"Av. de la Universidad, 4, Villanueva de la Cañada"},
   "Pabellón Infanta Cristina":  {Viernes:{ini:"17:00",fin:"20:00",max:3}, Sabado:{ini:"09:00",fin:"14:00",max:4}, dir:"Camino Retamar, Villanueva del Pardillo"},
   "Pista Exterior Infanta Cristina": {Viernes:{ini:"17:00",fin:"20:00",max:3}, Sabado:{ini:"09:00",fin:"14:00",max:4}, dir:"Camino Retamar, Villanueva del Pardillo"},
@@ -689,6 +689,8 @@ const FACILITY_ID_MAP = {
   "65302": "Pabellón Infanta Cristina",
   "66104": "Pista Exterior Infanta Cristina",
   "73417": "Pista Kolbe Secundaria",
+  "65968": "Pabellón Vallmont",   // «Pabellón Colegio Vallmont» en Clupik (30-10-2026)
+  "103385": "Pabellón Zola",      // «Pabellón Colegio Zola» en Clupik (30-10-2026)
 };
 
 const CATEG_MAP = {
@@ -6791,7 +6793,9 @@ async function guardarCambiosEnClupik(){
     "KOLBE": "65214",
     "PISTA KOLBE SECUNDARIA": "73417",
     "PISTA EXTERIOR INFANTA CRISTINA": "66104",
-    "PABELLON INFANTA CRISTINA": "65302"
+    "PABELLON INFANTA CRISTINA": "65302",
+    "PABELLON VALLMONT": "65968",
+    "PABELLON ZOLA": "103385"
   };
   Object.keys(CAMPO_A_FACILITY_FALLBACK).forEach(function(k){
     if(!mapaCampos[k]) mapaCampos[k] = {};
@@ -6921,7 +6925,9 @@ async function guardarCambiosEnClupik(){
       var kCanClupik = _normCampo(canClupik || "");
       // Si Clupik no tiene lugar identificable, o lo identifica como un campo
       // canonicamente distinto al local, hay que sincronizar.
-      var hayCambioCampo = !!p.lugar_clupik && (!kCanClupik || kCanClupik !== kLocal);
+      // Sin lugar en Clupik (los de sala llegan así) también hay que mandarlo: antes se exigía
+      // lugar_clupik y el pabellón no se publicaba nunca (30-10-2026).
+      var hayCambioCampo = !kCanClupik || kCanClupik !== kLocal;
       if(hayCambioCampo){
         var mapped = campoAFacility[kLocal] || null;
         if(mapped && String(mapped.facility_id) !== String(p.facility_id_clupik || "")){
