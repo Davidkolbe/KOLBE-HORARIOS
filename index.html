@@ -881,19 +881,27 @@ function lugarACampo(lugar){
 //      equipo contiene el nombre de un campo configurado, usamos ese campo
 //      (ej. 'CD FRESNEDILLAS' -> 'Fresnedillas'). Solo aplica a equipos nuevos.
 // Liga municipal de SALA 26-27 (prebenjamín, benjamín, alevín): en Clupik los partidos van sin pabellón,
-// así que el campo sale de estas reglas, dictadas por David el 27-10-2026. Lo del Pardillo «depende del
-// partido» (lo pone Nacho, del Ayto. de Vva. del Pardillo, con la hora): se deja «Sin campo» a propósito,
-// sin adivinar. En cuanto Clupik traiga pabellón, manda Clupik y esto no se usa.
-//   Prebenjamín: si juega Vallmont (de local o de visitante) → Pabellón Vallmont; el resto → Pardillo.
-//   Benjamín: todos en el Pardillo.
-//   Alevín: Kolbe o Los Boliches de local → Pista Kolbe Secundaria (la semicubierta); Arcadia de local →
-//           Colegio Arcadia; el resto → Pardillo.
+// así que el campo sale de estas reglas. Las de prebenjamín y benjamín son las de Nacho (Ayto. de Vva. del
+// Pardillo, 30-10-2026), aceptadas por David ese día; sustituyen a las del 28-10 («todo al Pardillo»).
+// Lo del Pardillo lo pone Nacho con la hora: se deja «Sin campo» a propósito, sin adivinar.
+// En cuanto Clupik traiga pabellón, manda Clupik y esto no se usa.
+//   Prebenjamín y benjamín: si juega Vallmont → Pabellón Vallmont; si juega cualquier equipo del Pardillo
+//           (CEM cuenta como del Pardillo) → Pardillo; si los dos son de fuera (Kolbe, Zola, Los Boliches,
+//           ED Brunete) → La Cañada, en la Pista Kolbe Secundaria, como se decidió para el 14-11.
+//   Alevín: en el municipio del local. Kolbe o Los Boliches de local → Pista Kolbe Secundaria (la
+//           semicubierta); Arcadia de local → Colegio Arcadia; el resto (Rayo cuenta como del Pardillo) → Pardillo.
 function campoSalaPorRegla(p){
+  // La lista va dentro de la función: si fuera un const de arriba, una llamada antes de que el script
+  // llegue a esa línea daría «Cannot access before initialization».
+  const SALA_FUERA_PARDILLO = ["KOLBE", "ZOLA", "BOLICHES", "BRUNETE"];
   if(!p || ligaDeComp(p.comp) !== "sala") return undefined;
   const n = function(x){ return (x||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase(); };
   const e1 = n(p.eq1), e2 = n(p.eq2), cat = _catKey(p.categoria || p.comp || "");
-  if(cat === "PREB") return (e1.includes("VALLMONT") || e2.includes("VALLMONT")) ? "Pabellón Vallmont" : "Sin campo";
-  if(cat === "BENJ") return "Sin campo";
+  const deFuera = function(e){ return SALA_FUERA_PARDILLO.some(function(k){ return e.includes(k); }); };
+  if(cat === "PREB" || cat === "BENJ"){
+    if(e1.includes("VALLMONT") || e2.includes("VALLMONT")) return "Pabellón Vallmont";
+    return (deFuera(e1) && deFuera(e2)) ? "Pista Kolbe Secundaria" : "Sin campo";
+  }
   if(cat === "ALEV"){
     if(e1.includes("KOLBE") || e1.includes("BOLICHES")) return "Pista Kolbe Secundaria";
     if(e1.includes("ARCADIA")) return "Colegio Arcadia";
