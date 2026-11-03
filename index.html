@@ -691,6 +691,7 @@ const FACILITY_ID_MAP = {
   "73417": "Pista Kolbe Secundaria",
   "65968": "Pabellón Vallmont",   // «Pabellón Colegio Vallmont» en Clupik (30-10-2026)
   "103385": "Pabellón Zola",      // «Pabellón Colegio Zola» en Clupik (30-10-2026)
+  "66405": "Pabellón Kolbe",      // «Pabellón C.I. Kolbe» en Clupik (03-11-2026)
 };
 
 const CATEG_MAP = {
@@ -6795,7 +6796,8 @@ async function guardarCambiosEnClupik(){
     "PISTA EXTERIOR INFANTA CRISTINA": "66104",
     "PABELLON INFANTA CRISTINA": "65302",
     "PABELLON VALLMONT": "65968",
-    "PABELLON ZOLA": "103385"
+    "PABELLON ZOLA": "103385",
+    "PABELLON KOLBE": "66405"
   };
   Object.keys(CAMPO_A_FACILITY_FALLBACK).forEach(function(k){
     if(!mapaCampos[k]) mapaCampos[k] = {};
