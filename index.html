@@ -571,7 +571,7 @@ const EQUIPOS_BASE = [
   {nombre:'COLEGIO ZOLA B',  categoria:"",            entrenadores:"ANDRÉS",           liga:"f7"},
   {nombre:"COLEGIO ZOLA FEMENINO", categoria:"",          entrenadores:"RODRIGO",          liga:"f7"},
   {nombre:"ZOLA VILLAFRANCA A",  categoria:"",            entrenadores:"TOMÁS",            liga:"sala"},
-  {nombre:"ZOLA VILLAFRANCA B",  categoria:"",            entrenadores:"ANDRÉS",           liga:"sala"},
+  {nombre:"ZOLA VILLAFRANCA B",  categoria:"",            entrenadores:"DANIEL",           liga:"sala"},
   // FRESNEDILLAS
   {nombre:"CD FRESNEDILLAS",     categoria:"",            entrenadores:"ENTREN_FRESNE",    liga:"f7"},
   // QUERCUS
@@ -608,6 +608,7 @@ const CAMPOS_BASE = {
   "Fresnedillas":    {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Fresnedillas de la Oliva, Madrid"},
   "Quijorna":        {Viernes:{ini:"17:00",fin:"19:00",max:2}, Sabado:{ini:"11:00",fin:"13:00",max:2}, dir:"C/ Del Pinar, 11, Quijorna"},
   "Zarzalejo":       {Sabado:{ini:"09:00",fin:"15:00",max:5}, dir:"Campo de Fútbol de Zarzalejo, Madrid"},
+  "Zaburdón":        {Sabado:{ini:"10:00",fin:"15:00",max:5}, dir:"C/ Las Pozas, 183, San Lorenzo de El Escorial"},
   "Arenales":        {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"C/ De la Guardia, 1, Arroyomolinos"},
   "Everest":         {Viernes:{ini:"17:30",fin:"19:30",max:2}, Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"Colegio Everest, Madrid"},
   "SEK":             {Sabado:{ini:"09:00",fin:"14:00",max:5}, dir:"C/ Castillo de Manzanares, Villafranca del Castillo"},
@@ -665,6 +666,7 @@ const LUGAR_MAP = [
   ["fresnedillas",   "Fresnedillas"],
   ["quijorna",       "Quijorna"],
   ["zarzalejo",      "Zarzalejo"],
+  ["zaburd",         "Zaburdón"],
   ["arenales",       "Arenales"],
   ["everest",        "Everest"],
   ["navalagamella",  "Navalagamella"],
@@ -1076,6 +1078,9 @@ const COINCIDENCIAS_BASE = {
   ],
   "ZARZALEJO": [
     { ent:"PABLO HERNANDEZ SANCHEZ, JAIME SASTRE MARTIN", equipos:["ALEVIN"] }
+  ],
+  "SAN LORENZO": [
+    { ent:"JAVIER SORIANO", equipos:["INFANTIL"] }
   ],
   "MICHAEL": [
     { ent:"AITOR FERNANDEZ DONAIRE, JOSE MARIA LEDESMA GONZALEZ, MIGUEL BENITEZ", equipos:["PREB"] },
@@ -3059,6 +3064,8 @@ const PREFERENCIAS_BASE = [
     noDia:"Viernes", excepto:{ cuando:"casa", desde:"19:00" }, desc:"Rayo Zarzalejo: nunca viernes (en casa, solo de 19:00 a 20:00)", origen:"su hoja de condicionantes" },
   { id:"union_preb_tarde", deporte:"f7", tipo:"obligatoria", club:"UNION", categorias:["Prebenjamín"], cuando:"siempre",
     desde:"12:30", desc:"Unión Pardillo Prebenjamín: después de las 12:30", origen:"su hoja de condicionantes" },
+  { id:"san_lorenzo_tarde", deporte:"f7", tipo:"deseable", club:"SAN LORENZO", cuando:"siempre",
+    dia:"Sabado", horas:["13:00","14:00"], desc:"AMD San Lorenzo: a partir de las 13:00", origen:"correo de Eduardo Martínez (AMD San Lorenzo), 04-11-2026; deseable por decisión de David" },
   { id:"mostoles_antes_19", deporte:"f7", tipo:"obligatoria", club:"ATHLETIC", cuando:"siempre",
     hasta:"19:00", desc:"Athletic Móstoles: terminar antes de las 19:00", origen:"su hoja de condicionantes" },
   { id:"arcadia_sala_viernes", deporte:"sala", tipo:"deseable", club:"ARCADIA", categorias:["Alevín"], cuando:"casa",
