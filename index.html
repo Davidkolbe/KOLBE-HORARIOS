@@ -5276,7 +5276,10 @@ function exportarInstagramKolbe(format, semana, rowsIG, kind, opts){
       if (bodyEl && bodyInnerEl){
         // Forzar layout
         void bodyInnerEl.offsetHeight;
-        var availH  = bodyEl.clientHeight;
+        // clientHeight incluye el padding del body: hay que descontarlo, o la última fila queda tapada
+        // por el pie verde (David, 10-11-2026: «el último partido no se ve bien»). +8 px de holgura.
+        var _cs     = getComputedStyle(bodyEl);
+        var availH  = bodyEl.clientHeight - parseFloat(_cs.paddingTop) - parseFloat(_cs.paddingBottom) - 8;
         var contentH = bodyInnerEl.scrollHeight;
         if (contentH > availH && availH > 0) {
           var ratio = availH / contentH;
