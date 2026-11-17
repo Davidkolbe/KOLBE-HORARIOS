@@ -4530,6 +4530,33 @@ function _entKE(ke){
   const e = getEntrenadores(ke.equipo, ke.categoria.replace("Cadete-Juvenil","CADETE/JUVENIL"), ke.disc === "FS" ? "sala" : "f7") || "";
   return e.split(",").map(function(x){ return x.trim(); }).filter(Boolean).join(" / ") || "—";
 }
+// Nombre de equipo para comparar: mayúsculas, sin tildes y con un solo espacio. El 17-11-2026 el federado
+// llegó como «CD KOLBE SENIOR» y no casaba con «CD KOLBE SÉNIOR»: la fila salió «Descanso».
+function _normEqKE(s){
+  return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().replace(/\s+/g," ").trim();
+}
+// ¿Juega este equipo de KOLBE_EQUIPOS en el partido p? (nombre + categoría + disciplina)
+function _casaKE(ke, pp){
+  if(!ke.equipo) return false;
+  var keN = _normEqKE(ke.equipo);
+  if(!(_normEqKE(pp.eq1) === keN || _normEqKE(pp.eq2) === keN)) return false;
+  if(ke.cat && !_normEqKE(pp.comp||pp.categoria).includes(_normEqKE(ke.cat))) return false;
+  if(ke.disc){
+    var ligaUp = (pp.comp||pp.liga||"").toUpperCase();
+    if(ke.disc === "FS") return ligaUp.includes("FS") || ligaUp.includes("SALA");
+    if(ke.disc === "F7") return ligaUp.includes("F-7") || ligaUp.includes("F7") || (!ligaUp.includes("FS") && !ligaUp.includes("SALA"));
+  }
+  return true;
+}
+// ¿Es local el equipo ke en el partido p? Se decide por SU nombre, no por «contiene KOLBE»: en un derbi
+// (CD KOLBE 3º – CD KOLBE 4º VERDE) los dos contienen KOLBE y el visitante salía de rival de sí mismo (17-11-2026).
+function _esLocalKE(ke, p){
+  if(p.federado) return !p.fuera;
+  var keN = _normEqKE(ke.equipo);
+  if(_normEqKE(p.eq1) === keN) return true;
+  if(_normEqKE(p.eq2) === keN) return false;
+  return (p.eq1||"").toUpperCase().includes("KOLBE");
+}
 
 function resumenKolbe(){
   if(!partidos || !partidos.length){ alert("No hay partidos cargados."); return; }
@@ -4614,26 +4641,8 @@ function resumenKolbe(){
   // Build rows - one per KOLBE_EQUIPOS entry
   var rows = KOLBE_EQUIPOS.map(function(ke){
     // Match by equipo name + categoria
-    var p = null;
-    if(ke.equipo){
-      p = kolbePs.find(function(pp){
-        var eq1n = (pp.eq1||"").toUpperCase().trim();
-        var eq2n = (pp.eq2||"").toUpperCase().trim();
-        var keN = ke.equipo.toUpperCase().trim();
-        var catMatch = !ke.cat || (pp.comp||pp.categoria||"").toUpperCase().includes(ke.cat.toUpperCase());
-        // Discriminar por disciplina (FS vs F7) — necesario para "CD KOLBE" sin sufijo
-        var discMatch = true;
-        if(ke.disc){
-          var ligaUp = (pp.comp||pp.liga||"").toUpperCase();
-          if(ke.disc === "FS"){
-            discMatch = ligaUp.includes("FS") || ligaUp.includes("SALA");
-          } else if(ke.disc === "F7"){
-            discMatch = ligaUp.includes("F-7") || ligaUp.includes("F7") || (!ligaUp.includes("FS") && !ligaUp.includes("SALA"));
-          }
-        }
-        return (eq1n === keN || eq2n === keN) && catMatch && discMatch;
-      });
-    }
+    // Nombre (sin tildes) + categoría + disciplina (FS vs F7, necesario para "CD KOLBE" sin sufijo)
+    var p = kolbePs.find(function(pp){ return _casaKE(ke, pp); }) || null;
 
     var displayLabel = ke.label || ke.equipo;
     if(p){
@@ -4646,10 +4655,10 @@ function resumenKolbe(){
     }
     if(!p) return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: _entKE(ke), disc: ke.disc, partido:"🟡 DESCANSO", horario:"—", campo:"—"};
 
-    var esLocal = p.federado ? !p.fuera : (p.eq1||"").toUpperCase().includes("KOLBE");
+    var esLocal = _esLocalKE(ke, p);
     var rival = esLocal ? p.eq2 : p.eq1;
     var condicion = esLocal ? "🏠" : "✈️";
-    var hora = p.aplazado ? "📌 APLAZADO" : p.sinHora ? "Sin hora" : p.hora+"h";
+    var hora =p.aplazado ? "📌 APLAZADO" : p.sinHora ? "Sin hora" : p.hora+"h";
     var dia = _diaCorto(p.dia);
     var campo = p.campo || p.campoOriginal || "—";
 
@@ -5417,22 +5426,7 @@ function resumenKolbeResultados(){
 
   // Construir filas usando KOLBE_EQUIPOS (misma lista que el modal de horarios)
   var rows = KOLBE_EQUIPOS.map(function(ke){
-    var p = null;
-    if(ke.equipo){
-      p = kolbePs.find(function(pp){
-        var eq1n = (pp.eq1||"").toUpperCase().trim();
-        var eq2n = (pp.eq2||"").toUpperCase().trim();
-        var keN = ke.equipo.toUpperCase().trim();
-        var catMatch = !ke.cat || (pp.comp||pp.categoria||"").toUpperCase().includes(ke.cat.toUpperCase());
-        var discMatch = true;
-        if(ke.disc){
-          var ligaUp = (pp.comp||pp.liga||"").toUpperCase();
-          if(ke.disc === "FS"){ discMatch = ligaUp.includes("FS") || ligaUp.includes("SALA"); }
-          else if(ke.disc === "F7"){ discMatch = ligaUp.includes("F-7") || ligaUp.includes("F7") || (!ligaUp.includes("FS") && !ligaUp.includes("SALA")); }
-        }
-        return (eq1n === keN || eq2n === keN) && catMatch && discMatch;
-      });
-    }
+    var p = kolbePs.find(function(pp){ return _casaKE(ke, pp); }) || null;
 
     var displayLabel = ke.label || ke.equipo;
     var rk = (ke.disc||"") + "_" + displayLabel + "_" + (ke.categoria||"");
@@ -5482,7 +5476,7 @@ function resumenKolbeResultados(){
       return {equipo: displayLabel, categoria: ke.categoria||"", entrenador: _entKE(ke), disc: ke.disc, partido:"🟡 DESCANSO", resultado:"—", icono:"", _p: null};
     }
 
-    var esLocal = p.federado ? !p.fuera : (p.eq1||"").toUpperCase().includes("KOLBE");
+    var esLocal = _esLocalKE(ke, p);
     var rival = esLocal ? p.eq2 : p.eq1;
     var condicion = esLocal ? "🏠" : "✈️";
     return {
