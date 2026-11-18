@@ -1746,7 +1746,7 @@ function updatePartido(id, field, val){
     p.hora = val||"00:00";
     p.sinHora = !val || val==="00:00";
   }
-  if(field==="dia"){ p.dia = val; _recalcularFechaDePartido(p); }
+  if(field==="dia"){ p.dia = val; p.fechaManual = false; _recalcularFechaDePartido(p); }
   savePartidos();
   renderTodo();
 }
@@ -1802,6 +1802,17 @@ function cambiarDia(id){
   inputHora.value = p.sinHora ? "" : p.hora;
   inputHora.style.cssText = "width:100%;font-size:13px;padding:8px;border:1px solid var(--gris3);border-radius:var(--r);margin-bottom:1rem;box-sizing:border-box;font-family:var(--f)";
 
+  var labelFecha = document.createElement("label");
+  labelFecha.style.cssText = "font-size:11px;color:var(--gris4);display:block;margin-bottom:4px";
+  labelFecha.textContent = "Fecha exacta (opcional: solo si es un día ANTES del finde, p. ej. el jueves anterior)";
+
+  var inputFecha = document.createElement("input");
+  inputFecha.type = "date";
+  if(p.fechaManual && /^\d{2}\/\d{2}\/\d{4}$/.test(p.fecha||"")){
+    var _f = p.fecha.split("/"); inputFecha.value = _f[2] + "-" + _f[1] + "-" + _f[0];
+  }
+  inputFecha.style.cssText = "width:100%;font-size:13px;padding:8px;border:1px solid var(--gris3);border-radius:var(--r);margin-bottom:1rem;box-sizing:border-box;font-family:var(--f)";
+
   var btnGuardar = document.createElement("button");
   btnGuardar.textContent = "✓ Guardar";
   btnGuardar.style.cssText = "padding:8px 18px;background:var(--verde);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;margin-right:8px;font-family:var(--f)";
@@ -1812,6 +1823,14 @@ function cambiarDia(id){
 
   btnGuardar.addEventListener("click", function(){
     p.dia = selectDia.value;
+    p.fechaManual = false;
+    var _mf = /^(\d{4})-(\d{2})-(\d{2})$/.exec(inputFecha.value || "");
+    if(_mf){
+      // La fecha manda: el día de la semana sale de ella.
+      p.fecha = _mf[3] + "/" + _mf[2] + "/" + _mf[1];
+      p.dia = DIAS_SEMANA[(new Date(Date.UTC(+_mf[1], +_mf[2]-1, +_mf[3])).getUTCDay() + 6) % 7];
+      p.fechaManual = true;
+    }
     if(inputHora.value){
       p.hora = inputHora.value;
       p.sinHora = false;
@@ -1830,6 +1849,8 @@ function cambiarDia(id){
   box.appendChild(selectDia);
   box.appendChild(labelHora);
   box.appendChild(inputHora);
+  box.appendChild(labelFecha);
+  box.appendChild(inputFecha);
   box.appendChild(btnGuardar);
   box.appendChild(btnCancelar);
   overlay.appendChild(box);
@@ -6859,7 +6880,7 @@ async function guardarCambiosEnClupik(){
       var _cambiosFecha = 0;
       partidos.forEach(function(_p){
         if(!_p.dia) return;
-        var _esp = _fechaParaDia(_jor, _p.dia);
+        var _esp = _fechaEsperadaPartido(_jor, _p);
         if(_esp && _esp !== _p.fecha){
           _p.fecha = _esp;
           _cambiosFecha++;
@@ -7476,8 +7497,16 @@ function _fechaParaDia(j, dia){
   var pad = function(n){ return n<10?'0'+n:''+n; };
   return pad(d2.getUTCDate()) + '/' + pad(d2.getUTCMonth()+1) + '/' + d2.getUTCFullYear();
 }
+// Fecha que debe tener un partido: la que se puso a mano (p.fechaManual) o la que sale del día de la semana.
+// _fechaParaDia cuenta desde el viernes de la jornada (lunes a jueves, los de DESPUÉS del finde), así que un
+// partido el jueves ANTES del finde (cuadrante de Nacho, 19-11-2026) solo se puede poner con fecha a mano.
+function _fechaEsperadaPartido(j, p){
+  if(p && p.fechaManual && p.fecha) return p.fecha;
+  return _fechaParaDia(j, p && p.dia);
+}
 function _recalcularFechaDePartido(p){
   if(!p || !p.dia || !jornadaActivaId) return false;
+  if(p.fechaManual && p.fecha) return false;
   try {
     var jor = getAllJornadas().find(function(jj){ return jj.id === jornadaActivaId; });
     if(!jor) return false;
@@ -7519,7 +7548,7 @@ function _calcularPropuestasFechas(){
     for(var pi = 0; pi < (j.partidos || []).length; pi++){
       var p = j.partidos[pi];
       if(!p.dia) continue;
-      var esperada = _fechaParaDia(j, p.dia);
+      var esperada = _fechaEsperadaPartido(j, p);
       if(!esperada) continue;  // dia desconocido o semana no parseable
       if(p.fecha !== esperada){
         propuestas.push({
@@ -7551,7 +7580,7 @@ function _autoFixFechasJornadaActiva(){
   var arregladas = 0;
   (j.partidos || []).forEach(function(p, idx){
     if(!p.dia) return;
-    var esperada = _fechaParaDia(j, p.dia);
+    var esperada = _fechaEsperadaPartido(j, p);
     if(esperada && p.fecha !== esperada){
       j.partidos[idx].fecha = esperada;
       arregladas++;
@@ -7564,7 +7593,7 @@ function _autoFixFechasJornadaActiva(){
     if(typeof partidos !== 'undefined' && Array.isArray(partidos)){
       partidos.forEach(function(p){
         if(!p.dia) return;
-        var esp = _fechaParaDia(j, p.dia);
+        var esp = _fechaEsperadaPartido(j, p);
         if(esp && p.fecha !== esp) p.fecha = esp;
       });
     }
